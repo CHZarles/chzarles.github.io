@@ -83,13 +83,25 @@ export async function commitAtomic(args: {
     body: { message: args.message, tree: tree.sha, parents: [headSha] },
   });
 
-  await ghJson({
-    token: args.token,
-    method: "PATCH",
-    path: `/repos/${args.repo}/git/refs/heads/${args.branch}`,
-    body: { sha: commit.sha, force: false },
-  });
+  try {
+    await ghJson({
+      token: args.token,
+      method: "PATCH",
+      path: `/repos/${args.repo}/git/refs/heads/${args.branch}`,
+      body: { sha: commit.sha, force: false },
+    });
+  } catch (err) {
+    if (err instanceof HttpError) {
+      const githubStatus = (err.details as any)?.githubStatus;
+      if (githubStatus === 409 || githubStatus === 422) {
+        throw new HttpError(409, "HEAD_MOVED", "Branch update conflict.", {
+          githubStatus,
+          githubBody: (err.details as any)?.githubBody,
+        });
+      }
+    }
+    throw err;
+  }
 
   return { sha: commit.sha, url: `https://github.com/${args.repo}/commit/${commit.sha}`, headSha };
 }
-

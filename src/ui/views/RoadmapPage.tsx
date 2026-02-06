@@ -101,8 +101,9 @@ export function RoadmapPage() {
 
   const selectedFromFile = selectedPathFromFile ? selectedPathFromFile[selectedPathFromFile.length - 1] : null;
   const selectedTitle = selectedNode?.title ?? selectedFromFile?.title ?? "—";
-  const selectedCrumbs =
-    selectedNode?.crumbs?.map((c) => c.title).join(" / ") ?? selectedPathFromFile?.map((c) => c.title).join(" / ");
+  const selectedCrumbsFromApi = selectedNode?.crumbs?.map((c) => c.title)?.join(" / ");
+  const selectedCrumbsFromFile = selectedPathFromFile?.map((c) => c.title)?.join(" / ");
+  const selectedCrumbs = selectedCrumbsFromApi ?? selectedCrumbsFromFile;
   const selectedNotes = React.useMemo(() => {
     if (!nodeDetail) return [];
     return orderNotes(nodeDetail.notes, nodeDetail.node.pinned);

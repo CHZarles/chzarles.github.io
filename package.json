@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "tsx watch mock/server.ts",
+    "dev:publisher": "wrangler dev --config publisher/wrangler.toml",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -21,7 +22,8 @@
     "react-markdown": "^9.0.1",
     "react-router-dom": "^6.28.0",
     "remark-gfm": "^4.0.0",
-    "yaml": "^2.6.1"
+    "yaml": "^2.6.1",
+    "hono": "^4.9.0"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.15",
@@ -33,6 +35,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
+    "wrangler": "^4.30.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vite": "^5.4.8"

@@ -1,0 +1,9 @@
+name = "hyperblog-publisher"
+main = "src/worker.ts"
+compatibility_date = "2026-02-06"
+
+# Local dev defaults (override in production)
+[vars]
+CONTENT_BRANCH = "main"
+CONTENT_ROOT = ""
+

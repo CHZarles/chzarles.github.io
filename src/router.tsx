@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./ui/shell/AppShell";
 import { CategoryPage } from "./ui/views/CategoryPage";
 import { CategoriesPage } from "./ui/views/CategoriesPage";
+import { ErrorPage } from "./ui/views/ErrorPage";
 import { HomePage } from "./ui/views/HomePage";
 import { NotePage } from "./ui/views/NotePage";
 import { NotesPage } from "./ui/views/NotesPage";
@@ -16,7 +17,7 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <AppShell />,
-    errorElement: <NotFoundPage />,
+    errorElement: <ErrorPage />,
     children: [
       { index: true, element: <HomePage /> },
       { path: "notes", element: <NotesPage /> },
@@ -32,4 +33,3 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-

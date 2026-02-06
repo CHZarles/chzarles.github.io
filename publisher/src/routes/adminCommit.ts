@@ -38,7 +38,12 @@ adminCommitRoutes.post("/", async (c) => {
     const path = applyContentRoot(cfg.contentRoot, rawPath);
     if ((f as any).encoding === "base64") {
       const contentBase64 = String((f as any).contentBase64 ?? "");
-      const bytes = base64Decode(contentBase64);
+      let bytes: Uint8Array;
+      try {
+        bytes = base64Decode(contentBase64);
+      } catch {
+        throw new HttpError(422, "VALIDATION_FAILED", "Invalid base64 content.", { path: rawPath });
+      }
       return { path, encoding: "base64" as const, content: bytes };
     }
     const content = String((f as any).content ?? "");
@@ -59,4 +64,3 @@ adminCommitRoutes.post("/", async (c) => {
 
   return c.json({ commit: { sha: commit.sha, url: commit.url } });
 });
-

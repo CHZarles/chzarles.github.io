@@ -44,3 +44,7 @@ npm run dev:api
 - `GET /api/roadmaps`
 - `GET /api/roadmaps/:roadmapId/nodes/:nodeId`
 - `GET /api/search?q=...`（⌘K）
+
+## 后端设计（Mode B / GitHub OAuth）
+
+见：`docs/backend-contract-v0.md`

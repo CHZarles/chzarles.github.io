@@ -89,15 +89,11 @@ export function RoadmapPage() {
     };
   }, [roadmapId, selected]);
 
-  if (!roadmap || !roadmapId) {
-    return <div className="card p-8 text-sm text-[hsl(var(--muted))]">加载中…</div>;
-  }
-
   const selectedNode = nodeDetail?.node;
   const selectedPathFromFile = React.useMemo(() => {
-    if (!selected) return null;
+    if (!roadmap || !selected) return null;
     return findNodePath(roadmap.nodes ?? [], selected);
-  }, [roadmap.nodes, selected]);
+  }, [roadmap, selected]);
 
   const selectedFromFile = selectedPathFromFile ? selectedPathFromFile[selectedPathFromFile.length - 1] : null;
   const selectedTitle = selectedNode?.title ?? selectedFromFile?.title ?? "—";
@@ -110,6 +106,10 @@ export function RoadmapPage() {
     const pinned = Array.isArray(nodeDetail?.node?.pinned) ? nodeDetail?.node?.pinned : undefined;
     return orderNotes(notes, pinned);
   }, [nodeDetail]);
+
+  if (!roadmap || !roadmapId) {
+    return <div className="card p-8 text-sm text-[hsl(var(--muted))]">加载中…</div>;
+  }
 
   const outlinePanel = (
     <div className="card p-4">

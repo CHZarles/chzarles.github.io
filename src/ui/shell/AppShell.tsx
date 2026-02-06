@@ -1,0 +1,23 @@
+import React from "react";
+import { Outlet, ScrollRestoration } from "react-router-dom";
+import { CommandPaletteProvider } from "../widgets/CommandPalette";
+import { AppStateProvider } from "../state/AppState";
+import { Footer } from "./Footer";
+import { TopNav } from "./TopNav";
+
+export function AppShell() {
+  return (
+    <AppStateProvider>
+      <CommandPaletteProvider>
+        <div className="min-h-screen">
+          <TopNav />
+          <main className="container pt-24 pb-16">
+            <Outlet />
+          </main>
+          <Footer />
+          <ScrollRestoration />
+        </div>
+      </CommandPaletteProvider>
+    </AppStateProvider>
+  );
+}

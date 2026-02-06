@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  /* Editorial / paper theme */
+  --bg: 42 33% 98%;
+  --fg: 240 12% 10%;
+  --muted: 240 5% 42%;
+  --card: 0 0% 100%;
+  --card2: 240 9% 96%;
+  --border: 240 8% 88%;
+  --accent: 270 85% 45%;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: 240 10% 6%;
+  --fg: 0 0% 98%;
+  --muted: 240 5% 65%;
+  --card: 240 7% 10%;
+  --card2: 240 7% 12%;
+  --border: 240 8% 18%;
+  --accent: 270 95% 65%;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Noto Sans CJK SC",
+    "Microsoft YaHei",
+    sans-serif;
+  background: linear-gradient(180deg, hsl(var(--bg)), color-mix(in oklab, hsl(var(--bg)) 92%, white));
+  color: hsl(var(--fg));
+}
+
+/* keep the surface clean & fast: no global noise / blur layers */
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: color-mix(in oklab, hsl(var(--accent)) 35%, transparent);
+}
+
+.container {
+  width: min(1100px, calc(100% - 40px));
+  margin-inline: auto;
+}
+
+@media (min-width: 1280px) {
+  .container {
+    width: min(1320px, calc(100% - 64px));
+  }
+}
+
+@media (min-width: 1536px) {
+  .container {
+    width: min(1440px, calc(100% - 80px));
+  }
+}
+
+.card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+}
+
+.card:hover {
+  border-color: color-mix(in oklab, hsl(var(--accent)) 22%, hsl(var(--border)));
+}
+
+.hairline {
+  border-top: 1px solid hsl(var(--border));
+}
+
+.kbd {
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card2));
+  color: color-mix(in oklab, hsl(var(--fg)) 82%, hsl(var(--muted)));
+}
+
+.prose {
+  --tw-prose-body: color-mix(in oklab, hsl(var(--fg)) 85%, hsl(var(--muted)));
+  --tw-prose-headings: hsl(var(--fg));
+  --tw-prose-lead: color-mix(in oklab, hsl(var(--fg)) 82%, hsl(var(--muted)));
+  --tw-prose-links: hsl(var(--fg));
+  --tw-prose-bold: hsl(var(--fg));
+  --tw-prose-counters: color-mix(in oklab, hsl(var(--fg)) 72%, hsl(var(--muted)));
+  --tw-prose-bullets: color-mix(in oklab, hsl(var(--fg)) 40%, transparent);
+  --tw-prose-hr: color-mix(in oklab, hsl(var(--border)) 70%, transparent);
+  --tw-prose-quotes: color-mix(in oklab, hsl(var(--fg)) 85%, hsl(var(--muted)));
+  --tw-prose-quote-borders: color-mix(in oklab, hsl(var(--accent)) 40%, hsl(var(--border)));
+  --tw-prose-captions: color-mix(in oklab, hsl(var(--fg)) 65%, hsl(var(--muted)));
+  --tw-prose-code: hsl(var(--fg));
+  --tw-prose-pre-code: color-mix(in oklab, hsl(var(--fg)) 92%, hsl(var(--muted)));
+  --tw-prose-pre-bg: color-mix(in oklab, hsl(var(--card2)) 92%, transparent);
+  --tw-prose-th-borders: color-mix(in oklab, hsl(var(--border)) 70%, transparent);
+  --tw-prose-td-borders: color-mix(in oklab, hsl(var(--border)) 40%, transparent);
+}
+
+.prose a {
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in oklab, hsl(var(--accent)) 45%, transparent);
+}
+
+.prose a:hover {
+  border-bottom-color: hsl(var(--accent));
+}
+
+.prose code {
+  background: hsl(var(--card2));
+  border: 1px solid hsl(var(--border));
+  padding: 0.18em 0.42em;
+  border-radius: 10px;
+}
+
+.prose pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}

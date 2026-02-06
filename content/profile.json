@@ -1,0 +1,27 @@
+{
+  "name": "Charles",
+  "handle": "@charles",
+  "tagline": "AI Infra / Observability / 写作系统化",
+  "accent": "270 85% 45%",
+  "hero": {
+    "imageUrl": "https://i.pinimg.com/1200x/0f/11/40/0f1140c31153adbb015743342c20ca8c.jpg",
+    "blurPx": 0,
+    "opacity": 1,
+    "position": "center"
+  },
+  "now": [
+    "AI Infra Roadmap",
+    "OpenTelemetry",
+    "Kubernetes"
+  ],
+  "links": [
+    {
+      "label": "GitHub",
+      "href": "https://github.com/"
+    },
+    {
+      "label": "X",
+      "href": "https://x.com/"
+    }
+  ]
+}

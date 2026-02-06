@@ -5,12 +5,17 @@ export type Profile = {
   accent?: string; // "270 95% 65%"
   avatarUrl?: string;
   links?: Array<{ label: string; href: string }>;
-  now?: string[];
   hero?: {
     imageUrl?: string;
     blurPx?: number;
     opacity?: number;
     position?: string; // CSS object-position
+    tintOpacity?: number; // 0..1, color tint overlay
+    washOpacity?: number; // 0..1, paper wash / fog overlay
+    saturate?: number; // CSS filter saturate()
+    contrast?: number; // CSS filter contrast()
+    textColor?: { light?: string; dark?: string }; // HSL string like "0 0% 100%"
+    textScale?: number; // 0.85..1.25
   };
 };
 

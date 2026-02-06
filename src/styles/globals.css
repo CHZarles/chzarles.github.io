@@ -12,6 +12,11 @@
   --card2: 240 9% 96%;
   --border: 240 8% 88%;
   --accent: 270 85% 45%;
+
+  /* Hero cover (requested: light -> white text, dark -> black text) */
+  --hero-fg: 0 0% 100%;
+  --hero-muted: 0 0% 100%;
+  --hero-shadow: rgba(0, 0, 0, 0.32);
 }
 
 [data-theme="dark"] {
@@ -23,11 +28,23 @@
   --card2: 240 7% 12%;
   --border: 240 8% 18%;
   --accent: 270 95% 65%;
+
+  --hero-fg: 240 12% 10%;
+  --hero-muted: 240 8% 22%;
+  --hero-shadow: rgba(0, 0, 0, 0.14);
 }
 
 html,
 body {
   height: 100%;
+  overflow-x: clip;
+}
+
+@supports not (overflow: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
 }
 
 body {
@@ -86,6 +103,10 @@ body {
 
 .hairline {
   border-top: 1px solid hsl(var(--border));
+}
+
+.hero-ink {
+  text-shadow: 0 1px 0 var(--hero-shadow), 0 14px 44px var(--hero-shadow);
 }
 
 .kbd {

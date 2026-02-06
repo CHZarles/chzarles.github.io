@@ -1,23 +1,27 @@
 {
-  "name": "Charles",
+  "name": "有花堪折直须折，莫待无花空折枝",
   "handle": "@charles",
   "tagline": "AI Infra / Observability / 写作系统化",
   "accent": "270 85% 45%",
   "hero": {
-    "imageUrl": "https://i.pinimg.com/1200x/0f/11/40/0f1140c31153adbb015743342c20ca8c.jpg",
+    "imageUrl": "/night.png",
     "blurPx": 0,
     "opacity": 1,
-    "position": "center"
+    "position": "20% 20%",
+    "washOpacity": 0,
+    "tintOpacity": 0.25,
+    "saturate": 1,
+    "contrast": 1.12,
+    "textColor": {
+      "light": "0 0% 100%",
+      "dark": "0 0% 100%"
+    },
+    "textScale": 1.5
   },
-  "now": [
-    "AI Infra Roadmap",
-    "OpenTelemetry",
-    "Kubernetes"
-  ],
   "links": [
     {
       "label": "GitHub",
-      "href": "https://github.com/"
+      "href": "https://github.com/charles"
     },
     {
       "label": "X",

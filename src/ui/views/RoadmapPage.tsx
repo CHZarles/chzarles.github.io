@@ -16,7 +16,7 @@ export function RoadmapPage() {
   const [nodeDetail, setNodeDetail] = React.useState<RoadmapNodeDetail | null>(null);
   const [latest, setLatest] = React.useState<NoteListItem[]>([]);
   const [outlineOpen, setOutlineOpen] = React.useState(false);
-  const [layout, setLayout] = React.useState<"vertical" | "horizontal">("vertical");
+  const [layout, setLayout] = React.useState<"vertical" | "horizontal">("horizontal");
 
   React.useEffect(() => {
     if (!roadmapId) return;
@@ -27,7 +27,7 @@ export function RoadmapPage() {
         if (cancelled) return;
         setRoadmap(r);
         setSelected(r.nodes?.[0]?.id ?? null);
-        setLayout(r.layout ?? "vertical");
+        setLayout("horizontal");
       })
       .catch(() => {});
     api

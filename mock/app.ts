@@ -12,7 +12,6 @@ type Profile = {
   accent?: string; // hsl string: "270 95% 65%"
   avatarUrl?: string;
   links?: Array<{ label: string; href: string }>;
-  now?: string[];
   hero?: {
     imageUrl?: string;
     blurPx?: number;
@@ -163,7 +162,6 @@ async function loadDb(): Promise<Db> {
         handle: "@charles",
         tagline: "探索式技术空间（Demo）",
         accent: "270 95% 65%",
-        now: ["AI Infra", "Observability", "写作系统化"],
         links: [{ label: "GitHub", href: "https://github.com/" }],
         hero: { imageUrl: "/hero.svg", blurPx: 22, opacity: 0.28, position: "center" },
       };

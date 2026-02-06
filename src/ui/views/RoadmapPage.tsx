@@ -105,8 +105,10 @@ export function RoadmapPage() {
   const selectedCrumbsFromFile = selectedPathFromFile?.map((c) => c.title)?.join(" / ");
   const selectedCrumbs = selectedCrumbsFromApi ?? selectedCrumbsFromFile;
   const selectedNotes = React.useMemo(() => {
-    if (!nodeDetail) return [];
-    return orderNotes(nodeDetail.notes, nodeDetail.node.pinned);
+    const notes = nodeDetail?.notes;
+    if (!Array.isArray(notes)) return [];
+    const pinned = Array.isArray(nodeDetail?.node?.pinned) ? nodeDetail?.node?.pinned : undefined;
+    return orderNotes(notes, pinned);
   }, [nodeDetail]);
 
   const outlinePanel = (

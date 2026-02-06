@@ -99,8 +99,10 @@ export function RoadmapPage() {
     return findNodePath(roadmap.nodes ?? [], selected);
   }, [roadmap.nodes, selected]);
 
-  const selectedTitle = selectedNode?.title ?? selectedPathFromFile?.at(-1)?.title ?? "—";
-  const selectedCrumbs = selectedNode?.crumbs?.map((c) => c.title).join(" / ") ?? selectedPathFromFile?.map((c) => c.title).join(" / ");
+  const selectedFromFile = selectedPathFromFile ? selectedPathFromFile[selectedPathFromFile.length - 1] : null;
+  const selectedTitle = selectedNode?.title ?? selectedFromFile?.title ?? "—";
+  const selectedCrumbs =
+    selectedNode?.crumbs?.map((c) => c.title).join(" / ") ?? selectedPathFromFile?.map((c) => c.title).join(" / ");
   const selectedNotes = React.useMemo(() => {
     if (!nodeDetail) return [];
     return orderNotes(nodeDetail.notes, nodeDetail.node.pinned);

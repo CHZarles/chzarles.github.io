@@ -173,7 +173,9 @@ Publisher 必须：
 
 #### `GET /api/auth/github/start`
 Query:
-- `redirect`（可选）：登录成功后跳回的路径（默认 `/`）
+- `redirect`（可选）：登录成功后跳回的 URL
+  - 建议：用绝对 URL（例如 `https://<user>.github.io/auth/callback`）
+  - 安全：服务端必须校验 `redirect` 属于允许的站点 origin（避免 open redirect）
 
 Response:
 - `302` 跳转 GitHub 授权页

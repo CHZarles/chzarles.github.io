@@ -1,5 +1,5 @@
 {
-  "name": "有花堪折直须折，莫待无花空折枝",
+  "name": "一个博客",
   "handle": "@charles",
   "tagline": "AI Infra / Observability / 写作系统化",
   "accent": "270 85% 45%",
@@ -7,7 +7,7 @@
     "imageUrl": "/night.png",
     "blurPx": 0,
     "opacity": 1,
-    "position": "20% 20%",
+    "position": "20% 90%",
     "washOpacity": 0,
     "tintOpacity": 0.25,
     "saturate": 1,

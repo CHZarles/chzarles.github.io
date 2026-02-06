@@ -17,6 +17,22 @@ function orderNotes(notes: NoteListItem[], pinned?: string[]) {
   return [...pinnedNotes, ...rest];
 }
 
+function findNodePath(
+  nodes: Roadmap["nodes"],
+  targetId: string,
+  path: Array<{ id: string; title: string }> = [],
+): Array<{ id: string; title: string }> | null {
+  for (const n of nodes ?? []) {
+    const next = [...path, { id: n.id, title: n.title }];
+    if (n.id === targetId) return next;
+    if (n.children?.length) {
+      const found = findNodePath(n.children, targetId, next);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export function RoadmapPage() {
   const { roadmapId } = useParams();
   const [roadmap, setRoadmap] = React.useState<Roadmap | null>(null);
@@ -78,6 +94,13 @@ export function RoadmapPage() {
   }
 
   const selectedNode = nodeDetail?.node;
+  const selectedPathFromFile = React.useMemo(() => {
+    if (!selected) return null;
+    return findNodePath(roadmap.nodes ?? [], selected);
+  }, [roadmap.nodes, selected]);
+
+  const selectedTitle = selectedNode?.title ?? selectedPathFromFile?.at(-1)?.title ?? "—";
+  const selectedCrumbs = selectedNode?.crumbs?.map((c) => c.title).join(" / ") ?? selectedPathFromFile?.map((c) => c.title).join(" / ");
   const selectedNotes = React.useMemo(() => {
     if (!nodeDetail) return [];
     return orderNotes(nodeDetail.notes, nodeDetail.node.pinned);
@@ -176,12 +199,8 @@ export function RoadmapPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="text-xs text-[hsl(var(--muted))]">Selected Node</div>
-                <div className="mt-1 text-lg font-semibold tracking-tight">{selectedNode?.title ?? "—"}</div>
-                {selectedNode?.crumbs?.length ? (
-                  <div className="mt-2 text-sm text-[hsl(var(--muted))]">
-                    {selectedNode.crumbs.map((c) => c.title).join(" / ")}
-                  </div>
-                ) : null}
+                <div className="mt-1 text-lg font-semibold tracking-tight">{selectedTitle}</div>
+                {selectedCrumbs ? <div className="mt-2 text-sm text-[hsl(var(--muted))]">{selectedCrumbs}</div> : null}
               </div>
               <div className="flex items-center gap-2">{nodeDetail ? <Chip label={`${selectedNotes.length} notes`} tone="glass" /> : null}</div>
             </div>
@@ -241,17 +260,13 @@ export function RoadmapPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="text-xs text-[hsl(var(--muted))]">Notes in this node</div>
-                <div className="mt-1 text-lg font-semibold tracking-tight">{selectedNode?.title ?? "—"}</div>
-                {selectedNode?.crumbs?.length ? (
-                  <div className="mt-2 text-sm text-[hsl(var(--muted))]">
-                    {selectedNode.crumbs.map((c) => c.title).join(" / ")}
-                  </div>
-                ) : null}
+                <div className="mt-1 text-lg font-semibold tracking-tight">{selectedTitle}</div>
+                {selectedCrumbs ? <div className="mt-2 text-sm text-[hsl(var(--muted))]">{selectedCrumbs}</div> : null}
               </div>
-              {selectedNode ? (
+              {roadmapId && selected ? (
                 <div className="flex items-center gap-2">
-                  <Chip label={`${selectedNotes.length} notes`} tone="glass" />
-                  <Chip label="Node page" to={`/roadmaps/${roadmapId}/node/${selectedNode.nodeId}`} tone="glass" />
+                  <Chip label={nodeLoading ? "Loading…" : `${selectedNotes.length} notes`} tone="glass" />
+                  <Chip label="Node page" to={`/roadmaps/${roadmapId}/node/${selected}`} tone="glass" />
                 </div>
               ) : null}
             </div>

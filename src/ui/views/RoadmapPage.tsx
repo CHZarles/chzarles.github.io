@@ -1,4 +1,4 @@
-import { ArrowDownUp, ArrowLeft, ArrowLeftRight, ArrowUpRight, LayoutList, X } from "lucide-react";
+import { ArrowDownUp, ArrowLeft, ArrowLeftRight, LayoutList, X } from "lucide-react";
 import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/api";
@@ -9,11 +9,20 @@ import { RoadmapMap } from "../roadmap/RoadmapMap";
 import { RoadmapOutline } from "../roadmap/RoadmapOutline";
 import type { NoteListItem, Roadmap, RoadmapNodeDetail } from "../types";
 
+function orderNotes(notes: NoteListItem[], pinned?: string[]) {
+  if (!pinned?.length) return notes;
+  const pinSet = new Set(pinned);
+  const pinnedNotes = notes.filter((n) => pinSet.has(n.id));
+  const rest = notes.filter((n) => !pinSet.has(n.id));
+  return [...pinnedNotes, ...rest];
+}
+
 export function RoadmapPage() {
   const { roadmapId } = useParams();
   const [roadmap, setRoadmap] = React.useState<Roadmap | null>(null);
   const [selected, setSelected] = React.useState<string | null>(null);
   const [nodeDetail, setNodeDetail] = React.useState<RoadmapNodeDetail | null>(null);
+  const [nodeLoading, setNodeLoading] = React.useState(false);
   const [latest, setLatest] = React.useState<NoteListItem[]>([]);
   const [outlineOpen, setOutlineOpen] = React.useState(false);
   const [layout, setLayout] = React.useState<"vertical" | "horizontal">("horizontal");
@@ -45,14 +54,19 @@ export function RoadmapPage() {
   React.useEffect(() => {
     if (!roadmapId || !selected) return;
     let cancelled = false;
+    setNodeLoading(true);
+    setNodeDetail(null);
     api
       .node(roadmapId, selected)
       .then((d) => {
         if (cancelled) return;
         setNodeDetail(d);
+        setNodeLoading(false);
       })
       .catch(() => {
+        if (cancelled) return;
         setNodeDetail(null);
+        setNodeLoading(false);
       });
     return () => {
       cancelled = true;
@@ -64,6 +78,10 @@ export function RoadmapPage() {
   }
 
   const selectedNode = nodeDetail?.node;
+  const selectedNotes = React.useMemo(() => {
+    if (!nodeDetail) return [];
+    return orderNotes(nodeDetail.notes, nodeDetail.node.pinned);
+  }, [nodeDetail]);
 
   const outlinePanel = (
     <div className="card p-4">
@@ -165,17 +183,7 @@ export function RoadmapPage() {
                   </div>
                 ) : null}
               </div>
-              <div className="flex items-center gap-2">
-                {selectedNode ? (
-                  <Link
-                    to={`/roadmaps/${roadmapId}/node/${selectedNode.nodeId}`}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_70%,transparent)] px-4 py-2 text-sm transition hover:border-[color-mix(in_oklab,hsl(var(--accent))_35%,hsl(var(--border)))]"
-                  >
-                    打开节点页
-                    <ArrowUpRight className="h-4 w-4 opacity-70" />
-                  </Link>
-                ) : null}
-              </div>
+              <div className="flex items-center gap-2">{nodeDetail ? <Chip label={`${selectedNotes.length} notes`} tone="glass" /> : null}</div>
             </div>
             {selectedNode?.description ? (
               <p className="mt-4 text-sm leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_72%,hsl(var(--muted)))]">
@@ -187,7 +195,9 @@ export function RoadmapPage() {
               <div>
                 <div className="text-xs font-medium text-[hsl(var(--muted))]">Dependencies</div>
                 <div className="mt-2 grid gap-2">
-                  {selectedNode?.dependencies?.length ? (
+                  {nodeLoading ? (
+                    <div className="text-sm text-[hsl(var(--muted))]">加载中…</div>
+                  ) : selectedNode?.dependencies?.length ? (
                     selectedNode.dependencies.slice(0, 6).map((d) => (
                       <button
                         key={d.nodeId}
@@ -206,7 +216,9 @@ export function RoadmapPage() {
               <div>
                 <div className="text-xs font-medium text-[hsl(var(--muted))]">Children</div>
                 <div className="mt-2 grid gap-2">
-                  {selectedNode?.children?.length ? (
+                  {nodeLoading ? (
+                    <div className="text-sm text-[hsl(var(--muted))]">加载中…</div>
+                  ) : selectedNode?.children?.length ? (
                     selectedNode.children.slice(0, 6).map((c) => (
                       <button
                         key={c.nodeId}
@@ -222,6 +234,36 @@ export function RoadmapPage() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-xs text-[hsl(var(--muted))]">Notes in this node</div>
+                <div className="mt-1 text-lg font-semibold tracking-tight">{selectedNode?.title ?? "—"}</div>
+                {selectedNode?.crumbs?.length ? (
+                  <div className="mt-2 text-sm text-[hsl(var(--muted))]">
+                    {selectedNode.crumbs.map((c) => c.title).join(" / ")}
+                  </div>
+                ) : null}
+              </div>
+              {selectedNode ? (
+                <div className="flex items-center gap-2">
+                  <Chip label={`${selectedNotes.length} notes`} tone="glass" />
+                  <Chip label="Node page" to={`/roadmaps/${roadmapId}/node/${selectedNode.nodeId}`} tone="glass" />
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-5 hairline" />
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {nodeLoading ? (
+                <div className="card p-6 text-sm text-[hsl(var(--muted))]">加载该节点的 Notes…</div>
+              ) : selectedNotes.length ? (
+                selectedNotes.map((n) => <NoteCard key={n.id} note={n} />)
+              ) : (
+                <div className="card p-6 text-sm text-[hsl(var(--muted))]">这个节点还没有挂载 Notes。</div>
+              )}
             </div>
           </div>
 

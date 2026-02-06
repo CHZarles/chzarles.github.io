@@ -15,14 +15,30 @@ type AppState = {
 
 const AppStateContext = React.createContext<AppState | null>(null);
 
+function safeStorageGetItem(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSetItem(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore: storage may be unavailable (privacy mode / I/O issues / blocked)
+  }
+}
+
 function readTheme(): Theme {
-  const raw = localStorage.getItem("hyperblog.theme");
+  const raw = safeStorageGetItem("hyperblog.theme");
   if (raw === "dark" || raw === "light") return raw;
   return "light";
 }
 
 function readAccent(): string | null {
-  return localStorage.getItem("hyperblog.accent");
+  return safeStorageGetItem("hyperblog.accent");
 }
 
 export function AppStateProvider(props: { children: React.ReactNode }) {
@@ -45,7 +61,7 @@ export function AppStateProvider(props: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     document.documentElement.style.setProperty("--accent", accent);
-    localStorage.setItem("hyperblog.accent", accent);
+    safeStorageSetItem("hyperblog.accent", accent);
   }, [accent]);
 
   React.useEffect(() => {
@@ -65,7 +81,7 @@ export function AppStateProvider(props: { children: React.ReactNode }) {
 
   const setTheme = React.useCallback((t: Theme) => {
     document.documentElement.dataset.theme = t;
-    localStorage.setItem("hyperblog.theme", t);
+    safeStorageSetItem("hyperblog.theme", t);
     setThemeState(t);
   }, []);
 

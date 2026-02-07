@@ -1,0 +1,10 @@
+BASE_URL=http://localhost:8788
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+# Use a long random string (do not commit)
+TOKEN_SECRET=...
+TOKEN_TTL_SECONDS=43200
+ADMIN_GITHUB_LOGINS=your_github_login
+CONTENT_REPO=your_github_login/your_github_login.github.io
+CONTENT_BRANCH=main
+ALLOWED_ORIGINS=http://localhost:5173

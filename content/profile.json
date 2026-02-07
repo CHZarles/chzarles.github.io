@@ -4,10 +4,10 @@
   "tagline": "AI Infra / Observability / 写作系统化",
   "accent": "270 85% 45%",
   "hero": {
-    "imageUrl": "/night.png",
+    "imageUrl": "./mountain.jpg",
     "blurPx": 0,
     "opacity": 1,
-    "position": "20% 90%",
+    "position": "20% 1%",
     "washOpacity": 0,
     "tintOpacity": 0.25,
     "saturate": 1,

@@ -1,7 +1,8 @@
-import { createBrowserRouter } from "react-router-dom";
+import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./ui/shell/AppShell";
 import { CategoryPage } from "./ui/views/CategoryPage";
 import { CategoriesPage } from "./ui/views/CategoriesPage";
+import { AuthCallbackPage } from "./ui/views/AuthCallbackPage";
 import { ErrorPage } from "./ui/views/ErrorPage";
 import { HomePage } from "./ui/views/HomePage";
 import { NotePage } from "./ui/views/NotePage";
@@ -12,18 +13,35 @@ import { ProjectsPage } from "./ui/views/ProjectsPage";
 import { RoadmapNodePage } from "./ui/views/RoadmapNodePage";
 import { RoadmapPage } from "./ui/views/RoadmapPage";
 import { RoadmapsPage } from "./ui/views/RoadmapsPage";
+import { StudioShell } from "./studio/shell/StudioShell";
+import { StudioMindmapsPage } from "./studio/views/StudioMindmapsPage";
+import { StudioNotesPage } from "./studio/views/StudioNotesPage";
+import { StudioNotFoundPage } from "./studio/views/StudioNotFoundPage";
 
 export const router = createBrowserRouter([
+  {
+    path: "/studio",
+    element: <StudioShell />,
+    errorElement: <ErrorPage />,
+    children: [
+      { index: true, element: <Navigate to="/studio/notes" replace /> },
+      { path: "notes", element: <StudioNotesPage /> },
+      { path: "mindmaps", element: <StudioMindmapsPage /> },
+      { path: "*", element: <StudioNotFoundPage /> },
+    ],
+  },
   {
     path: "/",
     element: <AppShell />,
     errorElement: <ErrorPage />,
     children: [
       { index: true, element: <HomePage /> },
+      { path: "auth/callback", element: <AuthCallbackPage /> },
       { path: "notes", element: <NotesPage /> },
       { path: "notes/:noteId", element: <NotePage /> },
       { path: "categories", element: <CategoriesPage /> },
       { path: "categories/:slug", element: <CategoryPage /> },
+      { path: "publish", element: <Navigate to="/studio/notes" replace /> },
       { path: "roadmaps", element: <RoadmapsPage /> },
       { path: "roadmaps/:roadmapId", element: <RoadmapPage /> },
       { path: "roadmaps/:roadmapId/node/:nodeId", element: <RoadmapNodePage /> },

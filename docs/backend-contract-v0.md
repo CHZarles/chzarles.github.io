@@ -212,6 +212,43 @@ Response 200:
 
 ### 5.2 Admin（需要 Bearer Token）
 
+#### `GET /api/admin/notes`
+用于 Studio 列表与编辑器加载（读 repo 内容，需要 Token）。
+
+Query:
+- `include=meta`（可选）：解析 frontmatter，返回 `title/date/draft/excerpt`
+- `limit`（可选）：默认 50，最大 200（`include=meta` 时最大 50）
+- `after`（可选）：分页游标（上一页最后一个 `noteId`）
+
+Response 200:
+```json
+{
+  "notes": [
+    {
+      "id": "2026-02-06-otel-tracing",
+      "path": "content/notes/2026-02-06-otel-tracing.md",
+      "sha": "blobSha",
+      "size": 1234,
+      "meta": { "title": "...", "date": "2026-02-06", "draft": false, "excerpt": "..." }
+    }
+  ],
+  "paging": { "after": null, "nextAfter": "2026-02-01-..." }
+}
+```
+
+#### `GET /api/admin/notes/:id`
+Response 200:
+```json
+{
+  "note": {
+    "id": "2026-02-06-otel-tracing",
+    "path": "content/notes/2026-02-06-otel-tracing.md",
+    "input": { "title": "...", "date": "2026-02-06", "categories": [], "content": "..." },
+    "markdown": "---\\n...\\n---\\n\\n## body\\n"
+  }
+}
+```
+
 #### `POST /api/admin/notes`
 Request:
 ```json
@@ -264,6 +301,38 @@ Response 200:
 ```
 
 ---
+
+#### `GET /api/admin/mindmaps`
+Query: 同 `GET /api/admin/notes`（`include=meta/limit/after`）
+
+Response 200:
+```json
+{
+  "mindmaps": [
+    {
+      "id": "otel-context",
+      "path": "content/mindmaps/otel-context.json",
+      "sha": "blobSha",
+      "size": 2345,
+      "meta": { "title": "OTel Context", "updated": "2026-02-06T...", "nodeCount": 12, "edgeCount": 14 }
+    }
+  ],
+  "paging": { "after": null, "nextAfter": null }
+}
+```
+
+#### `GET /api/admin/mindmaps/:id`
+Response 200:
+```json
+{
+  "mindmap": {
+    "id": "otel-context",
+    "path": "content/mindmaps/otel-context.json",
+    "input": { "id": "otel-context", "title": "OTel Context", "nodes": [], "edges": [] },
+    "json": "{\\n  \\\"id\\\": ... }"
+  }
+}
+```
 
 #### `POST /api/admin/mindmaps`
 Request:

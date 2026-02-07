@@ -1,0 +1,95 @@
+import React from "react";
+import { publisherFetchJson } from "../../ui/publisher/client";
+import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
+import { publisherToken } from "../../ui/publisher/storage";
+
+export type StudioMe = {
+  user: { id: number; login: string; avatarUrl: string | null };
+  repo: { fullName: string; branch: string };
+};
+
+type StudioState = {
+  token: string | null;
+  me: StudioMe | null;
+  meError: string | null;
+  login: (nextPath?: string) => void;
+  logout: () => void;
+  refreshMe: () => Promise<void>;
+};
+
+const StudioStateContext = React.createContext<StudioState | null>(null);
+
+function safeNextPath(input: string | null): string | null {
+  const v = (input ?? "").trim();
+  if (!v) return null;
+  if (!v.startsWith("/")) return null;
+  if (v.startsWith("//")) return null;
+  return v;
+}
+
+function buildAuthRedirectUrl(nextPath: string | null): string {
+  const callback = new URL("/auth/callback", window.location.origin);
+  if (nextPath) callback.searchParams.set("next", nextPath);
+  return callback.toString();
+}
+
+export function StudioStateProvider(props: { children: React.ReactNode }) {
+  const [token, setToken] = React.useState<string | null>(() => publisherToken.get());
+  const [me, setMe] = React.useState<StudioMe | null>(null);
+  const [meError, setMeError] = React.useState<string | null>(null);
+
+  const refreshMe = React.useCallback(async () => {
+    if (!token) {
+      setMe(null);
+      setMeError(null);
+      return;
+    }
+    try {
+      const r = await publisherFetchJson<StudioMe>({ path: "/api/auth/me", token });
+      setMe(r);
+      setMeError(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setMe(null);
+      setMeError(msg);
+    }
+  }, [token]);
+
+  React.useEffect(() => {
+    void refreshMe();
+  }, [refreshMe]);
+
+  const login = React.useCallback((nextPath?: string) => {
+    const safeNext = safeNextPath(nextPath ?? null) ?? "/studio/notes";
+    const redirect = buildAuthRedirectUrl(safeNext);
+    const url = new URL("/api/auth/github/start", PUBLISHER_BASE_URL);
+    url.searchParams.set("redirect", redirect);
+    window.location.assign(url.toString());
+  }, []);
+
+  const logout = React.useCallback(() => {
+    publisherToken.clear();
+    setToken(null);
+    setMe(null);
+    setMeError(null);
+  }, []);
+
+  React.useEffect(() => {
+    const onStorage = () => setToken(publisherToken.get());
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  return (
+    <StudioStateContext.Provider value={{ token, me, meError, login, logout, refreshMe }}>
+      {props.children}
+    </StudioStateContext.Provider>
+  );
+}
+
+export function useStudioState(): StudioState {
+  const ctx = React.useContext(StudioStateContext);
+  if (!ctx) throw new Error("useStudioState must be used within StudioStateProvider");
+  return ctx;
+}
+

@@ -25,6 +25,20 @@ npm run dev:api
 - Notes: `content/notes/*.md`（frontmatter 里用 `nodes: ["ai-infra/otel"]` 绑定节点）
 - Projects: `content/projects.json`
 
+## Publisher（本地发文 / 上传 / 思维导图）
+
+启动两个服务：
+
+```bash
+npm run dev
+npm run dev:publisher -- --port 8788
+```
+
+打开写作台（Studio）：`http://localhost:5173/studio/notes`
+
+- 首次会跳 GitHub OAuth，回到 `/auth/callback` 后把 token 存在 `sessionStorage`
+- 默认 Publisher 地址是 `http://localhost:8788`，如需修改可设置 `VITE_PUBLISHER_BASE_URL`
+
 ### 主页大卡片背景（可自定义）
 
 在 `content/profile.json` 的 `hero` 配置：

@@ -1,3 +1,4 @@
+import React from "react";
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./ui/shell/AppShell";
 import { CategoryPage } from "./ui/views/CategoryPage";
@@ -16,10 +17,13 @@ import { RoadmapsPage } from "./ui/views/RoadmapsPage";
 import { StudioShell } from "./studio/shell/StudioShell";
 import { StudioAssetsPage } from "./studio/views/StudioAssetsPage";
 import { StudioConfigPage } from "./studio/views/StudioConfigPage";
-import { StudioMindmapsPage } from "./studio/views/StudioMindmapsPage";
 import { StudioNotesPage } from "./studio/views/StudioNotesPage";
 import { StudioNotFoundPage } from "./studio/views/StudioNotFoundPage";
 import { StudioRoadmapsPage } from "./studio/views/StudioRoadmapsPage";
+
+const StudioMindmapsPageLazy = React.lazy(() =>
+  import("./studio/views/StudioMindmapsPage").then((m) => ({ default: m.StudioMindmapsPage })),
+);
 
 export const router = createBrowserRouter([
   {
@@ -29,7 +33,14 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/studio/notes" replace /> },
       { path: "notes", element: <StudioNotesPage /> },
-      { path: "mindmaps", element: <StudioMindmapsPage /> },
+      {
+        path: "mindmaps",
+        element: (
+          <React.Suspense fallback={<div className="p-4 text-sm text-[hsl(var(--muted))]">Loading mindmap editor…</div>}>
+            <StudioMindmapsPageLazy />
+          </React.Suspense>
+        ),
+      },
       { path: "assets", element: <StudioAssetsPage /> },
       { path: "roadmaps", element: <StudioRoadmapsPage /> },
       { path: "config", element: <StudioConfigPage /> },

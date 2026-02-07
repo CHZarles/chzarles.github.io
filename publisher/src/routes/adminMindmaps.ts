@@ -16,24 +16,39 @@ type GhContentsDirItem = {
 };
 
 async function readRepoFileUtf8(args: { token: string; repo: string; path: string; ref: string }): Promise<string> {
-  const data = await ghJson<GhContentsFile>({
-    token: args.token,
-    method: "GET",
-    path: `/repos/${args.repo}/contents/${args.path}?ref=${encodeURIComponent(args.ref)}`,
-  });
+  let data: GhContentsFile;
+  try {
+    data = await ghJson<GhContentsFile>({
+      token: args.token,
+      method: "GET",
+      path: `/repos/${args.repo}/contents/${args.path}?ref=${encodeURIComponent(args.ref)}`,
+    });
+  } catch (err) {
+    if (err instanceof HttpError && err.code === "GITHUB_UPSTREAM" && (err.details as any)?.githubStatus === 404) {
+      throw new HttpError(404, "NOT_FOUND", "Not found.", { path: args.path });
+    }
+    throw err;
+  }
   if (!data.content || data.encoding !== "base64") throw new HttpError(502, "GITHUB_UPSTREAM", "Unexpected contents API response.");
   const bytes = base64Decode(data.content);
   return new TextDecoder().decode(bytes);
 }
 
 async function listRepoDir(args: { token: string; repo: string; path: string; ref: string }): Promise<GhContentsDirItem[]> {
-  const data = await ghJson<unknown>({
-    token: args.token,
-    method: "GET",
-    path: `/repos/${args.repo}/contents/${args.path}?ref=${encodeURIComponent(args.ref)}`,
-  });
-  if (!Array.isArray(data)) throw new HttpError(502, "GITHUB_UPSTREAM", "Unexpected contents API response.");
-  return data as GhContentsDirItem[];
+  try {
+    const data = await ghJson<unknown>({
+      token: args.token,
+      method: "GET",
+      path: `/repos/${args.repo}/contents/${args.path}?ref=${encodeURIComponent(args.ref)}`,
+    });
+    if (!Array.isArray(data)) throw new HttpError(502, "GITHUB_UPSTREAM", "Unexpected contents API response.");
+    return data as GhContentsDirItem[];
+  } catch (err) {
+    if (err instanceof HttpError && err.code === "GITHUB_UPSTREAM" && (err.details as any)?.githubStatus === 404) {
+      return [];
+    }
+    throw err;
+  }
 }
 
 function clamp(n: number, min: number, max: number): number {

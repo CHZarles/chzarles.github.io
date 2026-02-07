@@ -6,6 +6,10 @@ export function createMockApp(options?: { enableCors?: boolean }) {
   const app = express();
   if (options?.enableCors) app.use(cors());
 
+  function stripJsonSuffix(raw: string | undefined): string {
+    return (raw ?? "").replace(/\.json$/i, "");
+  }
+
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
   app.get(["/api/profile", "/api/profile.json"], async (_req, res) => {
@@ -29,7 +33,7 @@ export function createMockApp(options?: { enableCors?: boolean }) {
 
   app.get(["/api/categories/:id", "/api/categories/:id.json"], async (req, res) => {
     const db = await loadDb();
-    const id = req.params.id;
+    const id = stripJsonSuffix(req.params.id);
     const category = db.categories.find((c) => c.id === id);
     if (!category) return res.status(404).json({ error: "category_not_found" });
 
@@ -60,7 +64,7 @@ export function createMockApp(options?: { enableCors?: boolean }) {
 
   app.get(["/api/notes/:id", "/api/notes/:id.json"], async (req, res) => {
     const db = await loadDb();
-    const id = req.params.id;
+    const id = stripJsonSuffix(req.params.id);
     const note = db.notes.find((n) => n.id === id);
     if (!note) return res.status(404).json({ error: "note_not_found" });
     res.json(note);
@@ -73,7 +77,8 @@ export function createMockApp(options?: { enableCors?: boolean }) {
 
   app.get(["/api/projects/:id", "/api/projects/:id.json"], async (req, res) => {
     const db = await loadDb();
-    const p = db.projects.find((x) => x.id === req.params.id);
+    const id = stripJsonSuffix(req.params.id);
+    const p = db.projects.find((x) => x.id === id);
     if (!p) return res.status(404).json({ error: "project_not_found" });
     res.json(p);
   });
@@ -90,7 +95,8 @@ export function createMockApp(options?: { enableCors?: boolean }) {
 
   app.get(["/api/roadmaps/:id", "/api/roadmaps/:id.json"], async (req, res) => {
     const db = await loadDb();
-    const rm = db.roadmaps.find((r) => r.id === req.params.id);
+    const id = stripJsonSuffix(req.params.id);
+    const rm = db.roadmaps.find((r) => r.id === id);
     if (!rm) return res.status(404).json({ error: "roadmap_not_found" });
     res.json(rm);
   });
@@ -100,19 +106,22 @@ export function createMockApp(options?: { enableCors?: boolean }) {
     res.json([...db.nodesIndex.values()]);
   });
 
-  app.get(["/api/roadmaps/:roadmapId/nodes/:nodeId", "/api/roadmaps/:roadmapId/nodes/:nodeId.json"], async (req, res) => {
-    const db = await loadDb();
-    const roadmapId = req.params.roadmapId;
-    const nodeId = req.params.nodeId;
-    const entry = db.nodesIndex.get(`${roadmapId}/${nodeId}`);
-    if (!entry) return res.status(404).json({ error: "node_not_found" });
+  app.get(
+    ["/api/roadmaps/:roadmapId/nodes/:nodeId", "/api/roadmaps/:roadmapId/nodes/:nodeId.json"],
+    async (req, res) => {
+      const db = await loadDb();
+      const roadmapId = stripJsonSuffix(req.params.roadmapId);
+      const nodeId = stripJsonSuffix(req.params.nodeId);
+      const entry = db.nodesIndex.get(`${roadmapId}/${nodeId}`);
+      if (!entry) return res.status(404).json({ error: "node_not_found" });
 
-    const notes = db.notes
-      .filter((n) => n.nodes.some((r) => r.roadmapId === roadmapId && r.nodeId === nodeId))
-      .map(toNoteListItem);
+      const notes = db.notes
+        .filter((n) => n.nodes.some((r) => r.roadmapId === roadmapId && r.nodeId === nodeId))
+        .map(toNoteListItem);
 
-    res.json({ node: entry, notes });
-  });
+      res.json({ node: entry, notes });
+    },
+  );
 
   app.get("/api/search", async (req, res) => {
     const db = await loadDb();

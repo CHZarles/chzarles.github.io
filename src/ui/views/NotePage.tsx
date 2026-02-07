@@ -45,7 +45,7 @@ export function NotePage() {
   if (!note) {
     return (
       <div className="card p-8 text-sm text-[hsl(var(--muted))]">
-        加载中…（请确认 mock server 已启动）
+        加载中…
       </div>
     );
   }

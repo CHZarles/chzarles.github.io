@@ -59,7 +59,7 @@ export function StudioMindmapsPage() {
       try {
         const url = new URL("/api/admin/mindmaps", "http://local");
         url.searchParams.set("include", "meta");
-        url.searchParams.set("limit", "120");
+        url.searchParams.set("limit", "50");
         if (opts?.append && paging.nextAfter) url.searchParams.set("after", paging.nextAfter);
         const res = await publisherFetchJson<MindmapsListResponse>({ path: url.pathname + url.search, token: studio.token });
         setMindmaps((prev) => (opts?.append ? [...prev, ...res.mindmaps] : res.mindmaps));
@@ -410,4 +410,3 @@ const inputClass =
 
 const textareaClass =
   "w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm font-mono outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))] disabled:cursor-not-allowed disabled:opacity-60";
-

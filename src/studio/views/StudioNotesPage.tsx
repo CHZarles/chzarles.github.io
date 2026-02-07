@@ -132,7 +132,7 @@ export function StudioNotesPage() {
       try {
         const url = new URL("/api/admin/notes", "http://local");
         url.searchParams.set("include", "meta");
-        url.searchParams.set("limit", "60");
+        url.searchParams.set("limit", "50");
         if (opts?.append && paging.nextAfter) url.searchParams.set("after", paging.nextAfter);
         const path = url.pathname + url.search;
         const res = await publisherFetchJson<NotesListResponse>({ path, token: studio.token });

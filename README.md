@@ -36,6 +36,7 @@ npm run dev:publisher -- --port 8788
 
 打开写作台（Studio）：
 - Notes：`http://localhost:5173/studio/notes`
+- Assets：`http://localhost:5173/studio/assets`
 - Roadmaps：`http://localhost:5173/studio/roadmaps`
 - Config：`http://localhost:5173/studio/config`
 

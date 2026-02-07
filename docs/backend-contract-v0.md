@@ -500,6 +500,45 @@ Response 201:
 }
 ```
 
+#### `GET /api/admin/uploads`
+列出 `public/uploads/` 下的资产（供 Studio 资产库使用）。
+
+Query:
+- `q`（可选）：按 path/url 模糊搜索
+- `limit`（可选）：默认 80，最大 200
+- `after`（可选）：分页游标（上一页最后一个 `asset.path`）
+
+Response 200:
+```json
+{
+  "assets": [
+    {
+      "path": "public/uploads/2026/02/<hash>.jpg",
+      "url": "/uploads/2026/02/<hash>.jpg",
+      "rawUrl": "https://raw.githubusercontent.com/<owner>/<repo>/main/public/uploads/...",
+      "bytes": 123456,
+      "contentType": "image/jpeg",
+      "sha": "blobSha"
+    }
+  ],
+  "paging": { "after": null, "nextAfter": null },
+  "truncated": false
+}
+```
+
+#### `DELETE /api/admin/uploads`
+删除指定资产（硬删；可通过 git history 找回）。
+
+Request:
+```json
+{ "path": "public/uploads/2026/02/<hash>.jpg" }
+```
+
+Response 200:
+```json
+{ "ok": true, "commit": { "sha": "...", "url": "..." } }
+```
+
 ---
 
 #### `POST /api/admin/commit`（可选：批量原子提交）

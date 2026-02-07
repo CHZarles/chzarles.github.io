@@ -74,8 +74,11 @@ export function HomePage() {
 
   return (
     <div className="grid gap-8">
-      <section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] flex min-h-[440px] w-screen overflow-hidden border-y border-[hsl(var(--border))] bg-[hsl(var(--card))] md:min-h-[clamp(600px,68vh,960px)]">
-        <div aria-hidden="true" className="absolute inset-0">
+      <section className="relative flex min-h-[440px] md:min-h-[clamp(600px,68vh,960px)]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 overflow-hidden border-y border-[hsl(var(--border))] bg-[hsl(var(--card))]"
+        >
           <HeroBackdrop
             imageUrl={profile?.hero?.imageUrl}
             blurPx={profile?.hero?.blurPx}
@@ -87,7 +90,7 @@ export function HomePage() {
             contrast={profile?.hero?.contrast}
           />
         </div>
-        <div className="container relative flex flex-1 flex-col py-10 md:py-14">
+        <div className="relative z-10 flex flex-1 flex-col py-10 md:py-14">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div
               className="text-[10px] font-semibold tracking-[0.26em] uppercase"

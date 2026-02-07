@@ -17,9 +17,6 @@
   --hero-fg: 0 0% 100%;
   --hero-muted: 0 0% 100%;
   --hero-shadow: rgba(0, 0, 0, 0.32);
-
-  /* JS will set this to avoid 100vw scrollbar drift */
-  --sbw: 0px;
 }
 
 [data-theme="dark"] {

@@ -74,7 +74,7 @@ export function HomePage() {
 
   return (
     <div className="grid gap-8">
-      <section className="relative left-1/2 flex min-h-[440px] w-[calc(100vw-var(--sbw,0px))] -translate-x-1/2 overflow-hidden border-y border-[hsl(var(--border))] bg-[hsl(var(--card))] md:min-h-[clamp(600px,68vh,960px)]">
+      <section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] flex min-h-[440px] w-screen overflow-hidden border-y border-[hsl(var(--border))] bg-[hsl(var(--card))] md:min-h-[clamp(600px,68vh,960px)]">
         <div aria-hidden="true" className="absolute inset-0">
           <HeroBackdrop
             imageUrl={profile?.hero?.imageUrl}

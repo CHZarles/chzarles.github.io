@@ -31,6 +31,8 @@ function StudioLayout() {
           <nav className="hidden items-center gap-1 md:flex">
             <StudioTab to="/studio/notes">Notes</StudioTab>
             <StudioTab to="/studio/mindmaps">Mindmaps</StudioTab>
+            <StudioTab to="/studio/roadmaps">Roadmaps</StudioTab>
+            <StudioTab to="/studio/config">Config</StudioTab>
           </nav>
         </div>
 

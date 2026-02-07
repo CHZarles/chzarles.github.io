@@ -14,9 +14,11 @@ import { RoadmapNodePage } from "./ui/views/RoadmapNodePage";
 import { RoadmapPage } from "./ui/views/RoadmapPage";
 import { RoadmapsPage } from "./ui/views/RoadmapsPage";
 import { StudioShell } from "./studio/shell/StudioShell";
+import { StudioConfigPage } from "./studio/views/StudioConfigPage";
 import { StudioMindmapsPage } from "./studio/views/StudioMindmapsPage";
 import { StudioNotesPage } from "./studio/views/StudioNotesPage";
 import { StudioNotFoundPage } from "./studio/views/StudioNotFoundPage";
+import { StudioRoadmapsPage } from "./studio/views/StudioRoadmapsPage";
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +29,8 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/studio/notes" replace /> },
       { path: "notes", element: <StudioNotesPage /> },
       { path: "mindmaps", element: <StudioMindmapsPage /> },
+      { path: "roadmaps", element: <StudioRoadmapsPage /> },
+      { path: "config", element: <StudioConfigPage /> },
       { path: "*", element: <StudioNotFoundPage /> },
     ],
   },

@@ -42,8 +42,15 @@ async function main() {
   // path whitelist
   {
     assert.equal(validateRepoPath("content/notes/2026-02-06-hello.md"), "content/notes/2026-02-06-hello.md");
+    assert.equal(validateRepoPath("content/profile.json"), "content/profile.json");
+    assert.equal(validateRepoPath("content/categories.yml"), "content/categories.yml");
+    assert.equal(validateRepoPath("content/projects.json"), "content/projects.json");
+    assert.equal(validateRepoPath("content/roadmaps/ai-infra.yml"), "content/roadmaps/ai-infra.yml");
+    assert.equal(validateRepoPath("content/roadmaps/ai-infra.yaml"), "content/roadmaps/ai-infra.yaml");
     assert.throws(() => validateRepoPath("../etc/passwd"));
     assert.throws(() => validateRepoPath("src/main.ts"));
+    assert.throws(() => validateRepoPath("content/notes/2026-02-06-hello.txt"));
+    assert.throws(() => validateRepoPath("content/roadmaps/ai-infra.txt"));
   }
 
   // notes render/parse
@@ -63,4 +70,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

@@ -82,6 +82,32 @@ Mindmap JSON v0（推荐 ReactFlow 兼容）
 - 图片落盘前建议压缩：服务端可选做（v0 可先不做）。
 - 仓库会膨胀：这是“简单方案”的已知 trade-off（需要时迁移到对象存储）。
 
+### 2.4 Roadmaps
+- 路径：`content/roadmaps/<roadmapId>.yml`（也支持 `.yaml`）
+- 文件内容：YAML（tree + edges）
+
+Roadmap YAML v0（最小字段）
+```yaml
+id: ai-infra
+title: AI Infra
+description: optional
+theme: optional
+layout: horizontal # or vertical
+nodes:
+  - id: foundations
+    title: Foundations
+    description: optional
+    edges: [dist-sys]        # optional deps (same roadmap)
+    children: []             # optional
+```
+
+### 2.5 Config（站点配置）
+这些文件用于驱动公共站点 UI（非敏感配置，仍需路径白名单防止覆盖别的文件）：
+
+- Profile：`content/profile.json`
+- Categories：`content/categories.yml`（也可 `.yaml`，v0 建议统一 `.yml`）
+- Projects：`content/projects.json`
+
 ---
 
 ## 3. 鉴权与会话
@@ -211,6 +237,53 @@ Response 200:
 ---
 
 ### 5.2 Admin（需要 Bearer Token）
+
+#### `GET /api/admin/profile`
+读取 `content/profile.json`（供 Studio 的 Config 编辑器使用）。
+
+Response 200:
+```json
+{ "file": { "path": "content/profile.json", "raw": "{...}", "json": { "name": "..." } } }
+```
+
+#### `PUT /api/admin/profile`
+写入 `content/profile.json`（会进行 JSON 校验与格式化）。
+
+Request:
+```json
+{ "raw": "{...json...}" }
+```
+
+Response 200:
+```json
+{ "ok": true, "file": { "path": "content/profile.json" }, "commit": { "sha": "...", "url": "..." } }
+```
+
+---
+
+#### `GET /api/admin/categories`
+读取 `content/categories.yml`。
+
+Response 200:
+```json
+{ "file": { "path": "content/categories.yml", "raw": "- id: ...", "json": [] } }
+```
+
+#### `PUT /api/admin/categories`
+写入 `content/categories.yml`（会进行 YAML 可解析校验）。
+
+Request:
+```json
+{ "yaml": "- id: ..." }
+```
+
+---
+
+#### `GET /api/admin/projects`
+读取 `content/projects.json`。
+
+#### `PUT /api/admin/projects`
+写入 `content/projects.json`（会进行 JSON 校验与格式化）。
 
 #### `GET /api/admin/notes`
 用于 Studio 列表与编辑器加载（读 repo 内容，需要 Token）。
@@ -360,6 +433,52 @@ Response 201:
 
 #### `DELETE /api/admin/mindmaps/:id`
 同 notes 的删除策略（可软删）。
+
+---
+
+#### `GET /api/admin/roadmaps`
+Query: 同 `GET /api/admin/notes`（`include=meta/limit/after`）
+
+Response 200:
+```json
+{
+  "roadmaps": [
+    {
+      "id": "ai-infra",
+      "path": "content/roadmaps/ai-infra.yml",
+      "sha": "blobSha",
+      "size": 3456,
+      "meta": { "title": "AI Infra", "theme": "violet", "layout": "horizontal" }
+    }
+  ],
+  "paging": { "after": null, "nextAfter": null }
+}
+```
+
+#### `GET /api/admin/roadmaps/:id`
+Response 200:
+```json
+{
+  "roadmap": {
+    "id": "ai-infra",
+    "path": "content/roadmaps/ai-infra.yml",
+    "exists": true,
+    "yaml": "id: ai-infra\\n...",
+    "json": { "id": "ai-infra", "nodes": [] }
+  }
+}
+```
+
+#### `PUT /api/admin/roadmaps/:id`
+写入（或创建）`content/roadmaps/<id>.yml`（会进行 YAML 校验；若 YAML 内 `id` 与 path 不一致会返回 `422`）。
+
+Request:
+```json
+{ "yaml": "id: ai-infra\\n..." }
+```
+
+#### `DELETE /api/admin/roadmaps/:id`
+软删到 `content/.trash/roadmaps/<id>.yml`（并删除原文件）。
 
 ---
 

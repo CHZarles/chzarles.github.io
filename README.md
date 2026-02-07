@@ -34,7 +34,10 @@ npm run dev
 npm run dev:publisher -- --port 8788
 ```
 
-打开写作台（Studio）：`http://localhost:5173/studio/notes`
+打开写作台（Studio）：
+- Notes：`http://localhost:5173/studio/notes`
+- Roadmaps：`http://localhost:5173/studio/roadmaps`
+- Config：`http://localhost:5173/studio/config`
 
 - 首次会跳 GitHub OAuth，回到 `/auth/callback` 后把 token 存在 `sessionStorage`
 - 默认 Publisher 地址是 `http://localhost:8788`，如需修改可设置 `VITE_PUBLISHER_BASE_URL`

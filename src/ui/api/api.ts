@@ -24,7 +24,10 @@ const fetchMemo = new Map<string, Promise<unknown>>();
 function apiFetchCached<T>(input: string): Promise<T> {
   const hit = fetchMemo.get(input);
   if (hit) return hit as Promise<T>;
-  const p = apiFetch<T>(input);
+  const p = apiFetch<T>(input).catch((err) => {
+    fetchMemo.delete(input);
+    throw err;
+  });
   fetchMemo.set(input, p as Promise<unknown>);
   return p;
 }

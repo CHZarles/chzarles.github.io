@@ -21,6 +21,7 @@ function fmtDate(iso: string) {
 export function NotePage() {
   const { noteId } = useParams();
   const [note, setNote] = React.useState<Note | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
   const { categories } = useAppState();
   const titleById = React.useMemo(() => {
     const m = new Map(categories.map((c) => [c.id, c.title] as const));
@@ -30,17 +31,48 @@ export function NotePage() {
   React.useEffect(() => {
     if (!noteId) return;
     let cancelled = false;
+    setNote(null);
+    setError(null);
     api
       .note(noteId)
       .then((n) => {
         if (cancelled) return;
         setNote(n);
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(message);
+      });
     return () => {
       cancelled = true;
     };
   }, [noteId]);
+
+  if (error) {
+    return (
+      <div className="card p-8 text-sm text-[hsl(var(--muted))]">
+        <div className="text-base font-semibold tracking-tight text-[hsl(var(--fg))]">加载失败</div>
+        <div className="mt-2 break-words">{error}</div>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <Link
+            to="/notes"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_70%,transparent)] px-4 py-2.5 text-sm transition hover:border-[color-mix(in_oklab,hsl(var(--accent))_35%,hsl(var(--border)))]"
+          >
+            <ArrowLeft className="h-4 w-4 opacity-80" />
+            返回 Notes
+          </Link>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm transition hover:bg-[hsl(var(--card2))]"
+          >
+            刷新
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!note) {
     return (

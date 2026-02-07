@@ -36,6 +36,7 @@ function findNodePath(
 export function RoadmapPage() {
   const { roadmapId } = useParams();
   const [roadmap, setRoadmap] = React.useState<Roadmap | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<string | null>(null);
   const [nodeDetail, setNodeDetail] = React.useState<RoadmapNodeDetail | null>(null);
   const [nodeLoading, setNodeLoading] = React.useState(false);
@@ -46,6 +47,8 @@ export function RoadmapPage() {
   React.useEffect(() => {
     if (!roadmapId) return;
     let cancelled = false;
+    setError(null);
+    setRoadmap(null);
     api
       .roadmap(roadmapId)
       .then((r) => {
@@ -54,7 +57,11 @@ export function RoadmapPage() {
         setSelected(r.nodes?.[0]?.id ?? null);
         setLayout("horizontal");
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(message);
+      });
     api
       .notes({ roadmap: roadmapId })
       .then((n) => {
@@ -106,6 +113,31 @@ export function RoadmapPage() {
     const pinned = Array.isArray(nodeDetail?.node?.pinned) ? nodeDetail?.node?.pinned : undefined;
     return orderNotes(notes, pinned);
   }, [nodeDetail]);
+
+  if (error) {
+    return (
+      <div className="card p-8 text-sm text-[hsl(var(--muted))]">
+        <div className="text-base font-semibold tracking-tight text-[hsl(var(--fg))]">加载失败</div>
+        <div className="mt-2 break-words">{error}</div>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <Link
+            to="/roadmaps"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_70%,transparent)] px-4 py-2.5 text-sm transition hover:border-[color-mix(in_oklab,hsl(var(--accent))_35%,hsl(var(--border)))]"
+          >
+            <ArrowLeft className="h-4 w-4 opacity-80" />
+            返回 Roadmaps
+          </Link>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm transition hover:bg-[hsl(var(--card2))]"
+          >
+            刷新
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!roadmap || !roadmapId) {
     return <div className="card p-8 text-sm text-[hsl(var(--muted))]">加载中…</div>;

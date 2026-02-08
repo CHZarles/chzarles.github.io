@@ -3,13 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@10.26.2",
   "scripts": {
     "dev": "vite",
     "dev:api": "tsx watch mock/server.ts",
     "dev:publisher": "wrangler dev --config publisher/wrangler.toml",
     "test:publisher": "tsx publisher/scripts/smoke.ts",
     "build": "vite build && tsx scripts/postbuild.ts",
-    "preview": "vite preview"
+    "preview": "vite build && tsx scripts/postbuild.ts && vite preview"
   },
   "dependencies": {
     "clsx": "^2.1.1",

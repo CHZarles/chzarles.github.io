@@ -63,6 +63,25 @@ export type Project = {
   nodes?: string[]; // roadmap refs: "ai-infra/otel"
 };
 
+export type Mindmap = {
+  id: string;
+  title: string;
+  updated: string;
+  format: string;
+  nodes: unknown[];
+  edges: unknown[];
+  viewport?: unknown;
+};
+
+export type MindmapListItem = {
+  id: string;
+  title: string;
+  updated: string;
+  format?: string;
+  nodeCount?: number;
+  edgeCount?: number;
+};
+
 export type NoteFrontmatter = {
   title: string;
   date?: string;
@@ -71,7 +90,9 @@ export type NoteFrontmatter = {
   categories?: string[];
   tags?: string[];
   nodes?: string[];
+  mindmaps?: string[];
   cover?: string;
+  draft?: boolean;
 };
 
 export type Note = {
@@ -91,7 +112,9 @@ export type Note = {
     roadmapTitle: string;
     crumbs: Array<{ id: string; title: string }>;
   }>;
+  mindmaps: Array<{ id: string; title: string }>;
   cover?: string;
+  draft?: boolean;
 };
 
 export type NodeIndexEntry = {
@@ -118,6 +141,8 @@ export type NoteListItem = {
   categories: string[];
   tags: string[];
   nodes: Note["nodes"];
+  mindmaps: Note["mindmaps"];
+  draft?: boolean;
   cover?: string;
 };
 
@@ -127,6 +152,7 @@ export type Db = {
   roadmaps: RoadmapFile[];
   nodesIndex: Map<string, NodeIndexEntry>; // key: "roadmapId/nodeId"
   notes: Note[];
+  mindmaps: Mindmap[];
   projects: Project[];
 };
 
@@ -161,6 +187,12 @@ async function exists(p: string): Promise<boolean> {
   }
 }
 
+function normalizeMindmapId(raw: unknown): string | null {
+  const v = String(raw ?? "").trim().toLowerCase();
+  if (!/^[a-z0-9-]{2,80}$/.test(v)) return null;
+  return v;
+}
+
 export function toNoteListItem(n: Note): NoteListItem {
   return {
     id: n.id,
@@ -171,6 +203,8 @@ export function toNoteListItem(n: Note): NoteListItem {
     categories: n.categories,
     tags: n.tags,
     nodes: n.nodes,
+    mindmaps: n.mindmaps,
+    draft: n.draft,
     cover: n.cover,
   };
 }
@@ -184,6 +218,7 @@ export async function loadDb(): Promise<Db> {
   const projectsPath = path.join(contentDir, "projects.json");
   const roadmapsDir = path.join(contentDir, "roadmaps");
   const notesDir = path.join(contentDir, "notes");
+  const mindmapsDir = path.join(contentDir, "mindmaps");
 
   const profile: Profile = (await exists(profilePath))
     ? JSON.parse(await fs.readFile(profilePath, "utf8"))
@@ -279,6 +314,52 @@ export async function loadDb(): Promise<Db> {
       .filter(Boolean) as Array<{ nodeId: string; title: string }>;
   }
 
+  const mindmaps: Mindmap[] = [];
+  const mindmapById = new Map<string, Mindmap>();
+  if (await exists(mindmapsDir)) {
+    const files = (await fs.readdir(mindmapsDir)).filter((f) => f.toLowerCase().endsWith(".json")).sort().reverse();
+    for (const file of files) {
+      const id = normalizeMindmapId(file.replace(/\.json$/i, ""));
+      if (!id) continue;
+
+      const full = path.join(mindmapsDir, file);
+      const raw = await fs.readFile(full, "utf8");
+      const stat = await fs.stat(full);
+
+      let parsed: Record<string, unknown> = {};
+      try {
+        const v = JSON.parse(raw);
+        parsed = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+      } catch {
+        parsed = {};
+      }
+
+      const title =
+        typeof parsed.title === "string" && parsed.title.trim()
+          ? String(parsed.title)
+          : id;
+      const updated = typeof parsed.updated === "string" ? toIsoDate(parsed.updated) : toIsoDate(stat.mtime);
+      const format =
+        typeof parsed.format === "string" && parsed.format.trim()
+          ? String(parsed.format)
+          : "reactflow";
+      const nodes = Array.isArray(parsed.nodes) ? (parsed.nodes as unknown[]) : [];
+      const edges = Array.isArray(parsed.edges) ? (parsed.edges as unknown[]) : [];
+
+      const mindmap: Mindmap = {
+        id,
+        title,
+        updated,
+        format,
+        nodes,
+        edges,
+        viewport: parsed.viewport,
+      };
+      mindmaps.push(mindmap);
+      mindmapById.set(id, mindmap);
+    }
+  }
+
   const notes: Note[] = [];
   if (await exists(notesDir)) {
     const files = (await fs.readdir(notesDir)).filter((f) => f.endsWith(".md")).sort().reverse();
@@ -295,6 +376,8 @@ export async function loadDb(): Promise<Db> {
       const categoriesRefs = Array.isArray(fm.categories) ? fm.categories : [];
       const tags = Array.isArray(fm.tags) ? fm.tags : [];
       const nodesRefs = Array.isArray(fm.nodes) ? fm.nodes : [];
+      const mindmapsRefs = Array.isArray(fm.mindmaps) ? fm.mindmaps : [];
+      const draft = typeof fm.draft === "boolean" ? fm.draft : undefined;
 
       const body = parsed.content.trim();
       const excerptBase = fm.excerpt ? String(fm.excerpt) : stripMarkdown(body).slice(0, 220);
@@ -317,6 +400,14 @@ export async function loadDb(): Promise<Db> {
         })
         .filter(Boolean) as Note["nodes"];
 
+      const mindmaps = mindmapsRefs
+        .map((x) => normalizeMindmapId(x))
+        .filter(Boolean)
+        .map((mid) => {
+          const mm = mindmapById.get(mid);
+          return { id: mid, title: mm?.title ?? mid };
+        });
+
       notes.push({
         id,
         title,
@@ -327,7 +418,9 @@ export async function loadDb(): Promise<Db> {
         categories: categoriesRefs,
         tags,
         nodes,
+        mindmaps,
         cover: fm.cover ? String(fm.cover) : undefined,
+        draft,
       });
     }
   }
@@ -343,6 +436,5 @@ export async function loadDb(): Promise<Db> {
     }
   }
 
-  return { profile, categories, roadmaps, nodesIndex, notes, projects };
+  return { profile, categories, roadmaps, nodesIndex, notes, mindmaps, projects };
 }
-

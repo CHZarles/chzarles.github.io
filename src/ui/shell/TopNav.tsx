@@ -64,6 +64,7 @@ export function TopNav() {
             <NavItem to="/notes" label="Notes" />
             <NavItem to="/categories" label="Categories" />
             <NavItem to="/roadmaps" label="Roadmaps" />
+            <NavItem to="/mindmaps" label="Mindmaps" />
             <NavItem to="/projects" label="Projects" />
           </nav>
 
@@ -112,6 +113,7 @@ export function TopNav() {
             <NavItem to="/notes" label="Notes" />
             <NavItem to="/categories" label="Categories" />
             <NavItem to="/roadmaps" label="Roadmaps" />
+            <NavItem to="/mindmaps" label="Mindmaps" />
             <NavItem to="/projects" label="Projects" />
           </nav>
           <span className="hidden sm:inline text-xs text-[hsl(var(--muted))]">索引即叙事</span>

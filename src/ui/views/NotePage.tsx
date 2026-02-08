@@ -110,6 +110,9 @@ export function NotePage() {
               tone="accent"
             />
           ))}
+          {note.mindmaps.slice(0, 3).map((m) => (
+            <Chip key={m.id} label={`Mindmap · ${m.title}`} to={`/mindmaps/${m.id}`} tone="glass" />
+          ))}
           {note.tags.slice(0, 6).map((t) => (
             <Chip key={t} label={t} tone="muted" />
           ))}
@@ -121,6 +124,25 @@ export function NotePage() {
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.content}</ReactMarkdown>
         </div>
       </div>
+
+      {note.mindmaps.length ? (
+        <div className="card p-7 md:p-10">
+          <div className="text-sm font-semibold tracking-tight">Mindmaps</div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {note.mindmaps.map((m) => (
+              <Link
+                key={m.id}
+                to={`/mindmaps/${m.id}`}
+                className="group rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 transition-colors hover:bg-[hsl(var(--card2))]"
+              >
+                <div className="text-xs text-[hsl(var(--muted))]">Mindmap</div>
+                <div className="mt-1 text-base font-semibold tracking-tight">{m.title}</div>
+                <div className="mt-2 text-xs text-[hsl(var(--muted))]">/{m.id}</div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="card p-5">
         <div className="flex items-center justify-between gap-3">

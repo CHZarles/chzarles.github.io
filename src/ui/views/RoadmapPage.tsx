@@ -40,6 +40,8 @@ export function RoadmapPage() {
   const [selected, setSelected] = React.useState<string | null>(null);
   const [nodeDetail, setNodeDetail] = React.useState<RoadmapNodeDetail | null>(null);
   const [nodeLoading, setNodeLoading] = React.useState(false);
+  const [nodeError, setNodeError] = React.useState<string | null>(null);
+  const [nodeReq, setNodeReq] = React.useState(0);
   const [latest, setLatest] = React.useState<NoteListItem[]>([]);
   const [outlineOpen, setOutlineOpen] = React.useState(false);
   const [layout, setLayout] = React.useState<"vertical" | "horizontal">("horizontal");
@@ -79,6 +81,7 @@ export function RoadmapPage() {
     let cancelled = false;
     setNodeLoading(true);
     setNodeDetail(null);
+    setNodeError(null);
     api
       .node(roadmapId, selected)
       .then((d) => {
@@ -86,15 +89,17 @@ export function RoadmapPage() {
         setNodeDetail(d);
         setNodeLoading(false);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (cancelled) return;
         setNodeDetail(null);
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setNodeError(message);
         setNodeLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [roadmapId, selected]);
+  }, [roadmapId, selected, nodeReq]);
 
   const selectedNode = nodeDetail?.node;
   const selectedPathFromFile = React.useMemo(() => {
@@ -239,7 +244,15 @@ export function RoadmapPage() {
                 <div className="mt-1 text-lg font-semibold tracking-tight">{selectedTitle}</div>
                 {selectedCrumbs ? <div className="mt-2 text-sm text-[hsl(var(--muted))]">{selectedCrumbs}</div> : null}
               </div>
-              <div className="flex items-center gap-2">{nodeDetail ? <Chip label={`${selectedNotes.length} notes`} tone="glass" /> : null}</div>
+              <div className="flex items-center gap-2">
+                {nodeLoading ? (
+                  <Chip label="Loading…" tone="glass" />
+                ) : nodeError ? (
+                  <Chip label="Error" tone="glass" />
+                ) : nodeDetail ? (
+                  <Chip label={`${selectedNotes.length} notes`} tone="glass" />
+                ) : null}
+              </div>
             </div>
             {selectedNode?.description ? (
               <p className="mt-4 text-sm leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_72%,hsl(var(--muted)))]">
@@ -253,6 +266,10 @@ export function RoadmapPage() {
                 <div className="mt-2 grid gap-2">
                   {nodeLoading ? (
                     <div className="text-sm text-[hsl(var(--muted))]">加载中…</div>
+                  ) : nodeError ? (
+                    <div className="text-sm text-[color-mix(in_oklab,hsl(var(--accent))_62%,hsl(var(--muted)))] break-words">
+                      {nodeError}
+                    </div>
                   ) : selectedNode?.dependencies?.length ? (
                     selectedNode.dependencies.slice(0, 6).map((d) => (
                       <button
@@ -274,6 +291,10 @@ export function RoadmapPage() {
                 <div className="mt-2 grid gap-2">
                   {nodeLoading ? (
                     <div className="text-sm text-[hsl(var(--muted))]">加载中…</div>
+                  ) : nodeError ? (
+                    <div className="text-sm text-[color-mix(in_oklab,hsl(var(--accent))_62%,hsl(var(--muted)))] break-words">
+                      {nodeError}
+                    </div>
                   ) : selectedNode?.children?.length ? (
                     selectedNode.children.slice(0, 6).map((c) => (
                       <button
@@ -302,7 +323,7 @@ export function RoadmapPage() {
               </div>
               {roadmapId && selected ? (
                 <div className="flex items-center gap-2">
-                  <Chip label={nodeLoading ? "Loading…" : `${selectedNotes.length} notes`} tone="glass" />
+                  <Chip label={nodeLoading ? "Loading…" : nodeError ? "Error" : `${selectedNotes.length} notes`} tone="glass" />
                   <Chip label="Node page" to={`/roadmaps/${roadmapId}/node/${selected}`} tone="glass" />
                 </div>
               ) : null}
@@ -311,6 +332,18 @@ export function RoadmapPage() {
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {nodeLoading ? (
                 <div className="card p-6 text-sm text-[hsl(var(--muted))]">加载该节点的 Notes…</div>
+              ) : nodeError ? (
+                <div className="card p-6 text-sm text-[hsl(var(--muted))]">
+                  <div className="text-base font-semibold tracking-tight text-[hsl(var(--fg))]">加载失败</div>
+                  <div className="mt-2 break-words">{nodeError}</div>
+                  <button
+                    type="button"
+                    onClick={() => setNodeReq((v) => v + 1)}
+                    className="mt-4 inline-flex items-center justify-center rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm transition hover:bg-[hsl(var(--card2))]"
+                  >
+                    重试
+                  </button>
+                </div>
               ) : selectedNotes.length ? (
                 selectedNotes.map((n) => <NoteCard key={n.id} note={n} />)
               ) : (

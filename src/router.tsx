@@ -6,6 +6,7 @@ import { CategoriesPage } from "./ui/views/CategoriesPage";
 import { AuthCallbackPage } from "./ui/views/AuthCallbackPage";
 import { ErrorPage } from "./ui/views/ErrorPage";
 import { HomePage } from "./ui/views/HomePage";
+import { MindmapsPage } from "./ui/views/MindmapsPage";
 import { NotePage } from "./ui/views/NotePage";
 import { NotesPage } from "./ui/views/NotesPage";
 import { NotFoundPage } from "./ui/views/NotFoundPage";
@@ -24,6 +25,8 @@ import { StudioRoadmapsPage } from "./studio/views/StudioRoadmapsPage";
 const StudioMindmapsPageLazy = React.lazy(() =>
   import("./studio/views/StudioMindmapsPage").then((m) => ({ default: m.StudioMindmapsPage })),
 );
+
+const MindmapPageLazy = React.lazy(() => import("./ui/views/MindmapPage").then((m) => ({ default: m.MindmapPage })));
 
 export const router = createBrowserRouter([
   {
@@ -59,6 +62,15 @@ export const router = createBrowserRouter([
       { path: "categories", element: <CategoriesPage /> },
       { path: "categories/:slug", element: <CategoryPage /> },
       { path: "publish", element: <Navigate to="/studio/notes" replace /> },
+      { path: "mindmaps", element: <MindmapsPage /> },
+      {
+        path: "mindmaps/:mindmapId",
+        element: (
+          <React.Suspense fallback={<div className="card p-8 text-sm text-[hsl(var(--muted))]">Loading mindmap…</div>}>
+            <MindmapPageLazy />
+          </React.Suspense>
+        ),
+      },
       { path: "roadmaps", element: <RoadmapsPage /> },
       { path: "roadmaps/:roadmapId", element: <RoadmapPage /> },
       { path: "roadmaps/:roadmapId/node/:nodeId", element: <RoadmapNodePage /> },

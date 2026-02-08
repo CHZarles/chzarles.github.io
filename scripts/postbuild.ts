@@ -25,6 +25,7 @@ async function main() {
   // categories (+ note counts)
   const counts = new Map<string, number>();
   for (const n of db.notes) {
+    if (n.draft) continue;
     for (const c of n.categories) counts.set(c, (counts.get(c) ?? 0) + 1);
   }
   const categories = db.categories
@@ -41,6 +42,22 @@ async function main() {
 
   // projects
   await writeJson(path.join(apiDir, "projects.json"), db.projects);
+
+  // mindmaps index + detail
+  const mindmapsIndex = db.mindmaps
+    .map((m) => ({
+      id: m.id,
+      title: m.title,
+      updated: m.updated,
+      format: m.format,
+      nodeCount: Array.isArray(m.nodes) ? m.nodes.length : 0,
+      edgeCount: Array.isArray(m.edges) ? m.edges.length : 0,
+    }))
+    .sort((a, b) => (a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : 0));
+  await writeJson(path.join(apiDir, "mindmaps.json"), mindmapsIndex);
+  for (const m of db.mindmaps) {
+    await writeJson(path.join(apiDir, "mindmaps", `${m.id}.json`), m);
+  }
 
   // roadmaps index + roadmap detail
   const roadmapsIndex = db.roadmaps.map((rm) => {
@@ -69,4 +86,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

@@ -1,4 +1,4 @@
-import { BookOpen, Compass, GitBranch, LayoutGrid, Search, Waypoints, X } from "lucide-react";
+import { BookOpen, Compass, GitBranch, LayoutGrid, Network, Search, Waypoints, X } from "lucide-react";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/api";
@@ -28,6 +28,8 @@ function iconFor(hit: SearchHit) {
       return <Waypoints className="h-4 w-4 opacity-85" />;
     case "project":
       return <GitBranch className="h-4 w-4 opacity-85" />;
+    case "mindmap":
+      return <Network className="h-4 w-4 opacity-85" />;
     default:
       return <Search className="h-4 w-4 opacity-85" />;
   }
@@ -99,7 +101,7 @@ export function CommandPalette(props: { onClose: () => void }) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索 Notes / Categories / Roadmaps / Nodes / Projects"
+            placeholder="搜索 Notes / Categories / Roadmaps / Nodes / Mindmaps / Projects"
             className="w-full bg-transparent py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))]"
           />
           <span className="kbd hidden sm:inline-flex">Esc</span>

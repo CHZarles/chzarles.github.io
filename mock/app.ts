@@ -1,10 +1,19 @@
 import cors from "cors";
 import express from "express";
+import type { NextFunction, Request, Response } from "express";
 import { loadDb, toNoteListItem } from "./db";
 
 export function createMockApp(options?: { enableCors?: boolean }) {
   const app = express();
   if (options?.enableCors) app.use(cors());
+
+  function asyncHandler(
+    fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>,
+  ) {
+    return (req: Request, res: Response, next: NextFunction) => {
+      Promise.resolve(fn(req, res, next)).catch(next);
+    };
+  }
 
   function stripJsonSuffix(raw: string | undefined): string {
     return (raw ?? "").replace(/\.json$/i, "");
@@ -12,15 +21,16 @@ export function createMockApp(options?: { enableCors?: boolean }) {
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
-  app.get(["/api/profile", "/api/profile.json"], async (_req, res) => {
+  app.get(["/api/profile", "/api/profile.json"], asyncHandler(async (_req, res) => {
     const db = await loadDb();
     res.json(db.profile);
-  });
+  }));
 
-  app.get(["/api/categories", "/api/categories.json"], async (_req, res) => {
+  app.get(["/api/categories", "/api/categories.json"], asyncHandler(async (_req, res) => {
     const db = await loadDb();
     const counts = new Map<string, number>();
     for (const n of db.notes) {
+      if (n.draft) continue;
       for (const c of n.categories) counts.set(c, (counts.get(c) ?? 0) + 1);
     }
 
@@ -29,9 +39,9 @@ export function createMockApp(options?: { enableCors?: boolean }) {
         .map((c) => ({ ...c, noteCount: counts.get(c.id) ?? 0 }))
         .sort((a, b) => b.noteCount - a.noteCount),
     );
-  });
+  }));
 
-  app.get(["/api/categories/:id", "/api/categories/:id.json"], async (req, res) => {
+  app.get(["/api/categories/:id", "/api/categories/:id.json"], asyncHandler(async (req, res) => {
     const db = await loadDb();
     const id = stripJsonSuffix(req.params.id);
     const category = db.categories.find((c) => c.id === id);
@@ -39,9 +49,9 @@ export function createMockApp(options?: { enableCors?: boolean }) {
 
     const notes = db.notes.filter((n) => n.categories.includes(id));
     res.json({ category, notes: notes.map(toNoteListItem) });
-  });
+  }));
 
-  app.get(["/api/notes", "/api/notes.json"], async (req, res) => {
+  app.get(["/api/notes", "/api/notes.json"], asyncHandler(async (req, res) => {
     const db = await loadDb();
     const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
     const category = typeof req.query.category === "string" ? req.query.category : "";
@@ -60,30 +70,53 @@ export function createMockApp(options?: { enableCors?: boolean }) {
     });
 
     res.json(filtered.map(toNoteListItem));
-  });
+  }));
 
-  app.get(["/api/notes/:id", "/api/notes/:id.json"], async (req, res) => {
+  app.get(["/api/notes/:id", "/api/notes/:id.json"], asyncHandler(async (req, res) => {
     const db = await loadDb();
     const id = stripJsonSuffix(req.params.id);
     const note = db.notes.find((n) => n.id === id);
     if (!note) return res.status(404).json({ error: "note_not_found" });
     res.json(note);
-  });
+  }));
 
-  app.get(["/api/projects", "/api/projects.json"], async (_req, res) => {
+  app.get(["/api/projects", "/api/projects.json"], asyncHandler(async (_req, res) => {
     const db = await loadDb();
     res.json(db.projects);
-  });
+  }));
 
-  app.get(["/api/projects/:id", "/api/projects/:id.json"], async (req, res) => {
+  app.get(["/api/projects/:id", "/api/projects/:id.json"], asyncHandler(async (req, res) => {
     const db = await loadDb();
     const id = stripJsonSuffix(req.params.id);
     const p = db.projects.find((x) => x.id === id);
     if (!p) return res.status(404).json({ error: "project_not_found" });
     res.json(p);
-  });
+  }));
 
-  app.get(["/api/roadmaps", "/api/roadmaps.json"], async (_req, res) => {
+  app.get(["/api/mindmaps", "/api/mindmaps.json"], asyncHandler(async (_req, res) => {
+    const db = await loadDb();
+    const list = db.mindmaps
+      .map((m) => ({
+        id: m.id,
+        title: m.title,
+        updated: m.updated,
+        format: m.format,
+        nodeCount: Array.isArray(m.nodes) ? m.nodes.length : 0,
+        edgeCount: Array.isArray(m.edges) ? m.edges.length : 0,
+      }))
+      .sort((a, b) => (a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : 0));
+    res.json(list);
+  }));
+
+  app.get(["/api/mindmaps/:id", "/api/mindmaps/:id.json"], asyncHandler(async (req, res) => {
+    const db = await loadDb();
+    const id = stripJsonSuffix(req.params.id);
+    const mindmap = db.mindmaps.find((m) => m.id === id);
+    if (!mindmap) return res.status(404).json({ error: "mindmap_not_found" });
+    res.json(mindmap);
+  }));
+
+  app.get(["/api/roadmaps", "/api/roadmaps.json"], asyncHandler(async (_req, res) => {
     const db = await loadDb();
     const list = db.roadmaps.map((rm) => {
       const all = [...db.nodesIndex.values()].filter((x) => x.roadmapId === rm.id);
@@ -91,24 +124,24 @@ export function createMockApp(options?: { enableCors?: boolean }) {
       return { id: rm.id, title: rm.title, description: rm.description, theme: rm.theme, progress: { done, total: all.length } };
     });
     res.json(list);
-  });
+  }));
 
-  app.get(["/api/roadmaps/:id", "/api/roadmaps/:id.json"], async (req, res) => {
+  app.get(["/api/roadmaps/:id", "/api/roadmaps/:id.json"], asyncHandler(async (req, res) => {
     const db = await loadDb();
     const id = stripJsonSuffix(req.params.id);
     const rm = db.roadmaps.find((r) => r.id === id);
     if (!rm) return res.status(404).json({ error: "roadmap_not_found" });
     res.json(rm);
-  });
+  }));
 
-  app.get(["/api/nodes", "/api/nodes.json"], async (_req, res) => {
+  app.get(["/api/nodes", "/api/nodes.json"], asyncHandler(async (_req, res) => {
     const db = await loadDb();
     res.json([...db.nodesIndex.values()]);
-  });
+  }));
 
   app.get(
     ["/api/roadmaps/:roadmapId/nodes/:nodeId", "/api/roadmaps/:roadmapId/nodes/:nodeId.json"],
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       const db = await loadDb();
       const roadmapId = stripJsonSuffix(req.params.roadmapId);
       const nodeId = stripJsonSuffix(req.params.nodeId);
@@ -120,10 +153,10 @@ export function createMockApp(options?: { enableCors?: boolean }) {
         .map(toNoteListItem);
 
       res.json({ node: entry, notes });
-    },
+    }),
   );
 
-  app.get("/api/search", async (req, res) => {
+  app.get("/api/search", asyncHandler(async (req, res) => {
     const db = await loadDb();
     const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
 
@@ -180,6 +213,13 @@ export function createMockApp(options?: { enableCors?: boolean }) {
     }
 
     res.json(hits);
+  }));
+
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    // eslint-disable-next-line no-console
+    console.error(err);
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "internal_error", message });
   });
 
   return app;

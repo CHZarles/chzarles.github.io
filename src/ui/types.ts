@@ -74,6 +74,8 @@ export type NoteListItem = {
   categories: string[];
   tags: string[];
   nodes: NoteNodeRef[];
+  mindmaps: MindmapRef[];
+  draft?: boolean;
   cover?: string;
 };
 
@@ -101,6 +103,30 @@ export type RoadmapNodeDetail = {
   notes: NoteListItem[];
 };
 
+export type MindmapListItem = {
+  id: string;
+  title: string;
+  updated: string;
+  format?: string;
+  nodeCount?: number;
+  edgeCount?: number;
+};
+
+export type Mindmap = {
+  id: string;
+  title: string;
+  updated: string;
+  format: string;
+  nodes: unknown[];
+  edges: unknown[];
+  viewport?: unknown;
+};
+
+export type MindmapRef = {
+  id: string;
+  title: string;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -113,7 +139,7 @@ export type Project = {
 };
 
 export type SearchHit = {
-  type: "note" | "category" | "roadmap" | "node" | "project";
+  type: "note" | "category" | "roadmap" | "node" | "project" | "mindmap";
   title: string;
   subtitle?: string;
   href: string;

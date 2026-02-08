@@ -6,6 +6,7 @@ function clamp(n: number, min: number, max: number) {
 
 export function HeroBackdrop(props: {
   imageUrl?: string;
+  preload?: boolean;
   blurPx?: number;
   opacity?: number;
   position?: string;
@@ -24,7 +25,11 @@ export function HeroBackdrop(props: {
 
   const filter = React.useMemo(() => {
     if (!props.imageUrl) return undefined;
-    return `blur(${blurPx}px) saturate(${saturate}) contrast(${contrast})`;
+    const parts: string[] = [];
+    if (blurPx > 0) parts.push(`blur(${blurPx}px)`);
+    if (saturate !== 1) parts.push(`saturate(${saturate})`);
+    if (contrast !== 1) parts.push(`contrast(${contrast})`);
+    return parts.length ? parts.join(" ") : undefined;
   }, [props.imageUrl, blurPx, saturate, contrast]);
 
   return (
@@ -34,11 +39,13 @@ export function HeroBackdrop(props: {
           src={props.imageUrl}
           alt=""
           decoding="async"
+          loading="eager"
+          fetchPriority={props.preload === false ? "auto" : "high"}
           className="absolute inset-0 h-full w-full object-cover"
           style={{
             opacity,
             filter,
-            transform: "scale(1.08)",
+            transform: blurPx > 0 ? "scale(1.08)" : "scale(1)",
             objectPosition: position,
           }}
         />

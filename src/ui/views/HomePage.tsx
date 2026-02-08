@@ -81,6 +81,7 @@ export function HomePage() {
         >
           <HeroBackdrop
             imageUrl={profile?.hero?.imageUrl}
+            preload={profile?.hero?.preload}
             blurPx={profile?.hero?.blurPx}
             opacity={profile?.hero?.opacity}
             position={profile?.hero?.position}

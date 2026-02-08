@@ -15,6 +15,22 @@ import type {
 
 const DEFAULT_TIMEOUT_MS = 12_000;
 
+function readEmbeddedProfile(): Profile | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as { __HB_PROFILE__?: unknown };
+  if (w.__HB_PROFILE__ && typeof w.__HB_PROFILE__ === "object") return w.__HB_PROFILE__ as Profile;
+
+  const el = document.getElementById("hb-profile");
+  if (!el?.textContent) return null;
+  try {
+    const p = JSON.parse(el.textContent) as Profile;
+    w.__HB_PROFILE__ = p;
+    return p;
+  } catch {
+    return null;
+  }
+}
+
 async function apiFetch<T>(input: string, opts?: { timeoutMs?: number }): Promise<T> {
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const controller = new AbortController();
@@ -107,7 +123,11 @@ function filterNotes(all: NoteListItem[], params?: { q?: string; category?: stri
 }
 
 export const api = {
-  profile: () => apiFetchCached<Profile>("/api/profile.json"),
+  profile: () => {
+    const embedded = readEmbeddedProfile();
+    if (embedded) return Promise.resolve(embedded);
+    return apiFetchCached<Profile>("/api/profile.json");
+  },
   categories: () => apiFetchCached<Category[]>("/api/categories.json"),
   category: async (id: string) => {
     const [categories, notes] = await Promise.all([apiFetchCached<Category[]>("/api/categories.json"), getNotesIndex()]);

@@ -7,6 +7,7 @@ export type Profile = {
   links?: Array<{ label: string; href: string }>;
   hero?: {
     imageUrl?: string;
+    preload?: boolean; // default true; preloads hero image on homepage
     blurPx?: number;
     opacity?: number;
     position?: string; // CSS object-position

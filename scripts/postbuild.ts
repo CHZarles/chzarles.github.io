@@ -11,6 +11,48 @@ async function writeJson(outPath: string, data: unknown) {
   await fs.writeFile(outPath, JSON.stringify(data), "utf8");
 }
 
+function escapeJsonForHtmlScript(raw: string): string {
+  // Prevent breaking out of <script> with `</script>` sequences.
+  return raw.replace(/</g, "\\u003c");
+}
+
+function injectProfileIntoIndexHtml(indexHtml: string, profile: unknown): string {
+  if (indexHtml.includes('id="hb-profile"')) return indexHtml;
+  if (!indexHtml.includes("</head>")) return indexHtml;
+
+  const profileJson = escapeJsonForHtmlScript(JSON.stringify(profile));
+
+  const snippet =
+    `\n    <script id="hb-profile" type="application/json">${profileJson}</script>\n` +
+    `    <script>\n` +
+    `      (() => {\n` +
+    `        try {\n` +
+    `          const el = document.getElementById("hb-profile");\n` +
+    `          if (!el) return;\n` +
+    `          const profile = JSON.parse(el.textContent || "null");\n` +
+    `          window.__HB_PROFILE__ = profile;\n` +
+    `\n` +
+    `          const path = (location.pathname || "/").replace(/\\/index\\.html$/, "/");\n` +
+    `          if (path !== "/") return;\n` +
+    `\n` +
+    `          const hero = profile && profile.hero;\n` +
+    `          if (!hero || hero.preload === false || !hero.imageUrl) return;\n` +
+    `          const href = new URL(hero.imageUrl, location.origin + "/").toString();\n` +
+    `          const link = document.createElement("link");\n` +
+    `          link.rel = "preload";\n` +
+    `          link.as = "image";\n` +
+    `          link.href = href;\n` +
+    `          link.setAttribute("fetchpriority", "high");\n` +
+    `          document.head.appendChild(link);\n` +
+    `        } catch {\n` +
+    `          // ignore\n` +
+    `        }\n` +
+    `      })();\n` +
+    `    </script>\n`;
+
+  return indexHtml.replace("</head>", `${snippet}  </head>`);
+}
+
 async function main() {
   const distDir = path.join(process.cwd(), "dist");
   const apiDir = path.join(distDir, "api");
@@ -76,7 +118,9 @@ async function main() {
 
   // GitHub Pages SPA fallback
   const indexPath = path.join(distDir, "index.html");
-  const indexHtml = await fs.readFile(indexPath, "utf8");
+  const indexHtmlRaw = await fs.readFile(indexPath, "utf8");
+  const indexHtml = injectProfileIntoIndexHtml(indexHtmlRaw, db.profile);
+  if (indexHtml !== indexHtmlRaw) await fs.writeFile(indexPath, indexHtml, "utf8");
   await fs.writeFile(path.join(distDir, "404.html"), indexHtml, "utf8");
   await fs.writeFile(path.join(distDir, ".nojekyll"), "", "utf8");
 }

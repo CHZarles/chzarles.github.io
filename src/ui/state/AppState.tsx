@@ -41,8 +41,24 @@ function readAccent(): string | null {
   return safeStorageGetItem("hyperblog.accent");
 }
 
+function readEmbeddedProfile(): Profile | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as { __HB_PROFILE__?: unknown };
+  if (w.__HB_PROFILE__ && typeof w.__HB_PROFILE__ === "object") return w.__HB_PROFILE__ as Profile;
+
+  const el = document.getElementById("hb-profile");
+  if (!el?.textContent) return null;
+  try {
+    const p = JSON.parse(el.textContent) as Profile;
+    w.__HB_PROFILE__ = p;
+    return p;
+  } catch {
+    return null;
+  }
+}
+
 export function AppStateProvider(props: { children: React.ReactNode }) {
-  const [profile, setProfile] = React.useState<Profile | null>(null);
+  const [profile, setProfile] = React.useState<Profile | null>(() => readEmbeddedProfile());
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [theme, setThemeState] = React.useState<Theme>(() => {
     if (typeof window === "undefined") return "light";
@@ -50,7 +66,7 @@ export function AppStateProvider(props: { children: React.ReactNode }) {
   });
   const [accent, setAccentState] = React.useState<string>(() => {
     if (typeof window === "undefined") return "270 85% 45%";
-    return readAccent() ?? "270 85% 45%";
+    return readAccent() ?? readEmbeddedProfile()?.accent ?? "270 85% 45%";
   });
 
   React.useEffect(() => {

@@ -1,4 +1,4 @@
-import { Check, ExternalLink, Maximize2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, ExternalLink, Maximize2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import React from "react";
 import ReactFlow, {
   Background,
@@ -162,6 +162,123 @@ function buildNewMindmap(id: string): { nodes: MindNodeT[]; edges: MindEdgeT[]; 
   };
 }
 
+type LocalMindmapDraftV1 = {
+  v: 1;
+  savedAt: number; // epoch ms
+  mindmapId: string;
+  title: string;
+  nodes: unknown[];
+  edges: unknown[];
+  viewport: Viewport;
+};
+
+type LocalDraftIndexItem = {
+  key: string;
+  mindmapId: string;
+  title: string;
+  savedAt: number;
+  nodeCount: number;
+  edgeCount: number;
+};
+
+const DRAFT_MINDMAP_PREFIX = "hyperblog.studio.draft.mindmap:";
+
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeLocalStorageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+function safeLocalStorageKeys(): string[] {
+  try {
+    const out: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) out.push(k);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+function mindmapDraftKey(id: string): string {
+  return `${DRAFT_MINDMAP_PREFIX}${id}`;
+}
+
+function readLocalDraft(key: string): LocalMindmapDraftV1 | null {
+  const raw = safeLocalStorageGet(key);
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as LocalMindmapDraftV1;
+    if (!v || typeof v !== "object") return null;
+    if (v.v !== 1) return null;
+    if (typeof v.savedAt !== "number") return null;
+    if (typeof v.mindmapId !== "string") return null;
+    if (typeof v.title !== "string") return null;
+    if (!Array.isArray(v.nodes)) return null;
+    if (!Array.isArray(v.edges)) return null;
+    const vp = v.viewport as any;
+    if (!vp || typeof vp !== "object") return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function listLocalDraftIndex(): LocalDraftIndexItem[] {
+  const keys = safeLocalStorageKeys();
+  const drafts: LocalDraftIndexItem[] = [];
+  for (const key of keys) {
+    if (!key.startsWith(DRAFT_MINDMAP_PREFIX)) continue;
+    const d = readLocalDraft(key);
+    if (!d) continue;
+    drafts.push({
+      key,
+      mindmapId: d.mindmapId,
+      title: d.title.trim() || d.mindmapId,
+      savedAt: d.savedAt,
+      nodeCount: Array.isArray(d.nodes) ? d.nodes.length : 0,
+      edgeCount: Array.isArray(d.edges) ? d.edges.length : 0,
+    });
+  }
+  drafts.sort((a, b) => b.savedAt - a.savedAt);
+  return drafts;
+}
+
+function fmtRelative(ts: number): string {
+  const diff = Date.now() - ts;
+  if (!Number.isFinite(diff)) return "—";
+  if (diff < 15_000) return "just now";
+  if (diff < 60_000) return `${Math.round(diff / 1000)}s`;
+  if (diff < 60 * 60_000) return `${Math.round(diff / 60_000)}m`;
+  if (diff < 24 * 60 * 60_000) return `${Math.round(diff / 3_600_000)}h`;
+  try {
+    return new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(ts));
+  } catch {
+    return new Date(ts).toISOString().slice(0, 10);
+  }
+}
+
 export function StudioMindmapsPage() {
   const studio = useStudioState();
 
@@ -177,6 +294,9 @@ export function StudioMindmapsPage() {
   const [mindmapId, setMindmapId] = React.useState("");
   const [title, setTitle] = React.useState("");
   const [dirty, setDirty] = React.useState(false);
+  const [draftKey, setDraftKey] = React.useState<string | null>(null);
+  const [localSavedAt, setLocalSavedAt] = React.useState<number | null>(null);
+  const [localDrafts, setLocalDrafts] = React.useState<LocalDraftIndexItem[]>(() => listLocalDraftIndex());
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<MindNodeData>([]);
@@ -185,6 +305,20 @@ export function StudioMindmapsPage() {
   const [busy, setBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
+
+  const refreshDraftIndex = React.useCallback(() => {
+    setLocalDrafts(listLocalDraftIndex());
+  }, []);
+
+  React.useEffect(() => {
+    refreshDraftIndex();
+    const onStorage = (e: StorageEvent) => {
+      const k = e.key ?? "";
+      if (k.startsWith(DRAFT_MINDMAP_PREFIX)) refreshDraftIndex();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [refreshDraftIndex]);
 
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   const rfRef = React.useRef<ReactFlowInstance<MindNodeData> | null>(null);
@@ -263,6 +397,8 @@ export function StudioMindmapsPage() {
     if (!id) return;
     setMode("create");
     setMindmapId(id);
+    setDraftKey(mindmapDraftKey(id));
+    setLocalSavedAt(null);
     setTitle("");
     const fresh = buildNewMindmap(id);
     setNodes(fresh.nodes);
@@ -275,9 +411,20 @@ export function StudioMindmapsPage() {
   }, [dirty, setEdges, setNodes, setViewport]);
 
   const openMindmap = React.useCallback(
-    async (id: string) => {
+    async (id: string, opts?: { restoreLocal?: boolean }) => {
       if (!studio.token) return;
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
+
+      const dk = mindmapDraftKey(id);
+      setDraftKey(dk);
+      const local = readLocalDraft(dk);
+      const restore =
+        opts?.restoreLocal === true
+          ? Boolean(local)
+          : local
+            ? window.confirm(`Restore local draft saved ${fmtRelative(local.savedAt)} ago?`)
+            : false;
+
       setBusy(true);
       setNotice(null);
       setCommitUrl(null);
@@ -289,17 +436,30 @@ export function StudioMindmapsPage() {
         const input = res.mindmap.input;
         setMode("edit");
         setMindmapId(res.mindmap.id);
-        setTitle(input.title ?? "");
-
-        const nextNodes = normalizeNodes(input.nodes);
-        const nextEdges = normalizeEdges(input.edges);
-        const nextViewport = normalizeViewport(input.viewport);
-
-        setNodes(nextNodes);
-        setEdges(nextEdges);
-        setSelectedNodeId(nextNodes[0]?.id ?? null);
-        setDirty(false);
-        requestAnimationFrame(() => setViewport(nextViewport));
+        if (restore && local) {
+          const nextNodes = normalizeNodes(local.nodes);
+          const nextEdges = normalizeEdges(local.edges);
+          const nextViewport = normalizeViewport(local.viewport);
+          setTitle(local.title ?? "");
+          setNodes(nextNodes);
+          setEdges(nextEdges);
+          setSelectedNodeId(nextNodes[0]?.id ?? null);
+          setDirty(false);
+          setLocalSavedAt(local.savedAt);
+          setNotice(`Restored local draft (${fmtRelative(local.savedAt)} ago).`);
+          requestAnimationFrame(() => setViewport(nextViewport));
+        } else {
+          const nextNodes = normalizeNodes(input.nodes);
+          const nextEdges = normalizeEdges(input.edges);
+          const nextViewport = normalizeViewport(input.viewport);
+          setTitle(input.title ?? "");
+          setNodes(nextNodes);
+          setEdges(nextEdges);
+          setSelectedNodeId(nextNodes[0]?.id ?? null);
+          setDirty(false);
+          setLocalSavedAt(null);
+          requestAnimationFrame(() => setViewport(nextViewport));
+        }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         setNotice(`Open failed: ${msg}`);
@@ -310,7 +470,98 @@ export function StudioMindmapsPage() {
     [studio.token, dirty, setEdges, setNodes, setViewport],
   );
 
-  const save = React.useCallback(async () => {
+  const openLocalDraft = React.useCallback(
+    (item: LocalDraftIndexItem) => {
+      const d = readLocalDraft(item.key);
+      if (!d) {
+        refreshDraftIndex();
+        return;
+      }
+      if (dirty && !window.confirm("Discard unsaved changes?")) return;
+
+      const id = fitToMindmapId(d.mindmapId);
+      if (!id) {
+        setNotice("Invalid mindmap id in local draft.");
+        return;
+      }
+
+      const existsRemote = mindmaps.some((m) => m.id === id);
+      setMode(existsRemote ? "edit" : "create");
+      setMindmapId(id);
+      setDraftKey(item.key);
+      setTitle(d.title ?? "");
+
+      const nextNodes = normalizeNodes(d.nodes);
+      const nextEdges = normalizeEdges(d.edges);
+      const nextViewport = normalizeViewport(d.viewport);
+
+      setNodes(nextNodes);
+      setEdges(nextEdges);
+      setSelectedNodeId(nextNodes[0]?.id ?? null);
+      setDirty(false);
+      setLocalSavedAt(d.savedAt);
+      setNotice(`Opened local draft (${fmtRelative(d.savedAt)} ago).`);
+      setCommitUrl(null);
+      requestAnimationFrame(() => setViewport(nextViewport));
+    },
+    [dirty, mindmaps, refreshDraftIndex, setEdges, setNodes, setViewport],
+  );
+
+  const deleteLocalDraft = React.useCallback(
+    (key: string) => {
+      safeLocalStorageRemove(key);
+      if (draftKey === key) setLocalSavedAt(null);
+      refreshDraftIndex();
+    },
+    [draftKey, refreshDraftIndex],
+  );
+
+  const saveLocal = React.useCallback(
+    (opts?: { quiet?: boolean }) => {
+      const id = fitToMindmapId(mindmapId);
+      if (!id) {
+        if (!opts?.quiet) setNotice("Missing or invalid mindmap id.");
+        return;
+      }
+
+      const key = mindmapDraftKey(id);
+      if (draftKey !== key) setDraftKey(key);
+
+      const viewport = rfRef.current?.getViewport() ?? { x: 0, y: 0, zoom: 1 };
+      const payload: LocalMindmapDraftV1 = {
+        v: 1,
+        savedAt: Date.now(),
+        mindmapId: id,
+        title,
+        nodes: persistNodes(nodes as MindNodeT[]),
+        edges: persistEdges(edges as MindEdgeT[]),
+        viewport,
+      };
+
+      const ok = safeLocalStorageSet(key, JSON.stringify(payload));
+      if (!ok) {
+        setNotice("Local save failed (storage unavailable or full).");
+        return;
+      }
+
+      setLocalSavedAt(payload.savedAt);
+      setDirty(false);
+      setCommitUrl(null);
+      refreshDraftIndex();
+      if (!opts?.quiet) setNotice(`Saved locally (${fmtRelative(payload.savedAt)}).`);
+    },
+    [mindmapId, title, nodes, edges, draftKey, refreshDraftIndex],
+  );
+
+  React.useEffect(() => {
+    if (!dirty) return;
+    const t = window.setTimeout(() => {
+      saveLocal({ quiet: true });
+    }, 650);
+    return () => window.clearTimeout(t);
+  }, [dirty, saveLocal, nodes, edges, title, mindmapId]);
+
+  const publish = React.useCallback(async () => {
     if (!studio.token) return;
     const id = fitToMindmapId(mindmapId);
     if (!id) {
@@ -345,19 +596,27 @@ export function StudioMindmapsPage() {
           mindmap: { id: string; path: string };
           commit: { sha: string; url: string };
         }>({ path: `/api/admin/mindmaps/${encodeURIComponent(id)}`, method: "PATCH", token: studio.token, body: payload });
-        setNotice(`Saved: ${res.mindmap.id}`);
+        setNotice(`Updated: ${res.mindmap.id}`);
         setCommitUrl(res.commit.url);
       }
 
       setDirty(false);
+
+      const dk = draftKey ?? mindmapDraftKey(id);
+      safeLocalStorageRemove(dk);
+      setDraftKey(mindmapDraftKey(id));
+      setLocalSavedAt(null);
+      refreshDraftIndex();
+
+      void studio.refreshMe();
       void refreshList();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setNotice(`Save failed: ${msg}`);
+      setNotice(`Publish failed: ${msg}`);
     } finally {
       setBusy(false);
     }
-  }, [studio.token, mode, mindmapId, title, nodes, edges, refreshList]);
+  }, [studio.token, studio.refreshMe, mode, mindmapId, title, nodes, edges, draftKey, refreshDraftIndex, refreshList]);
 
   const del = React.useCallback(async () => {
     if (!studio.token) return;
@@ -377,6 +636,10 @@ export function StudioMindmapsPage() {
       });
       setNotice("Trashed.");
       setCommitUrl(res.commit.url);
+      safeLocalStorageRemove(mindmapDraftKey(id));
+      refreshDraftIndex();
+      setDraftKey(null);
+      setLocalSavedAt(null);
       setMode("create");
       setMindmapId("");
       setTitle("");
@@ -391,7 +654,7 @@ export function StudioMindmapsPage() {
     } finally {
       setBusy(false);
     }
-  }, [studio.token, mindmapId, setEdges, setNodes, refreshList]);
+  }, [studio.token, mindmapId, setEdges, setNodes, refreshDraftIndex, refreshList]);
 
   const onNodesChangeDirty = React.useCallback(
     (changes: NodeChange[]) => {
@@ -434,14 +697,22 @@ export function StudioMindmapsPage() {
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const isSave = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s";
-      if (!isSave) return;
-      e.preventDefault();
-      void save();
+      const cmd = e.ctrlKey || e.metaKey;
+      if (!cmd) return;
+      const key = e.key.toLowerCase();
+      if (key === "s") {
+        e.preventDefault();
+        saveLocal();
+        return;
+      }
+      if (key === "enter") {
+        e.preventDefault();
+        void publish();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [save]);
+  }, [publish, saveLocal]);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_360px]">
@@ -480,6 +751,71 @@ export function StudioMindmapsPage() {
         </div>
 
         <div className="min-h-0 overflow-auto px-2 pb-4">
+          {localDrafts.length ? (
+            <div className="pb-3">
+              <div className="flex items-center justify-between px-3 pb-1">
+                <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">
+                  LOCAL DRAFTS <span className="opacity-70">· {localDrafts.length}</span>
+                </div>
+                <button
+                  type="button"
+                  className="text-[10px] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+                  onClick={() => {
+                    const ok = window.confirm(`Delete all local drafts (${localDrafts.length})?`);
+                    if (!ok) return;
+                    for (const d of localDrafts) safeLocalStorageRemove(d.key);
+                    refreshDraftIndex();
+                    setNotice("Cleared local drafts.");
+                    setCommitUrl(null);
+                    setLocalSavedAt(null);
+                  }}
+                  title="Delete all local drafts"
+                >
+                  Clear
+                </button>
+              </div>
+              <ul className="grid gap-1">
+                {localDrafts.slice(0, 8).map((d) => {
+                  const active = draftKey === d.key;
+                  const sub = `${d.mindmapId} · ${d.nodeCount}N/${d.edgeCount}E · saved ${fmtRelative(d.savedAt)}`;
+                  return (
+                    <li key={d.key} className="group flex items-stretch gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openLocalDraft(d)}
+                        className={[
+                          "flex-1 rounded-xl px-3 py-2 text-left transition",
+                          active ? "bg-[hsl(var(--card2))] text-[hsl(var(--fg))]" : "hover:bg-[hsl(var(--card2))]",
+                        ].join(" ")}
+                        title={`Local draft for ${d.mindmapId}`}
+                      >
+                        <div className="truncate text-sm font-medium tracking-tight">{d.title}</div>
+                        <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">{sub}</div>
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 text-[hsl(var(--muted))] opacity-0 transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] group-hover:opacity-100"
+                        title="Delete local draft"
+                        onClick={() => {
+                          const ok = window.confirm(`Delete local draft "${d.title}"?`);
+                          if (!ok) return;
+                          deleteLocalDraft(d.key);
+                          setNotice("Deleted local draft.");
+                          setCommitUrl(null);
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {localDrafts.length > 8 ? (
+                <div className="mt-2 px-3 text-[10px] text-[hsl(var(--muted))]">+ {localDrafts.length - 8} more in storage</div>
+              ) : null}
+              <div className="mt-3 h-px bg-[hsl(var(--border))]" />
+            </div>
+          ) : null}
           <ul className="grid gap-1">
             {filtered.map((m) => {
               const active = mode === "edit" && mindmapId === m.id;
@@ -522,7 +858,16 @@ export function StudioMindmapsPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="truncate text-sm font-semibold tracking-tight">{mindmapId || "Mindmap"}</div>
-              {dirty ? <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span> : null}
+              {dirty ? (
+                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
+              ) : localSavedAt ? (
+                <span
+                  className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium"
+                  title={`Saved locally ${fmtRelative(localSavedAt)} ago`}
+                >
+                  saved local
+                </span>
+              ) : null}
             </div>
             {studio.me ? (
               <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">
@@ -567,7 +912,18 @@ export function StudioMindmapsPage() {
 
             <button
               type="button"
-              onClick={() => void save()}
+              onClick={() => saveLocal()}
+              disabled={busy || !mindmapId}
+              className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+              title="Save locally (⌘S / Ctrl+S)"
+            >
+              <Check className="h-3.5 w-3.5 opacity-85" />
+              Save local
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void publish()}
               disabled={!studio.token || busy || !mindmapId}
               className={[
                 "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
@@ -575,10 +931,10 @@ export function StudioMindmapsPage() {
                   ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
                   : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
               ].join(" ")}
-              title="Save (⌘S / Ctrl+S)"
+              title="Publish (⌘Enter / Ctrl+Enter)"
             >
-              <Check className="h-3.5 w-3.5 opacity-85" />
-              {mode === "create" ? "Publish" : "Save"}
+              <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
+              {mode === "create" ? "Publish" : "Update"}
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { ArrowDownUp, ArrowLeftRight, Check, ExternalLink, LayoutList, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowDownUp, ArrowLeftRight, ArrowUpRight, Check, ExternalLink, LayoutList, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import React from "react";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
@@ -50,6 +50,109 @@ function safeRoadmapFromYaml(raw: string): PreviewState {
   return { ok: true, roadmap: obj as Roadmap };
 }
 
+type LocalRoadmapDraftV1 = {
+  v: 1;
+  savedAt: number; // epoch ms
+  roadmapId: string;
+  title: string;
+  yaml: string;
+};
+
+type LocalDraftIndexItem = {
+  key: string;
+  roadmapId: string;
+  title: string;
+  savedAt: number;
+};
+
+const DRAFT_ROADMAP_PREFIX = "hyperblog.studio.draft.roadmap:";
+
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeLocalStorageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+function safeLocalStorageKeys(): string[] {
+  try {
+    const out: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) out.push(k);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+function roadmapDraftKey(roadmapId: string): string {
+  return `${DRAFT_ROADMAP_PREFIX}${roadmapId}`;
+}
+
+function readLocalDraft(key: string): LocalRoadmapDraftV1 | null {
+  const raw = safeLocalStorageGet(key);
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as LocalRoadmapDraftV1;
+    if (!v || typeof v !== "object") return null;
+    if (v.v !== 1) return null;
+    if (typeof v.savedAt !== "number") return null;
+    if (typeof v.roadmapId !== "string") return null;
+    if (typeof v.title !== "string") return null;
+    if (typeof v.yaml !== "string") return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function listLocalDraftIndex(): LocalDraftIndexItem[] {
+  const keys = safeLocalStorageKeys();
+  const drafts: LocalDraftIndexItem[] = [];
+  for (const key of keys) {
+    if (!key.startsWith(DRAFT_ROADMAP_PREFIX)) continue;
+    const d = readLocalDraft(key);
+    if (!d) continue;
+    drafts.push({ key, roadmapId: d.roadmapId, title: d.title.trim() || d.roadmapId, savedAt: d.savedAt });
+  }
+  drafts.sort((a, b) => b.savedAt - a.savedAt);
+  return drafts;
+}
+
+function fmtRelative(ts: number): string {
+  const diff = Date.now() - ts;
+  if (!Number.isFinite(diff)) return "—";
+  if (diff < 15_000) return "just now";
+  if (diff < 60_000) return `${Math.round(diff / 1000)}s`;
+  if (diff < 60 * 60_000) return `${Math.round(diff / 60_000)}m`;
+  if (diff < 24 * 60 * 60_000) return `${Math.round(diff / 3_600_000)}h`;
+  try {
+    return new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(ts));
+  } catch {
+    return new Date(ts).toISOString().slice(0, 10);
+  }
+}
+
 export function StudioRoadmapsPage() {
   const studio = useStudioState();
 
@@ -62,6 +165,9 @@ export function StudioRoadmapsPage() {
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [yamlText, setYamlText] = React.useState("");
   const [dirty, setDirty] = React.useState(false);
+  const [draftKey, setDraftKey] = React.useState<string | null>(null);
+  const [localSavedAt, setLocalSavedAt] = React.useState<number | null>(null);
+  const [localDrafts, setLocalDrafts] = React.useState<LocalDraftIndexItem[]>(() => listLocalDraftIndex());
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
   const [layout, setLayout] = React.useState<"horizontal" | "vertical">("horizontal");
   const [outlineOpen, setOutlineOpen] = React.useState(false);
@@ -69,6 +175,20 @@ export function StudioRoadmapsPage() {
   const [busy, setBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
+
+  const refreshDraftIndex = React.useCallback(() => {
+    setLocalDrafts(listLocalDraftIndex());
+  }, []);
+
+  React.useEffect(() => {
+    refreshDraftIndex();
+    const onStorage = (e: StorageEvent) => {
+      const k = e.key ?? "";
+      if (k.startsWith(DRAFT_ROADMAP_PREFIX)) refreshDraftIndex();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [refreshDraftIndex]);
 
   const refreshList = React.useCallback(
     async (opts?: { append?: boolean }) => {
@@ -115,6 +235,13 @@ export function StudioRoadmapsPage() {
   const openRoadmap = React.useCallback(
     async (id: string) => {
       if (!studio.token) return;
+      if (dirty && !window.confirm("Discard unsaved changes?")) return;
+
+      const dk = roadmapDraftKey(id);
+      setDraftKey(dk);
+      const local = readLocalDraft(dk);
+      const restore = local ? window.confirm(`Restore local draft saved ${fmtRelative(local.savedAt)} ago?`) : false;
+
       setBusy(true);
       setNotice(null);
       setCommitUrl(null);
@@ -124,10 +251,17 @@ export function StudioRoadmapsPage() {
           token: studio.token,
         });
         setActiveId(res.roadmap.id);
-        setYamlText(res.roadmap.yaml ?? "");
+        const nextYaml = restore && local ? local.yaml ?? "" : (res.roadmap.yaml ?? "");
+        setYamlText(nextYaml);
         setDirty(false);
+        if (restore && local) {
+          setLocalSavedAt(local.savedAt);
+          setNotice(`Restored local draft (${fmtRelative(local.savedAt)} ago).`);
+        } else {
+          setLocalSavedAt(null);
+        }
 
-        const parsed = safeRoadmapFromYaml(res.roadmap.yaml ?? "");
+        const parsed = safeRoadmapFromYaml(nextYaml);
         setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
         setOutlineOpen(false);
       } catch (err: unknown) {
@@ -137,23 +271,94 @@ export function StudioRoadmapsPage() {
         setBusy(false);
       }
     },
-    [studio.token],
+    [studio.token, dirty],
   );
 
   const newRoadmap = React.useCallback(() => {
+    if (dirty && !window.confirm("Discard unsaved changes?")) return;
     const id = window.prompt("Roadmap id (a-z0-9-)", "");
     const rid = String(id ?? "").trim().toLowerCase();
     if (!rid) return;
+    setDraftKey(roadmapDraftKey(rid));
     setActiveId(rid);
     setYamlText(emptyRoadmapYaml(rid));
     setDirty(true);
+    setLocalSavedAt(null);
     setNotice(null);
     setCommitUrl(null);
     setSelectedNodeId("foundations");
     setOutlineOpen(false);
-  }, []);
+  }, [dirty]);
 
-  const save = React.useCallback(async () => {
+  const openLocalDraft = React.useCallback(
+    (item: LocalDraftIndexItem) => {
+      const d = readLocalDraft(item.key);
+      if (!d) {
+        refreshDraftIndex();
+        return;
+      }
+      if (dirty && !window.confirm("Discard unsaved changes?")) return;
+
+      setDraftKey(item.key);
+      setActiveId(d.roadmapId);
+      setYamlText(d.yaml ?? "");
+      setDirty(false);
+      setLocalSavedAt(d.savedAt);
+      setNotice(`Opened local draft (${fmtRelative(d.savedAt)} ago).`);
+      setCommitUrl(null);
+
+      const parsed = safeRoadmapFromYaml(d.yaml ?? "");
+      setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
+      setOutlineOpen(false);
+    },
+    [dirty, refreshDraftIndex],
+  );
+
+  const deleteLocalDraft = React.useCallback(
+    (key: string) => {
+      safeLocalStorageRemove(key);
+      if (draftKey === key) setLocalSavedAt(null);
+      refreshDraftIndex();
+    },
+    [draftKey, refreshDraftIndex],
+  );
+
+  const saveLocal = React.useCallback(
+    (opts?: { quiet?: boolean }) => {
+      if (!activeId) {
+        setNotice("Select a roadmap first.");
+        return;
+      }
+
+      const key = roadmapDraftKey(activeId);
+      if (draftKey !== key) setDraftKey(key);
+
+      const title = preview.ok ? String(preview.roadmap.title ?? "").trim() || activeId : activeId;
+      const payload: LocalRoadmapDraftV1 = { v: 1, savedAt: Date.now(), roadmapId: activeId, title, yaml: yamlText };
+      const ok = safeLocalStorageSet(key, JSON.stringify(payload));
+      if (!ok) {
+        setNotice("Local save failed (storage unavailable or full).");
+        return;
+      }
+
+      setLocalSavedAt(payload.savedAt);
+      setDirty(false);
+      setCommitUrl(null);
+      refreshDraftIndex();
+      if (!opts?.quiet) setNotice(`Saved locally (${fmtRelative(payload.savedAt)}).`);
+    },
+    [activeId, draftKey, preview, refreshDraftIndex, yamlText],
+  );
+
+  React.useEffect(() => {
+    if (!dirty) return;
+    const t = window.setTimeout(() => {
+      saveLocal({ quiet: true });
+    }, 650);
+    return () => window.clearTimeout(t);
+  }, [dirty, saveLocal, yamlText]);
+
+  const publish = React.useCallback(async () => {
     if (!studio.token) return;
     if (!activeId) {
       setNotice("Missing roadmap id.");
@@ -163,28 +368,51 @@ export function StudioRoadmapsPage() {
       setNotice("Empty YAML.");
       return;
     }
+    if (!preview.ok) {
+      setNotice(`YAML error: ${preview.error}`);
+      return;
+    }
+
+    const parsedId = String(preview.roadmap.id ?? "").trim().toLowerCase();
+    if (parsedId && parsedId !== activeId) {
+      setNotice(`YAML id mismatch: expected ${activeId}, got ${parsedId}`);
+      return;
+    }
 
     setBusy(true);
     setNotice(null);
     setCommitUrl(null);
     try {
+      const title = String(preview.roadmap.title ?? "").trim() || activeId;
+      const first = `roadmap: ${title}`;
+      const subject = first.length > 72 ? `${first.slice(0, 71)}…` : first;
+      const message = `${subject}\n\nid: ${activeId}`;
+
       const res = await publisherFetchJson<{ ok: true; roadmap: { id: string; path: string }; commit: { sha: string; url: string } }>({
         path: `/api/admin/roadmaps/${encodeURIComponent(activeId)}`,
         method: "PUT",
         token: studio.token,
-        body: { yaml: yamlText },
+        body: { yaml: yamlText, message },
       });
-      setNotice(`Saved: ${res.roadmap.id}`);
+      setNotice(`Published: ${res.roadmap.id}`);
       setCommitUrl(res.commit.url);
       setDirty(false);
+
+      const dk = draftKey ?? roadmapDraftKey(activeId);
+      safeLocalStorageRemove(dk);
+      setDraftKey(roadmapDraftKey(activeId));
+      setLocalSavedAt(null);
+      refreshDraftIndex();
+
+      void studio.refreshMe();
       void refreshList();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setNotice(`Save failed: ${msg}`);
+      setNotice(`Publish failed: ${msg}`);
     } finally {
       setBusy(false);
     }
-  }, [studio.token, activeId, yamlText, refreshList]);
+  }, [studio.token, studio.refreshMe, activeId, yamlText, preview, draftKey, refreshDraftIndex, refreshList]);
 
   const del = React.useCallback(async () => {
     if (!studio.token || !activeId) return;
@@ -213,6 +441,25 @@ export function StudioRoadmapsPage() {
       setBusy(false);
     }
   }, [studio.token, activeId, refreshList]);
+
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const cmd = e.ctrlKey || e.metaKey;
+      if (!cmd) return;
+      const key = e.key.toLowerCase();
+      if (key === "s") {
+        e.preventDefault();
+        saveLocal();
+        return;
+      }
+      if (key === "enter") {
+        e.preventDefault();
+        void publish();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [publish, saveLocal]);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_520px]">
@@ -251,6 +498,71 @@ export function StudioRoadmapsPage() {
         </div>
 
         <div className="min-h-0 overflow-auto px-2 pb-4">
+          {localDrafts.length ? (
+            <div className="pb-3">
+              <div className="flex items-center justify-between px-3 pb-1">
+                <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">
+                  LOCAL DRAFTS <span className="opacity-70">· {localDrafts.length}</span>
+                </div>
+                <button
+                  type="button"
+                  className="text-[10px] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+                  onClick={() => {
+                    const ok = window.confirm(`Delete all local drafts (${localDrafts.length})?`);
+                    if (!ok) return;
+                    for (const d of localDrafts) safeLocalStorageRemove(d.key);
+                    refreshDraftIndex();
+                    setNotice("Cleared local drafts.");
+                    setCommitUrl(null);
+                    setLocalSavedAt(null);
+                  }}
+                  title="Delete all local drafts"
+                >
+                  Clear
+                </button>
+              </div>
+              <ul className="grid gap-1">
+                {localDrafts.slice(0, 8).map((d) => {
+                  const active = draftKey === d.key;
+                  const sub = `${d.roadmapId} · saved ${fmtRelative(d.savedAt)}`;
+                  return (
+                    <li key={d.key} className="group flex items-stretch gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openLocalDraft(d)}
+                        className={[
+                          "flex-1 rounded-xl px-3 py-2 text-left transition",
+                          active ? "bg-[hsl(var(--card2))] text-[hsl(var(--fg))]" : "hover:bg-[hsl(var(--card2))]",
+                        ].join(" ")}
+                        title={`Local draft for ${d.roadmapId}`}
+                      >
+                        <div className="truncate text-sm font-medium tracking-tight">{d.title}</div>
+                        <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">{sub}</div>
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 text-[hsl(var(--muted))] opacity-0 transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] group-hover:opacity-100"
+                        title="Delete local draft"
+                        onClick={() => {
+                          const ok = window.confirm(`Delete local draft "${d.title}"?`);
+                          if (!ok) return;
+                          deleteLocalDraft(d.key);
+                          setNotice("Deleted local draft.");
+                          setCommitUrl(null);
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {localDrafts.length > 8 ? (
+                <div className="mt-2 px-3 text-[10px] text-[hsl(var(--muted))]">+ {localDrafts.length - 8} more in storage</div>
+              ) : null}
+              <div className="mt-3 h-px bg-[hsl(var(--border))]" />
+            </div>
+          ) : null}
           <ul className="grid gap-1">
             {filtered.map((r) => {
               const active = activeId === r.id;
@@ -290,7 +602,16 @@ export function StudioRoadmapsPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="truncate text-sm font-semibold tracking-tight">{activeId ?? "Select a roadmap"}</div>
-              {dirty ? <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span> : null}
+              {dirty ? (
+                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
+              ) : localSavedAt ? (
+                <span
+                  className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium"
+                  title={`Saved locally ${fmtRelative(localSavedAt)} ago`}
+                >
+                  saved local
+                </span>
+              ) : null}
             </div>
             {studio.me ? (
               <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">
@@ -313,7 +634,18 @@ export function StudioRoadmapsPage() {
             ) : null}
             <button
               type="button"
-              onClick={() => void save()}
+              onClick={() => saveLocal()}
+              disabled={busy || !activeId}
+              className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+              title="Save locally (⌘S / Ctrl+S)"
+            >
+              <Check className="h-3.5 w-3.5 opacity-85" />
+              Save local
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void publish()}
               disabled={!studio.token || busy || !activeId}
               className={[
                 "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
@@ -321,9 +653,10 @@ export function StudioRoadmapsPage() {
                   ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
                   : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
               ].join(" ")}
+              title="Publish (⌘Enter / Ctrl+Enter)"
             >
-              <Check className="h-3.5 w-3.5 opacity-85" />
-              Save
+              <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
+              Publish
             </button>
           </div>
         </div>

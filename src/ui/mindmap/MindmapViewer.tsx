@@ -1,5 +1,5 @@
 import React from "react";
-import ReactFlow, { Background, Controls, MiniMap, type Edge, type Node, type ReactFlowInstance, type Viewport } from "reactflow";
+import ReactFlow, { Background, BackgroundVariant, Controls, MiniMap, type Edge, type Node, type ReactFlowInstance, type Viewport } from "reactflow";
 import "reactflow/dist/style.css";
 import { MindNode, type MindNodeData } from "../../studio/mindmap/MindNode";
 import type { Mindmap } from "../types";
@@ -103,7 +103,7 @@ export function MindmapViewer(props: { mindmap: Mindmap }) {
         proOptions={{ hideAttribution: true }}
         className="bg-[hsl(var(--bg))]"
       >
-        <Background variant="dots" gap={22} size={1} color="hsl(var(--border))" style={{ opacity: 0.35 }} />
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="hsl(var(--border))" style={{ opacity: 0.35 }} />
         <MiniMap
           pannable
           zoomable
@@ -116,4 +116,3 @@ export function MindmapViewer(props: { mindmap: Mindmap }) {
     </div>
   );
 }
-

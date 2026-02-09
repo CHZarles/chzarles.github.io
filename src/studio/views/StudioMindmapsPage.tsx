@@ -2,6 +2,7 @@ import { Check, ExternalLink, Maximize2, Plus, RefreshCw, Trash2 } from "lucide-
 import React from "react";
 import ReactFlow, {
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
   addEdge,
@@ -242,10 +243,11 @@ export function StudioMindmapsPage() {
       const pos = args?.at ?? centerPosition();
       const node: MindNodeT = { id: nid, type: NODE_TYPE, position: pos, data: { label: "New node" } };
       setNodes((prev) => [...prev, node]);
-      if (args?.connectFrom) {
+      const source = args?.connectFrom ?? null;
+      if (source) {
         setEdges((prev) => [
           ...prev,
-          { id: uid("e"), source: args.connectFrom, target: nid, type: "smoothstep" },
+          { id: uid("e"), source, target: nid, type: "smoothstep" },
         ]);
       }
       setSelectedNodeId(nid);
@@ -613,7 +615,8 @@ export function StudioMindmapsPage() {
             onSelectionChange={({ nodes }) => {
               setSelectedNodeId(nodes?.[0]?.id ?? null);
             }}
-            onPaneDoubleClick={(e) => {
+            onPaneClick={(e: React.MouseEvent) => {
+              if (e.detail !== 2) return;
               const rf = rfRef.current;
               if (!rf) return;
               addNode({
@@ -632,7 +635,7 @@ export function StudioMindmapsPage() {
             className="bg-[hsl(var(--bg))]"
           >
             <Background
-              variant="dots"
+              variant={BackgroundVariant.Dots}
               gap={22}
               size={1}
               color="hsl(var(--border))"

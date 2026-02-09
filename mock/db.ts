@@ -403,7 +403,7 @@ export async function loadDb(): Promise<Db> {
 
       const mindmaps = mindmapsRefs
         .map((x) => normalizeMindmapId(x))
-        .filter(Boolean)
+        .filter((x): x is string => Boolean(x))
         .map((mid) => {
           const mm = mindmapById.get(mid);
           return { id: mid, title: mm?.title ?? mid };

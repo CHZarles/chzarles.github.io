@@ -5,7 +5,7 @@ import { publisherToken } from "../../ui/publisher/storage";
 
 export type StudioMe = {
   user: { id: number; login: string; avatarUrl: string | null };
-  repo: { fullName: string; branch: string };
+  repo: { fullName: string; branch: string; headSha: string };
 };
 
 type StudioState = {
@@ -92,4 +92,3 @@ export function useStudioState(): StudioState {
   if (!ctx) throw new Error("useStudioState must be used within StudioStateProvider");
   return ctx;
 }
-

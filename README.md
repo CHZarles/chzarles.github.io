@@ -51,6 +51,13 @@ pnpm dev
 pnpm preview
 ```
 
+内容契约与类型检查（建议在发版前跑一次）：
+
+```bash
+pnpm run validate:content
+pnpm run typecheck
+```
+
 可选：单独启动 mock server（不走 Vite 中间件；默认端口从 `8792` 开始自动找可用端口）
 
 ```bash

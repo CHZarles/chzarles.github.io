@@ -62,5 +62,5 @@ adminCommitRoutes.post("/", async (c) => {
     deletes,
   });
 
-  return c.json({ commit: { sha: commit.sha, url: commit.url } });
+  return c.json({ commit: { sha: commit.sha, url: commit.url, headSha: commit.headSha } });
 });

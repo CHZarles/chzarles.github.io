@@ -4,6 +4,7 @@ import { requireAuth } from "../auth/guard";
 import { issuePublisherToken } from "../auth/token";
 import { issueOAuthState, verifyOAuthState } from "../auth/oauthState";
 import { exchangeCodeForAccessToken, githubAuthorizeUrl } from "../github/oauth";
+import { ghJson } from "../github/client";
 import { getRepo, getViewer } from "../github/user";
 
 function normalizeOrigin(origin: string): string {
@@ -93,11 +94,15 @@ authRoutes.get("/me", async (c) => {
   const cfg = c.get("config");
   await requireAuth({ tokenSecret: cfg.tokenSecret, adminLogins: cfg.adminLogins })(c, async () => {});
   const user = c.get("user");
+  const ref = await ghJson<{ object: { sha: string } }>({
+    token: user.ghToken,
+    method: "GET",
+    path: `/repos/${cfg.contentRepo}/git/ref/heads/${cfg.contentBranch}`,
+  });
   return c.json({
     user: { id: user.id, login: user.login, avatarUrl: user.avatarUrl ?? null },
-    repo: { fullName: cfg.contentRepo, branch: cfg.contentBranch },
+    repo: { fullName: cfg.contentRepo, branch: cfg.contentBranch, headSha: ref.object.sha },
   });
 });
 
 authRoutes.post("/logout", (c) => c.json({ ok: true }));
-

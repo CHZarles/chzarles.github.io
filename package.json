@@ -9,6 +9,8 @@
     "dev:api": "tsx watch mock/server.ts",
     "dev:publisher": "wrangler dev --config publisher/wrangler.toml",
     "test:publisher": "tsx publisher/scripts/smoke.ts",
+    "validate:content": "tsx scripts/validate-content.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "vite build && tsx scripts/postbuild.ts",
     "preview": "vite build && tsx scripts/postbuild.ts && vite preview"
   },

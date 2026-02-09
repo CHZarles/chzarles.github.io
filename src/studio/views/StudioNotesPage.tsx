@@ -1,4 +1,5 @@
 import {
+  ArrowUpRight,
   Check,
   ExternalLink,
   Eye,
@@ -14,7 +15,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import YAML from "yaml";
-import { publisherFetchJson, publisherUploadFile, type PublisherError } from "../../ui/publisher/client";
+import { publisherFetchJson, type PublisherError } from "../../ui/publisher/client";
 import type { Category, MindmapListItem, RoadmapNodeEntry } from "../../ui/types";
 import { useStudioState } from "../state/StudioState";
 
@@ -81,6 +82,130 @@ type StagedUpload = {
   contentBase64: string;
   previewUrl: string | null;
 };
+
+type LocalNoteDraftV1 = {
+  v: 1;
+  savedAt: number; // epoch ms
+  noteId: string | null; // when editing an existing note
+  editor: {
+    title: string;
+    date: string;
+    slug: string;
+    excerpt: string;
+    categories: string[];
+    tags: string[];
+    nodes: string[];
+    mindmaps: string[];
+    cover: string;
+    draft: boolean;
+    content: string;
+  };
+};
+
+type LocalDraftIndexItem = {
+  key: string;
+  noteId: string | null;
+  title: string;
+  savedAt: number;
+  draft: boolean;
+};
+
+const DRAFT_NOTE_PREFIX = "hyperblog.studio.draft.note:";
+const DRAFT_NEW_PREFIX = "hyperblog.studio.draft.new:";
+
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeLocalStorageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+function safeLocalStorageKeys(): string[] {
+  try {
+    const out: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) out.push(k);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+function noteDraftKey(noteId: string): string {
+  return `${DRAFT_NOTE_PREFIX}${noteId}`;
+}
+
+function newDraftKey(): string {
+  const anyCrypto = globalThis.crypto as unknown as { randomUUID?: () => string } | undefined;
+  const id = anyCrypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+  return `${DRAFT_NEW_PREFIX}${id}`;
+}
+
+function readLocalDraft(key: string): LocalNoteDraftV1 | null {
+  const raw = safeLocalStorageGet(key);
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as LocalNoteDraftV1;
+    if (!v || typeof v !== "object") return null;
+    if (v.v !== 1) return null;
+    if (typeof v.savedAt !== "number") return null;
+    if (v.noteId !== null && typeof v.noteId !== "string") return null;
+    if (!v.editor || typeof v.editor !== "object") return null;
+    if (typeof v.editor.title !== "string") return null;
+    if (typeof v.editor.content !== "string") return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function listLocalDraftIndex(): LocalDraftIndexItem[] {
+  const keys = safeLocalStorageKeys();
+  const drafts: LocalDraftIndexItem[] = [];
+  for (const key of keys) {
+    if (!key.startsWith(DRAFT_NOTE_PREFIX) && !key.startsWith(DRAFT_NEW_PREFIX)) continue;
+    const d = readLocalDraft(key);
+    if (!d) continue;
+    const title = d.editor.title.trim() || d.noteId || "Untitled";
+    drafts.push({ key, noteId: d.noteId, title, savedAt: d.savedAt, draft: Boolean(d.editor.draft) });
+  }
+  drafts.sort((a, b) => b.savedAt - a.savedAt);
+  return drafts;
+}
+
+function fmtRelative(ts: number): string {
+  const diff = Date.now() - ts;
+  if (!Number.isFinite(diff)) return "—";
+  if (diff < 15_000) return "just now";
+  if (diff < 60_000) return `${Math.round(diff / 1000)}s`;
+  if (diff < 60 * 60_000) return `${Math.round(diff / 60_000)}m`;
+  if (diff < 24 * 60 * 60_000) return `${Math.round(diff / 3_600_000)}h`;
+  try {
+    return new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(ts));
+  } catch {
+    return new Date(ts).toISOString().slice(0, 10);
+  }
+}
 
 function todayLocal(): string {
   const d = new Date();
@@ -164,25 +289,6 @@ function insertIntoTextarea(el: HTMLTextAreaElement, insert: string) {
   el.selectionEnd = caret;
   el.dispatchEvent(new Event("input", { bubbles: true }));
   el.focus();
-}
-
-function readLocalFlag(key: string, fallback: boolean): boolean {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === "1") return true;
-    if (raw === "0") return false;
-    return fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeLocalFlag(key: string, value: boolean): void {
-  try {
-    localStorage.setItem(key, value ? "1" : "0");
-  } catch {
-    // ignore
-  }
 }
 
 async function fetchLocalJson<T>(path: string): Promise<T> {
@@ -307,7 +413,6 @@ export function StudioNotesPage() {
   const studio = useStudioState();
 
   const [viewMode, setViewMode] = React.useState<ViewMode>("split");
-  const [atomicCommit, setAtomicCommit] = React.useState<boolean>(() => readLocalFlag("hyperblog.studio.atomicCommit", true));
 
   const [allCategories, setAllCategories] = React.useState<Category[]>([]);
   const [nodesIndex, setNodesIndex] = React.useState<RoadmapNodeEntry[]>([]);
@@ -328,9 +433,26 @@ export function StudioNotesPage() {
   const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
   const [lastUploadUrl, setLastUploadUrl] = React.useState<string | null>(null);
   const [slugTouched, setSlugTouched] = React.useState(false);
+  const [draftKey, setDraftKey] = React.useState<string | null>(null);
+  const [localSavedAt, setLocalSavedAt] = React.useState<number | null>(null);
+  const [localDrafts, setLocalDrafts] = React.useState<LocalDraftIndexItem[]>(() => listLocalDraftIndex());
 
   const contentRef = React.useRef<HTMLTextAreaElement | null>(null);
   const retryRef = React.useRef<(() => void) | null>(null);
+
+  const refreshDraftIndex = React.useCallback(() => {
+    setLocalDrafts(listLocalDraftIndex());
+  }, []);
+
+  React.useEffect(() => {
+    refreshDraftIndex();
+    const onStorage = (e: StorageEvent) => {
+      const k = e.key ?? "";
+      if (k.startsWith(DRAFT_NOTE_PREFIX) || k.startsWith(DRAFT_NEW_PREFIX)) refreshDraftIndex();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [refreshDraftIndex]);
 
   const refreshList = React.useCallback(
     async (opts?: { append?: boolean }) => {
@@ -385,6 +507,7 @@ export function StudioNotesPage() {
   }, []);
 
   const newNote = React.useCallback(() => {
+    if (dirty && !window.confirm("Discard unsaved changes?")) return;
     clearStagedUploads();
     setEditor(emptyEditor());
     setDirty(false);
@@ -392,14 +515,28 @@ export function StudioNotesPage() {
     setCommitUrl(null);
     setLastUploadUrl(null);
     setSlugTouched(false);
+    setDraftKey(newDraftKey());
+    setLocalSavedAt(null);
     retryRef.current = null;
     setTimeout(() => contentRef.current?.focus(), 0);
-  }, [clearStagedUploads]);
+  }, [clearStagedUploads, dirty]);
 
   const openNote = React.useCallback(
-    async (id: string) => {
+    async (id: string, opts?: { restoreLocal?: boolean }) => {
       if (!studio.token) return;
-      retryRef.current = () => void openNote(id);
+      if (dirty && !window.confirm("Discard unsaved changes?")) return;
+
+      const dk = noteDraftKey(id);
+      setDraftKey(dk);
+      const local = readLocalDraft(dk);
+      const restore =
+        opts?.restoreLocal === true
+          ? Boolean(local)
+          : local
+            ? window.confirm(`Restore local draft saved ${fmtRelative(local.savedAt)} ago?`)
+            : false;
+
+      retryRef.current = () => void openNote(id, opts);
       clearStagedUploads();
       setBusy(true);
       setNotice(null);
@@ -410,7 +547,8 @@ export function StudioNotesPage() {
           token: studio.token,
         });
         const input = res.note.input;
-        setEditor({
+
+        const remoteEditor: EditorState = {
           mode: "edit",
           id: res.note.id,
           title: input.title ?? res.note.id,
@@ -425,7 +563,31 @@ export function StudioNotesPage() {
           draft: Boolean(input.draft),
           content: input.content ?? "",
           baseMarkdown: res.note.markdown ?? "",
-        });
+        };
+
+        if (restore && local) {
+          const le = local.editor;
+          setEditor({
+            ...remoteEditor,
+            title: typeof le.title === "string" ? le.title : remoteEditor.title,
+            date: typeof le.date === "string" ? le.date : remoteEditor.date,
+            slug: typeof le.slug === "string" ? le.slug : "",
+            excerpt: typeof le.excerpt === "string" ? le.excerpt : "",
+            categories: Array.isArray(le.categories) ? le.categories : [],
+            tags: Array.isArray(le.tags) ? le.tags : [],
+            nodes: Array.isArray(le.nodes) ? le.nodes : [],
+            mindmaps: Array.isArray(le.mindmaps) ? le.mindmaps : [],
+            cover: typeof le.cover === "string" ? le.cover : "",
+            draft: Boolean(le.draft),
+            content: typeof le.content === "string" ? le.content : "",
+          });
+          setLocalSavedAt(local.savedAt);
+          setNotice({ tone: "info", message: `Restored local draft (${fmtRelative(local.savedAt)} ago).` });
+        } else {
+          setEditor(remoteEditor);
+          setLocalSavedAt(null);
+        }
+
         setDirty(false);
         setSlugTouched(true);
         retryRef.current = null;
@@ -435,10 +597,120 @@ export function StudioNotesPage() {
         setBusy(false);
       }
     },
-    [studio.token, clearStagedUploads],
+    [studio.token, clearStagedUploads, dirty],
   );
 
-  const save = React.useCallback(async () => {
+  const deleteLocalDraft = React.useCallback(
+    (key: string) => {
+      safeLocalStorageRemove(key);
+      if (draftKey === key) {
+        setLocalSavedAt(null);
+      }
+      refreshDraftIndex();
+    },
+    [draftKey, refreshDraftIndex],
+  );
+
+  const openLocalDraft = React.useCallback(
+    async (item: LocalDraftIndexItem) => {
+      const d = readLocalDraft(item.key);
+      if (!d) {
+        refreshDraftIndex();
+        return;
+      }
+
+      if (d.noteId) {
+        await openNote(d.noteId, { restoreLocal: true });
+        return;
+      }
+
+      if (dirty && !window.confirm("Discard unsaved changes?")) return;
+
+      clearStagedUploads();
+      setDraftKey(item.key);
+      setLocalSavedAt(d.savedAt);
+      setCommitUrl(null);
+      setNotice({ tone: "info", message: `Opened local draft (${fmtRelative(d.savedAt)} ago).` });
+
+      const le = d.editor;
+      setEditor({
+        ...emptyEditor(),
+        mode: "create",
+        id: null,
+        title: typeof le.title === "string" ? le.title : "",
+        date: typeof le.date === "string" ? le.date : todayLocal(),
+        slug: typeof le.slug === "string" ? le.slug : "",
+        excerpt: typeof le.excerpt === "string" ? le.excerpt : "",
+        categories: Array.isArray(le.categories) ? le.categories : [],
+        tags: Array.isArray(le.tags) ? le.tags : [],
+        nodes: Array.isArray(le.nodes) ? le.nodes : [],
+        mindmaps: Array.isArray(le.mindmaps) ? le.mindmaps : [],
+        cover: typeof le.cover === "string" ? le.cover : "",
+        draft: Boolean(le.draft),
+        content: typeof le.content === "string" ? le.content : "",
+        baseMarkdown: "",
+      });
+
+      setDirty(false);
+      setSlugTouched(Boolean(le.slug));
+      retryRef.current = null;
+      setTimeout(() => contentRef.current?.focus(), 0);
+    },
+    [dirty, clearStagedUploads, openNote, refreshDraftIndex],
+  );
+
+  const saveLocal = React.useCallback(
+    (opts?: { quiet?: boolean }) => {
+      const key = (() => {
+        if (editor.mode === "edit" && editor.id) return noteDraftKey(editor.id);
+        return draftKey ?? newDraftKey();
+      })();
+
+      if (draftKey !== key) setDraftKey(key);
+
+      const payload: LocalNoteDraftV1 = {
+        v: 1,
+        savedAt: Date.now(),
+        noteId: editor.mode === "edit" ? editor.id : null,
+        editor: {
+          title: editor.title,
+          date: editor.date,
+          slug: editor.slug,
+          excerpt: editor.excerpt,
+          categories: editor.categories,
+          tags: editor.tags,
+          nodes: editor.nodes,
+          mindmaps: editor.mindmaps,
+          cover: editor.cover,
+          draft: editor.draft,
+          content: editor.content,
+        },
+      };
+
+      const ok = safeLocalStorageSet(key, JSON.stringify(payload));
+      if (!ok) {
+        setNotice({ tone: "error", message: "Local save failed (storage unavailable or full)." });
+        return;
+      }
+
+      setLocalSavedAt(payload.savedAt);
+      setDirty(false);
+      setCommitUrl(null);
+      refreshDraftIndex();
+      if (!opts?.quiet) setNotice({ tone: "success", message: `Saved locally (${fmtRelative(payload.savedAt)}).` });
+    },
+    [editor, draftKey, refreshDraftIndex],
+  );
+
+  React.useEffect(() => {
+    if (!dirty) return;
+    const t = window.setTimeout(() => {
+      saveLocal({ quiet: true });
+    }, 650);
+    return () => window.clearTimeout(t);
+  }, [dirty, editor, saveLocal]);
+
+  const publish = React.useCallback(async () => {
     if (!studio.token) return;
     if (!editor.title.trim()) {
       setNotice({ tone: "error", message: "Missing title." });
@@ -449,98 +721,52 @@ export function StudioNotesPage() {
       return;
     }
 
-    retryRef.current = () => void save();
+    const resolved =
+      editor.mode === "edit" && editor.id
+        ? { ok: true as const, noteId: editor.id, slug: "" }
+        : buildNoteId({ title: editor.title, date: editor.date, slug: editor.slug });
+
+    if (!resolved.ok) {
+      setNotice({ tone: "error", message: resolved.error });
+      return;
+    }
+
+    if (editor.mode === "create" && !editor.slug.trim() && resolved.slug) {
+      setEditor((prev) => ({ ...prev, slug: resolved.slug }));
+    }
+
+    const noteId = resolved.noteId;
+    const notePath = `content/notes/${noteId}.md`;
+    const updatedYmd = todayLocal();
+    const md = renderNoteMarkdownFromEditor({ editor, updatedYmd });
+
+    const uploadFiles = stagedUploads;
+    const files: Array<
+      | { path: string; encoding: "utf8"; content: string }
+      | { path: string; encoding: "base64"; contentBase64: string }
+    > = [
+      { path: notePath, encoding: "utf8", content: md },
+      ...uploadFiles.map((u) => ({ path: u.path, encoding: "base64" as const, contentBase64: u.contentBase64 })),
+    ];
+
+    const subject = (() => {
+      const prefix = editor.draft ? "draft" : editor.mode === "create" ? "publish" : "update";
+      const title = editor.title.trim().replace(/\s+/g, " ");
+      const first = `${prefix}: ${title}`;
+      return first.length > 72 ? `${first.slice(0, 71)}…` : first;
+    })();
+    const bodyLines = [
+      `id: ${noteId}`,
+      ...(editor.draft ? ["draft: true"] : []),
+      ...(uploadFiles.length ? [`uploads: ${uploadFiles.length}`] : []),
+    ];
+    const commitMessage = `${subject}\n\n${bodyLines.join("\n")}`;
+
+    retryRef.current = () => void publish();
     setBusy(true);
     setNotice(null);
     setCommitUrl(null);
     try {
-      if (!atomicCommit) {
-        if (editor.mode === "create") {
-          const res = await publisherFetchJson<{ note: { id: string; path: string }; commit: { sha: string; url: string } }>({
-            path: "/api/admin/notes",
-            method: "POST",
-            token: studio.token,
-            body: {
-              title: editor.title.trim(),
-              slug: editor.slug.trim() || undefined,
-              date: editor.date.trim() || undefined,
-              excerpt: editor.excerpt.trim() || undefined,
-              categories: editor.categories,
-              tags: editor.tags,
-              nodes: editor.nodes,
-              mindmaps: editor.mindmaps,
-              cover: editor.cover.trim() || undefined,
-              draft: editor.draft,
-              content: editor.content,
-            } satisfies NoteInput,
-          });
-          setEditor((prev) => ({ ...prev, mode: "edit", id: res.note.id, baseMarkdown: "" }));
-          setNotice({ tone: "success", message: editor.draft ? `Draft saved: ${res.note.id}` : `Published: ${res.note.id}` });
-          setCommitUrl(res.commit.url);
-          setDirty(false);
-          retryRef.current = null;
-          void refreshList();
-          return;
-        }
-
-        if (!editor.id) {
-          setNotice({ tone: "error", message: "Missing note id." });
-          return;
-        }
-
-        const res = await publisherFetchJson<{ note: { id: string; path: string }; commit: { sha: string; url: string } }>({
-          path: `/api/admin/notes/${encodeURIComponent(editor.id)}`,
-          method: "PATCH",
-          token: studio.token,
-          body: {
-            title: editor.title.trim(),
-            date: editor.date.trim() || undefined,
-            excerpt: editor.excerpt.trim() || undefined,
-            categories: editor.categories,
-            tags: editor.tags,
-            nodes: editor.nodes,
-            mindmaps: editor.mindmaps,
-            cover: editor.cover.trim() || undefined,
-            draft: editor.draft,
-            content: editor.content,
-          } satisfies Partial<NoteInput>,
-        });
-        setNotice({ tone: "success", message: editor.draft ? `Draft saved: ${res.note.id}` : `Saved: ${res.note.id}` });
-        setCommitUrl(res.commit.url);
-        setDirty(false);
-        retryRef.current = null;
-        void refreshList();
-        return;
-      }
-
-      const resolved =
-        editor.mode === "edit" && editor.id
-          ? { ok: true as const, noteId: editor.id, slug: "" }
-          : buildNoteId({ title: editor.title, date: editor.date, slug: editor.slug });
-
-      if (!resolved.ok) {
-        setNotice({ tone: "error", message: resolved.error });
-        return;
-      }
-
-      if (editor.mode === "create" && !editor.slug.trim() && resolved.slug) {
-        setEditor((prev) => ({ ...prev, slug: resolved.slug }));
-      }
-
-      const noteId = resolved.noteId;
-      const notePath = `content/notes/${noteId}.md`;
-      const updatedYmd = todayLocal();
-      const md = renderNoteMarkdownFromEditor({ editor, updatedYmd });
-
-      const files: Array<
-        | { path: string; encoding: "utf8"; content: string }
-        | { path: string; encoding: "base64"; contentBase64: string }
-      > = [
-        { path: notePath, encoding: "utf8", content: md },
-        ...stagedUploads.map((u) => ({ path: u.path, encoding: "base64" as const, contentBase64: u.contentBase64 })),
-      ];
-
-      const commitMessage = editor.mode === "create" ? `publish: ${noteId}` : `update: ${noteId}`;
       const res = await publisherFetchJson<CommitResponse>({
         path: "/api/admin/commit",
         method: "POST",
@@ -554,13 +780,19 @@ export function StudioNotesPage() {
 
       setNotice({
         tone: "success",
-        message: editor.draft ? `Draft saved: ${noteId}` : editor.mode === "create" ? `Published: ${noteId}` : `Saved: ${noteId}`,
+        message: editor.draft ? `Committed draft: ${noteId}` : editor.mode === "create" ? `Published: ${noteId}` : `Updated: ${noteId}`,
       });
       setCommitUrl(res.commit.url);
       setEditor((prev) => ({ ...prev, mode: "edit", id: noteId, baseMarkdown: md }));
       setDirty(false);
-      setLastUploadUrl(stagedUploads.at(-1)?.url ?? null);
+      setLastUploadUrl(uploadFiles.at(-1)?.url ?? null);
       clearStagedUploads();
+
+      if (draftKey) safeLocalStorageRemove(draftKey);
+      setDraftKey(noteDraftKey(noteId));
+      setLocalSavedAt(null);
+      refreshDraftIndex();
+
       retryRef.current = null;
       void studio.refreshMe();
       void refreshList();
@@ -569,7 +801,7 @@ export function StudioNotesPage() {
       setNotice(
         e.code === "HEAD_MOVED"
           ? { tone: "error", message: "Conflict: main moved. Refresh and retry." }
-          : { tone: "error", message: `Save failed: ${e.message}` },
+          : { tone: "error", message: `Publish failed: ${e.message}` },
       );
     } finally {
       setBusy(false);
@@ -580,9 +812,10 @@ export function StudioNotesPage() {
     studio.refreshMe,
     refreshList,
     editor,
-    atomicCommit,
     stagedUploads,
     clearStagedUploads,
+    draftKey,
+    refreshDraftIndex,
   ]);
 
   const del = React.useCallback(async () => {
@@ -620,22 +853,6 @@ export function StudioNotesPage() {
       setNotice(null);
       setCommitUrl(null);
       try {
-        if (!atomicCommit) {
-          const res = await publisherUploadFile({ token: studio.token, file });
-          setCommitUrl(res.commit.url);
-          setLastUploadUrl(res.asset.url);
-          setNotice({ tone: "success", message: `Uploaded: ${res.asset.url}` });
-          setEditor((prev) => ({ ...prev, cover: prev.cover.trim() ? prev.cover : res.asset.url }));
-
-          const insert = `\n\n![](${res.asset.url})\n`;
-          const el = contentRef.current;
-          if (el) insertIntoTextarea(el, insert);
-          else setEditor((prev) => ({ ...prev, content: prev.content ? prev.content + insert : insert.trimStart() }));
-          setDirty(true);
-          retryRef.current = null;
-          return;
-        }
-
         const uploadName = buildUploadName(file);
         const stagedUrl = `/uploads/${uploadName}`;
         const stagedPath = `public/uploads/${uploadName}`;
@@ -655,7 +872,7 @@ export function StudioNotesPage() {
         ]);
 
         setLastUploadUrl(stagedUrl);
-        setNotice({ tone: "info", message: `Staged: ${stagedUrl} (will commit with note)` });
+        setNotice({ tone: "info", message: `Staged: ${stagedUrl} (will commit on publish/update)` });
         setEditor((prev) => ({ ...prev, cover: prev.cover.trim() ? prev.cover : stagedUrl }));
 
         const isImage = (file.type || "").startsWith("image/");
@@ -671,19 +888,28 @@ export function StudioNotesPage() {
         setBusy(false);
       }
     },
-    [studio.token, atomicCommit],
+    [studio.token],
   );
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const isSave = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s";
-      if (!isSave) return;
-      e.preventDefault();
-      void save();
+      const cmd = e.ctrlKey || e.metaKey;
+      if (!cmd) return;
+
+      const key = e.key.toLowerCase();
+      if (key === "s") {
+        e.preventDefault();
+        saveLocal();
+        return;
+      }
+      if (key === "enter") {
+        e.preventDefault();
+        void publish();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [save]);
+  }, [publish, saveLocal]);
 
   React.useEffect(() => {
     if (editor.mode !== "create") return;
@@ -739,6 +965,75 @@ export function StudioNotesPage() {
         </div>
 
         <div className="min-h-0 overflow-auto px-2 pb-4">
+          {localDrafts.length ? (
+            <div className="pb-3">
+              <div className="flex items-center justify-between px-3 pb-1">
+                <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">
+                  LOCAL DRAFTS <span className="opacity-70">· {localDrafts.length}</span>
+                </div>
+                <button
+                  type="button"
+                  className="text-[10px] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+                  onClick={() => {
+                    const ok = window.confirm(`Delete all local drafts (${localDrafts.length})?`);
+                    if (!ok) return;
+                    for (const d of localDrafts) safeLocalStorageRemove(d.key);
+                    refreshDraftIndex();
+                    if (draftKey && draftKey.startsWith(DRAFT_NEW_PREFIX)) setLocalSavedAt(null);
+                    setNotice({ tone: "info", message: "Cleared local drafts." });
+                  }}
+                  title="Delete all local drafts"
+                >
+                  Clear
+                </button>
+              </div>
+              <ul className="grid gap-1">
+                {localDrafts.slice(0, 8).map((d) => {
+                  const active = draftKey === d.key;
+                  const sub = [
+                    d.noteId ? d.noteId : "new",
+                    d.draft ? "draft" : null,
+                    `saved ${fmtRelative(d.savedAt)}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ");
+                  return (
+                    <li key={d.key} className="group flex items-stretch gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void openLocalDraft(d)}
+                        className={[
+                          "flex-1 rounded-xl px-3 py-2 text-left transition",
+                          active ? "bg-[hsl(var(--card2))] text-[hsl(var(--fg))]" : "hover:bg-[hsl(var(--card2))]",
+                        ].join(" ")}
+                        title={d.noteId ? `Local draft for ${d.noteId}` : "Local draft (new note)"}
+                      >
+                        <div className="truncate text-sm font-medium tracking-tight">{d.title}</div>
+                        <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">{sub}</div>
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 text-[hsl(var(--muted))] opacity-0 transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] group-hover:opacity-100"
+                        title="Delete local draft"
+                        onClick={() => {
+                          const ok = window.confirm(`Delete local draft "${d.title}"?`);
+                          if (!ok) return;
+                          deleteLocalDraft(d.key);
+                          setNotice({ tone: "info", message: "Deleted local draft." });
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {localDrafts.length > 8 ? (
+                <div className="mt-2 px-3 text-[10px] text-[hsl(var(--muted))]">+ {localDrafts.length - 8} more in storage</div>
+              ) : null}
+              <div className="mt-3 h-px bg-[hsl(var(--border))]" />
+            </div>
+          ) : null}
           <ul className="grid gap-1">
             {filtered.map((n) => {
               const active = editor.id === n.id;
@@ -780,7 +1075,16 @@ export function StudioNotesPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="truncate text-sm font-semibold tracking-tight">{editor.mode === "create" ? "New note" : editor.id}</div>
-              {dirty ? <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span> : null}
+              {dirty ? (
+                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
+              ) : localSavedAt ? (
+                <span
+                  className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium"
+                  title={`Saved locally ${fmtRelative(localSavedAt)} ago`}
+                >
+                  saved local
+                </span>
+              ) : null}
             </div>
             {studio.me ? (
               <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">
@@ -832,7 +1136,18 @@ export function StudioNotesPage() {
 
             <button
               type="button"
-              onClick={() => void save()}
+              onClick={() => saveLocal()}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+              title="Save locally (⌘S / Ctrl+S)"
+            >
+              <Check className="h-3.5 w-3.5 opacity-85" />
+              Save local
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void publish()}
               disabled={!studio.token || busy}
               className={[
                 "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
@@ -840,10 +1155,10 @@ export function StudioNotesPage() {
                   ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
                   : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
               ].join(" ")}
-              title="Save (⌘S / Ctrl+S)"
+              title="Publish (⌘Enter / Ctrl+Enter)"
             >
-              <Check className="h-3.5 w-3.5 opacity-85" />
-              {editor.draft ? "Save draft" : editor.mode === "create" ? "Publish" : "Save"}
+              <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
+              {editor.draft ? "Commit" : editor.mode === "create" ? "Publish" : "Update"}
             </button>
           </div>
         </div>
@@ -916,20 +1231,6 @@ export function StudioNotesPage() {
         </div>
 
         <div className="grid gap-4 px-4 py-4">
-          <label className="flex items-center justify-between rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm">
-            <span className="text-sm">Atomic commit (stage uploads)</span>
-            <input
-              type="checkbox"
-              checked={atomicCommit}
-              onChange={(e) => {
-                const next = e.target.checked;
-                setAtomicCommit(next);
-                writeLocalFlag("hyperblog.studio.atomicCommit", next);
-                if (!next) clearStagedUploads();
-              }}
-            />
-          </label>
-
           <Field label="Title">
             <input
               value={editor.title}
@@ -1104,7 +1405,7 @@ export function StudioNotesPage() {
             />
           </label>
 
-          {atomicCommit && stagedUploads.length ? (
+          {stagedUploads.length ? (
             <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">Staged uploads · {stagedUploads.length}</div>
@@ -1149,6 +1450,7 @@ export function StudioNotesPage() {
                   </div>
                 ))}
               </div>
+              <div className="mt-2 text-[10px] text-[hsl(var(--muted))]">Committed on publish/update.</div>
             </div>
           ) : null}
 
@@ -1379,4 +1681,3 @@ const inputClass =
 
 const textareaClass =
   "w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))] disabled:cursor-not-allowed disabled:opacity-60";
-

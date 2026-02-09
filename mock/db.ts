@@ -8,6 +8,7 @@ export type Profile = {
   handle: string;
   tagline: string;
   accent?: string; // hsl string: "270 95% 65%"
+  publisherBaseUrl?: string; // Publisher API base URL
   avatarUrl?: string;
   links?: Array<{ label: string; href: string }>;
   hero?: {

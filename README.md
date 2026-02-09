@@ -83,7 +83,10 @@ pnpm dev:publisher -- --port 8788
 - Config：`http://localhost:5173/studio/config`
 
 - 首次会跳 GitHub OAuth，回到 `/auth/callback` 后把 token 存在 `sessionStorage`
-- 默认 Publisher 地址是 `http://localhost:8788`，如需修改可设置 `VITE_PUBLISHER_BASE_URL`
+- Publisher 地址解析优先级：
+  - `VITE_PUBLISHER_BASE_URL`（构建/本地环境变量）
+  - `content/profile.json` 的 `publisherBaseUrl`（推荐用于 GitHub Pages）
+  - 默认 `http://localhost:8788`
 
 ### publisher/.dev.vars 是什么？（本地开发不需要操作 Cloudflare）
 

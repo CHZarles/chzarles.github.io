@@ -3,8 +3,9 @@
   "handle": "@charles",
   "tagline": "AI Infra / Observability / 写作系统化",
   "accent": "270 85% 45%",
+  "publisherBaseUrl": "https://hyperblog-publisher.chzarles.workers.dev",
   "hero": {
-    "imageUrl": "./mountain.webp",
+    "imageUrl": "./mountain.avif",
     "blurPx": 0,
     "opacity": 1,
     "position": "20% 1%",

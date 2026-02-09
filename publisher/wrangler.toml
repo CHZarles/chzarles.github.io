@@ -2,8 +2,23 @@ name = "hyperblog-publisher"
 main = "src/worker.ts"
 compatibility_date = "2026-02-06"
 
-# Local dev defaults (override in production)
+# Non-secret config (safe to commit). Secrets must be set via:
+#   pnpm wrangler secret put <KEY> -c publisher/wrangler.toml
 [vars]
+# IMPORTANT: replace <YOUR_SUBDOMAIN> after you register workers.dev
+# Example: https://hyperblog-publisher.chzarles.workers.dev
+BASE_URL = "https://hyperblog-publisher.chzarles.workers.dev"
+
+# GitHub logins allowed to publish (comma-separated)
+ADMIN_GITHUB_LOGINS = "chzarles"
+
+# Target GitHub repo (public Pages repo) + branch
+CONTENT_REPO = "CHZarles/chzarles.github.io"
 CONTENT_BRANCH = "main"
 CONTENT_ROOT = ""
 
+# CORS + OAuth redirect allowlist (comma-separated origins, no trailing slash)
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://chzarles.github.io"
+
+# Optional (defaults to 12h if unset)
+TOKEN_TTL_SECONDS = 43200

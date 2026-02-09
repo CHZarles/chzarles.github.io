@@ -155,3 +155,9 @@ ALLOWED_ORIGINS=http://localhost:5173
 ## 后端设计（Mode B / GitHub OAuth）
 
 见：`docs/backend-contract-v0.md`
+
+## 部署指南（上线）
+
+从 clone 到 GitHub Pages + Cloudflare Workers（含 OAuth/Secrets）的完整步骤：
+
+见：`docs/deploy-guide.md`

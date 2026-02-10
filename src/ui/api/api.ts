@@ -37,7 +37,11 @@ async function apiFetch<T>(input: string, opts?: { timeoutMs?: number }): Promis
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(input, { headers: { Accept: "application/json" }, signal: controller.signal });
+    const res = await fetch(input, {
+      credentials: "omit",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`API ${res.status}: ${text || res.statusText}`);

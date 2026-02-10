@@ -367,44 +367,6 @@ export function NotePage() {
   }, [headings]);
 
   const contentRef = React.useRef<HTMLDivElement | null>(null);
-  const [progress, setProgress] = React.useState(0);
-  React.useEffect(() => {
-    if (!note) return;
-    let raf = 0;
-    function compute() {
-      raf = 0;
-      const el = contentRef.current;
-      if (!el) {
-        setProgress(0);
-        return;
-      }
-      const rect = el.getBoundingClientRect();
-      const top = window.scrollY + rect.top;
-      const height = el.scrollHeight || rect.height;
-      const viewport = window.innerHeight || 1;
-      const start = top;
-      const end = top + height - viewport;
-      if (end <= start + 8) {
-        setProgress(1);
-        return;
-      }
-      const p = (window.scrollY - start) / (end - start);
-      const clamped = Math.min(1, Math.max(0, p));
-      setProgress(clamped);
-    }
-    function schedule() {
-      if (raf) return;
-      raf = window.requestAnimationFrame(compute);
-    }
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    schedule();
-    return () => {
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-      if (raf) window.cancelAnimationFrame(raf);
-    };
-  }, [noteId, note]);
 
   const nav = React.useMemo(() => {
     if (!note || !index) return null;
@@ -473,14 +435,6 @@ export function NotePage() {
   return (
     <article className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-12">
       {lightbox ? <Lightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} /> : null}
-      <div className="lg:col-span-2 sticky top-24 z-20">
-        <div className="h-px w-full bg-[color-mix(in_oklab,hsl(var(--border))_75%,transparent)]">
-          <div
-            className="h-px bg-[color-mix(in_oklab,hsl(var(--fg))_55%,hsl(var(--accent))_35%)]"
-            style={{ width: `${Math.round(progress * 1000) / 10}%` }}
-          />
-        </div>
-      </div>
       <div className="min-w-0">
         <header className="mx-auto mt-6 max-w-[92ch]">
           <div className="flex flex-wrap items-baseline justify-between gap-3">

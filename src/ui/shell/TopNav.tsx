@@ -1,4 +1,4 @@
-import { Crosshair, Github, Link2, Search, X } from "lucide-react";
+import { Github, Link2, Search, X } from "lucide-react";
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAppState } from "../state/AppState";
@@ -34,7 +34,6 @@ export function TopNav() {
   const { open } = useCommandPalette();
   const links = profile?.links ?? [];
   const navTitle = profile?.nav?.title ?? profile?.name ?? "Hyperblog";
-  const navTagline = profile?.nav?.tagline ?? profile?.tagline ?? "可探索的个人技术空间";
 
   function iconForLink(link: { label: string; href: string }) {
     const label = link.label.trim().toLowerCase();
@@ -51,19 +50,9 @@ export function TopNav() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="group inline-flex items-center gap-3 rounded-xl px-2 py-1 text-left transition hover:bg-[hsl(var(--card2))]"
+            className="group inline-flex items-center rounded-xl px-2 py-1 text-left transition hover:bg-[hsl(var(--card2))]"
           >
-            <span className="relative grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[linear-gradient(180deg,color-mix(in_oklab,hsl(var(--card2))_72%,transparent),color-mix(in_oklab,hsl(var(--card))_82%,transparent))] shadow-[0_1px_0_rgba(255,255,255,.35)_inset] transition duration-200 group-hover:border-[color-mix(in_oklab,hsl(var(--fg))_18%,hsl(var(--border)))]">
-              <Crosshair
-                aria-hidden
-                strokeWidth={1.4}
-                className="h-[18px] w-[18px] text-[color-mix(in_oklab,hsl(var(--muted))_62%,hsl(var(--fg)))] opacity-75 transition duration-200 group-hover:text-[hsl(var(--fg))] group-hover:opacity-100"
-              />
-            </span>
-            <span className="leading-tight">
-              <span className="block text-sm font-sans font-bold leading-none tracking-[0.02em]">{navTitle}</span>
-              <span className="block text-xs text-[hsl(var(--muted))]">{navTagline}</span>
-            </span>
+            <span className="text-sm font-sans font-bold leading-none tracking-[0.02em]">{navTitle}</span>
           </button>
 
           <nav className="hidden items-center gap-6 md:flex">

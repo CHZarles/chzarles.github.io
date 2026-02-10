@@ -10,7 +10,7 @@
   "publisherBaseUrl": "https://hyperblog-publisher.chzarles.workers.dev",
   "hero": {
     "variant": "mimo",
-    "spotlightRadiusPx": 220,
+    "spotlightRadiusPx": 200,
     "textScale": 1.15
   },
   "links": [

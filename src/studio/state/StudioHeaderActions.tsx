@@ -32,8 +32,13 @@ export function useStudioHeaderActions(): StudioHeaderActionsContextValue {
 
 export function useRegisterStudioHeaderActions(next: StudioHeaderActions) {
   const { setActions } = useStudioHeaderActions();
+  const publish = next.publish;
   React.useLayoutEffect(() => {
-    setActions(next);
+    setActions({ publish });
+  }, [publish, setActions]);
+
+  // Only clear on unmount; avoid an update loop when callers pass new object literals.
+  React.useLayoutEffect(() => {
     return () => setActions({ publish: null });
-  }, [next, setActions]);
+  }, [setActions]);
 }

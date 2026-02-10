@@ -94,7 +94,7 @@ body {
 .card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: 14px;
+  border-radius: 16px;
 }
 
 .card:hover {
@@ -147,7 +147,7 @@ body {
   border-bottom-color: hsl(var(--accent));
 }
 
-.prose code {
+.prose code:not(.hb-inline-code) {
   background: hsl(var(--card2));
   border: 1px solid hsl(var(--border));
   padding: 0.18em 0.42em;
@@ -175,5 +175,53 @@ body {
   }
   to {
     transform: translate3d(-14px, -8px, 0);
+  }
+}
+
+@media print {
+  html,
+  body {
+    height: auto;
+    overflow: visible;
+    background: #fff !important;
+  }
+
+  body {
+    color: #000 !important;
+  }
+
+  header,
+  footer,
+  nav,
+  button,
+  .kbd {
+    display: none !important;
+  }
+
+  main {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .container {
+    width: auto !important;
+    margin: 0 !important;
+  }
+
+  .card {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .prose a {
+    border-bottom: 0 !important;
+    text-decoration: underline;
+    color: #000 !important;
+  }
+
+  .prose pre {
+    border: 1px solid #ddd;
+    page-break-inside: avoid;
   }
 }

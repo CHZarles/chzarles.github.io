@@ -8,7 +8,7 @@ import { HeroMimoBackdrop } from "../components/HeroMimoBackdrop";
 import { NoteCard } from "../components/NoteCard";
 import { SectionHeader } from "../components/SectionHeader";
 import { useAppState } from "../state/AppState";
-import type { Category, NoteListItem } from "../types";
+import type { NoteListItem } from "../types";
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -30,17 +30,16 @@ function cssColor(raw: string) {
 }
 
 export function HomePage() {
-  const { profile, theme } = useAppState();
+  const { profile, theme, categories } = useAppState();
   const [notes, setNotes] = React.useState<NoteListItem[]>([]);
-  const [categories, setCategories] = React.useState<Category[]>([]);
 
   React.useEffect(() => {
     let cancelled = false;
-    Promise.all([api.notes(), api.categories()])
-      .then(([n, c]) => {
+    api
+      .notes()
+      .then((n) => {
         if (cancelled) return;
         setNotes(n.slice(0, 6));
-        setCategories(c.slice(0, 6));
       })
       .catch(() => {});
     return () => {
@@ -352,7 +351,7 @@ export function HomePage() {
           }
         />
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {categories.map((c) => (
+          {categories.slice(0, 6).map((c) => (
             <Link key={c.id} to={`/categories/${c.id}`} className="group card p-5 transition-colors hover:bg-[hsl(var(--card2))]">
               <div className="flex items-start justify-between gap-3">
                 <div>

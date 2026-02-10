@@ -1,6 +1,7 @@
 import { Github, Link2, Search, X } from "lucide-react";
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { api } from "../api/api";
 import { useAppState } from "../state/AppState";
 import { AccentPicker } from "../widgets/AccentPicker";
 import { ThemeToggle } from "../widgets/ThemeToggle";
@@ -9,10 +10,13 @@ import { useCommandPalette } from "../widgets/CommandPalette";
 function NavItem(props: {
   to: string;
   label: string;
+  prefetch?: () => void;
 }) {
   return (
     <NavLink
       to={props.to}
+      onMouseEnter={props.prefetch}
+      onFocus={props.prefetch}
       className={({ isActive }) =>
         [
           "group relative inline-flex items-center px-1 py-2 text-sm font-medium tracking-tight transition",
@@ -43,6 +47,17 @@ export function TopNav() {
     return Link2;
   }
 
+  const prefetch = React.useMemo(
+    () => ({
+      notes: () => void api.notes(),
+      categories: () => void api.categories(),
+      roadmaps: () => void api.roadmaps(),
+      mindmaps: () => void api.mindmaps(),
+      projects: () => void api.projects(),
+    }),
+    [],
+  );
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))]">
       <div className="container">
@@ -56,11 +71,11 @@ export function TopNav() {
           </button>
 
           <nav className="hidden items-center gap-6 md:flex">
-            <NavItem to="/notes" label="Notes" />
-            <NavItem to="/categories" label="Categories" />
-            <NavItem to="/roadmaps" label="Roadmaps" />
-            <NavItem to="/mindmaps" label="Mindmaps" />
-            <NavItem to="/projects" label="Projects" />
+            <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
+            <NavItem to="/categories" label="Categories" prefetch={prefetch.categories} />
+            <NavItem to="/roadmaps" label="Roadmaps" prefetch={prefetch.roadmaps} />
+            <NavItem to="/mindmaps" label="Mindmaps" prefetch={prefetch.mindmaps} />
+            <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />
           </nav>
 
           <div className="flex items-center justify-end gap-2">
@@ -105,11 +120,11 @@ export function TopNav() {
 
         <div className="flex items-center justify-between gap-3 pb-3 md:hidden">
           <nav className="flex items-center gap-5 overflow-x-auto pb-1 text-sm [-webkit-overflow-scrolling:touch]">
-            <NavItem to="/notes" label="Notes" />
-            <NavItem to="/categories" label="Categories" />
-            <NavItem to="/roadmaps" label="Roadmaps" />
-            <NavItem to="/mindmaps" label="Mindmaps" />
-            <NavItem to="/projects" label="Projects" />
+            <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
+            <NavItem to="/categories" label="Categories" prefetch={prefetch.categories} />
+            <NavItem to="/roadmaps" label="Roadmaps" prefetch={prefetch.roadmaps} />
+            <NavItem to="/mindmaps" label="Mindmaps" prefetch={prefetch.mindmaps} />
+            <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />
           </nav>
           <span className="hidden sm:inline text-xs text-[hsl(var(--muted))]">索引即叙事</span>
         </div>

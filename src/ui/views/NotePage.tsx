@@ -83,7 +83,7 @@ export function NotePage() {
   }
 
   return (
-    <article className="grid gap-6">
+    <article className="grid gap-7 md:gap-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/notes"
@@ -96,9 +96,12 @@ export function NotePage() {
       </div>
 
       <header className="card p-7 md:p-10">
-        <h1 className="font-serif text-2xl font-semibold tracking-tight md:text-3xl">{note.title}</h1>
-        <p className="mt-3 text-sm text-[hsl(var(--muted))]">{note.excerpt}</p>
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+        <div className="text-xs uppercase tracking-[0.2em] text-[hsl(var(--muted))]">Note</div>
+        <h1 className="mt-3 font-serif text-4xl font-semibold leading-[1.05] tracking-tight md:text-5xl lg:text-6xl">
+          {note.title}
+        </h1>
+        {note.excerpt ? <p className="mt-4 text-base leading-relaxed text-[hsl(var(--muted))] md:text-lg">{note.excerpt}</p> : null}
+        <div className="mt-6 flex flex-wrap items-center gap-2">
           {note.categories.map((c) => (
             <Chip key={c} label={`#${titleById(c)}`} to={`/categories/${c}`} tone="glass" />
           ))}
@@ -120,7 +123,7 @@ export function NotePage() {
       </header>
 
       <div className="card p-7 md:p-10">
-        <div className="prose max-w-none">
+        <div className="prose max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-h1:text-2xl md:prose-h1:text-3xl prose-h2:text-xl md:prose-h2:text-2xl prose-h3:text-lg md:prose-h3:text-xl prose-p:leading-relaxed">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.content}</ReactMarkdown>
         </div>
       </div>

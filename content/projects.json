@@ -1,24 +1,12 @@
 [
   {
-    "id": "trace-lens",
-    "name": "Trace Lens",
-    "description": "面向个人的 Trace 阅读器：把链路变成可探索的故事。",
-    "repoUrl": "https://github.com/",
-    "stack": ["React", "OpenTelemetry", "ClickHouse"],
-    "highlights": [
-      "聚合跨服务的关键 span，用“问题叙事”替代纯列表",
-      "支持快速对比两次 release 的延迟分布差异"
-    ]
-  },
-  {
-    "id": "k8s-warmup",
-    "name": "K8s Warmup Playbook",
-    "description": "一套可复用的集群启动与压测脚本，让实验像开关一样可重复。",
-    "repoUrl": "https://github.com/",
-    "stack": ["Kubernetes", "Bash", "Prometheus"],
-    "highlights": [
-      "把环境准备、依赖检查、压测与回收写成一个可复用的流程",
-      "所有指标都有可追溯的实验参数与 commit"
-    ]
+    "id": "algo_problem",
+    "name": "AlgoWorkSpace",
+    "description": "收集题面、笔记与题解沉淀、题集计划、间隔复习、统计热力图。",
+    "repoUrl": "https://github.com/CHZarles/AlgoProblem",
+    "stack": [
+      "TypeScript"
+    ],
+    "highlights": []
   }
 ]

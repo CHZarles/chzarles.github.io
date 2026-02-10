@@ -100,7 +100,6 @@ pnpm dev:publisher -- --port 8788
 `publisher/.dev.vars` 是 **wrangler 本地启动**时读取的环境变量文件，用来给 Worker 注入配置（GitHub OAuth、允许的站点 Origin、目标仓库等）。
 
 - 本地开发：只要创建 `publisher/.dev.vars` 并运行 `pnpm dev:publisher` 就行，不需要先部署到 Cloudflare。
-- 本地开发：只要创建 `publisher/.dev.vars` 并运行 `pnpm dev:publisher` 就行，不需要先部署到 Cloudflare。
 - 只有当你要“线上可用的 Publisher API”时，才需要把同样的变量配置到 Cloudflare Workers 环境里。
 
 必要变量（v0，按你的实际填写）：

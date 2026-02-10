@@ -25,7 +25,7 @@ function StudioLayout() {
         <div className="flex min-w-0 items-center gap-4">
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold tracking-tight">Hyperblog Studio</div>
-            <div className="truncate text-xs text-[hsl(var(--muted))]">{PUBLISHER_BASE_URL}</div>
+            <div className="truncate text-xs text-[hsl(var(--muted))]">{PUBLISHER_BASE_URL} · Local drafts → Publish → GitHub</div>
           </div>
 
           <nav className="hidden items-center gap-1 md:flex">
@@ -52,16 +52,16 @@ function StudioLayout() {
                 type="button"
                 onClick={() => void studio.refreshMe()}
                 className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                title="Refresh session"
+                title="Verify token + fetch repo headSha (no writes)"
               >
                 <RefreshCw className="h-4 w-4 opacity-85" />
-                Session
+                Status
               </button>
               <button
                 type="button"
                 onClick={studio.forceSync}
                 className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                title="Force sync: clear local caches and re-fetch from GitHub"
+                title="Force sync: clear local caches (keeps drafts) and re-fetch from GitHub"
               >
                 <CloudDownload className="h-4 w-4 opacity-85" />
                 Sync

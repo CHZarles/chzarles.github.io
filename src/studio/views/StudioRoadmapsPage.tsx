@@ -701,6 +701,7 @@ export function StudioRoadmapsPage() {
                 @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
               </div>
             ) : null}
+            <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Local drafts auto-save in your browser. Publish writes a GitHub commit.</div>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">

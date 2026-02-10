@@ -2,6 +2,7 @@ import React from "react";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { publisherToken } from "../../ui/publisher/storage";
+import { formatStudioError } from "../util/errors";
 
 export type StudioMe = {
   user: { id: number; login: string; avatarUrl: string | null };
@@ -41,7 +42,6 @@ export function StudioStateProvider(props: { children: React.ReactNode }) {
   const refreshMe = React.useCallback(async () => {
     if (!token) {
       setMe(null);
-      setMeError(null);
       return;
     }
     try {
@@ -49,9 +49,16 @@ export function StudioStateProvider(props: { children: React.ReactNode }) {
       setMe(r);
       setMeError(null);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const e = formatStudioError(err);
+      if (e.code === "UNAUTHENTICATED") {
+        publisherToken.clear();
+        setToken(null);
+        setMe(null);
+        setMeError("Session expired. Please login again.");
+        return;
+      }
       setMe(null);
-      setMeError(msg);
+      setMeError(e.message);
     }
   }, [token]);
 

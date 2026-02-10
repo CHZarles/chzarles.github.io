@@ -94,11 +94,23 @@ authRoutes.get("/me", async (c) => {
   const cfg = c.get("config");
   await requireAuth({ tokenSecret: cfg.tokenSecret, adminLogins: cfg.adminLogins })(c, async () => {});
   const user = c.get("user");
-  const ref = await ghJson<{ object: { sha: string } }>({
-    token: user.ghToken,
-    method: "GET",
-    path: `/repos/${cfg.contentRepo}/git/ref/heads/${cfg.contentBranch}`,
-  });
+  let ref: { object: { sha: string } };
+  try {
+    ref = await ghJson<{ object: { sha: string } }>({
+      token: user.ghToken,
+      method: "GET",
+      path: `/repos/${cfg.contentRepo}/git/ref/heads/${cfg.contentBranch}`,
+    });
+  } catch (err) {
+    if (err instanceof HttpError && err.code === "GITHUB_UPSTREAM" && (err.details as any)?.githubStatus === 404) {
+      throw new HttpError(500, "INTERNAL", "Publisher misconfigured: repo/branch not found.", {
+        contentRepo: cfg.contentRepo,
+        contentBranch: cfg.contentBranch,
+        ...(err.details ?? {}),
+      });
+    }
+    throw err;
+  }
   return c.json({
     user: { id: user.id, login: user.login, avatarUrl: user.avatarUrl ?? null },
     repo: { fullName: cfg.contentRepo, branch: cfg.contentBranch, headSha: ref.object.sha },

@@ -15,9 +15,10 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import YAML from "yaml";
-import { publisherFetchJson, type PublisherError } from "../../ui/publisher/client";
+import { publisherFetchJson } from "../../ui/publisher/client";
 import type { Category, MindmapListItem, RoadmapNodeEntry } from "../../ui/types";
 import { useStudioState } from "../state/StudioState";
+import { formatStudioError } from "../util/errors";
 
 type NoteInput = {
   title: string;
@@ -311,13 +312,6 @@ function normalizeIdList(list: string[]): string[] {
   return out;
 }
 
-function formatStudioError(err: unknown): { message: string; code?: string } {
-  const pub = (err as any)?.publisher as PublisherError | undefined;
-  if (pub && typeof pub.code === "string" && typeof pub.message === "string") return { message: `${pub.code}: ${pub.message}`, code: pub.code };
-  if (err instanceof Error) return { message: err.message };
-  return { message: String(err) };
-}
-
 async function fileToBase64(file: File): Promise<string> {
   return await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -479,20 +473,32 @@ export function StudioNotesPage() {
 
   React.useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      fetchLocalJson<Category[]>("/api/categories.json").catch(() => [] as Category[]),
-      fetchLocalJson<RoadmapNodeEntry[]>("/api/nodes.json").catch(() => [] as RoadmapNodeEntry[]),
-      fetchLocalJson<MindmapListItem[]>("/api/mindmaps.json").catch(() => [] as MindmapListItem[]),
-    ]).then(([cats, nodes, mindmaps]) => {
+    (async () => {
+      const [catsStatic, nodes, mindmaps] = await Promise.all([
+        fetchLocalJson<Category[]>("/api/categories.json").catch(() => [] as Category[]),
+        fetchLocalJson<RoadmapNodeEntry[]>("/api/nodes.json").catch(() => [] as RoadmapNodeEntry[]),
+        fetchLocalJson<MindmapListItem[]>("/api/mindmaps.json").catch(() => [] as MindmapListItem[]),
+      ]);
+
+      let cats = catsStatic;
+      if (studio.token) {
+        try {
+          const res = await publisherFetchJson<{ file: { json: unknown } }>({ path: "/api/admin/categories", token: studio.token });
+          if (Array.isArray(res.file.json)) cats = res.file.json as Category[];
+        } catch {
+          // ignore (fallback to static)
+        }
+      }
+
       if (cancelled) return;
       setAllCategories(cats);
       setNodesIndex(nodes);
       setMindmapsIndex(mindmaps);
-    });
+    })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [studio.token]);
 
   React.useEffect(() => {
     void refreshList();
@@ -926,6 +932,16 @@ export function StudioNotesPage() {
     });
   }, [notes, filter]);
 
+  const noteIdPreview = React.useMemo(() => {
+    if (editor.mode === "edit" && editor.id) {
+      return { ok: true as const, noteId: editor.id, error: null };
+    }
+    if (!editor.title.trim()) return { ok: false as const, noteId: null, error: "Missing title." };
+    const resolved = buildNoteId({ title: editor.title, date: editor.date, slug: editor.slug });
+    if (!resolved.ok) return { ok: false as const, noteId: null, error: resolved.error };
+    return { ok: true as const, noteId: resolved.noteId, error: null };
+  }, [editor.mode, editor.id, editor.title, editor.date, editor.slug]);
+
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_360px]">
       <aside className="min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r">
@@ -1139,7 +1155,7 @@ export function StudioNotesPage() {
               onClick={() => saveLocal()}
               disabled={busy}
               className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
-              title="Save locally (⌘S / Ctrl+S)"
+              title="Save locally (browser only; no GitHub commit) (⌘S / Ctrl+S)"
             >
               <Check className="h-3.5 w-3.5 opacity-85" />
               Save local
@@ -1155,10 +1171,10 @@ export function StudioNotesPage() {
                   ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
                   : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
               ].join(" ")}
-              title="Publish (⌘Enter / Ctrl+Enter)"
+              title="Publish to GitHub (commit) (⌘Enter / Ctrl+Enter)"
             >
               <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
-              {editor.draft ? "Commit" : editor.mode === "create" ? "Publish" : "Update"}
+              {editor.draft ? "Commit draft" : editor.mode === "create" ? "Publish" : "Update"}
             </button>
           </div>
         </div>
@@ -1225,12 +1241,31 @@ export function StudioNotesPage() {
         </div>
       </section>
 
-      <aside className="hidden min-h-0 overflow-auto bg-[hsl(var(--card))] lg:block">
+      <aside className="min-h-0 overflow-auto bg-[hsl(var(--card))]">
         <div className="border-b border-[hsl(var(--border))] px-4 py-3">
           <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">METADATA</div>
         </div>
 
         <div className="grid gap-4 px-4 py-4">
+          <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2">
+            <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">NOTE ID</div>
+            {noteIdPreview.ok ? (
+              <div className="mt-1 truncate font-mono text-xs text-[hsl(var(--fg))]" title={noteIdPreview.noteId}>
+                {noteIdPreview.noteId}
+              </div>
+            ) : (
+              <div className="mt-1 text-xs text-red-700">{noteIdPreview.error}</div>
+            )}
+            {editor.mode === "create" && noteIdPreview.ok ? (
+              <div className="mt-1 truncate text-[10px] text-[hsl(var(--muted))]" title={`content/notes/${noteIdPreview.noteId}.md`}>
+                content/notes/{noteIdPreview.noteId}.md
+              </div>
+            ) : null}
+            <div className="mt-2 text-[10px] text-[hsl(var(--muted))]">
+              Local saves stay in your browser. Publish writes a GitHub commit.
+            </div>
+          </div>
+
           <Field label="Title">
             <input
               value={editor.title}
@@ -1312,39 +1347,55 @@ export function StudioNotesPage() {
           </Field>
 
           <Field label="Categories">
-            {allCategories.length ? (
-              <div className="flex flex-wrap gap-2">
-                {allCategories.map((c) => {
-                  const active = editor.categories.includes(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        setDirty(true);
-                        setEditor((prev) => {
-                          const set = new Set(prev.categories);
-                          if (set.has(c.id)) set.delete(c.id);
-                          else set.add(c.id);
-                          return { ...prev, categories: Array.from(set) };
-                        });
-                      }}
-                      className={[
-                        "rounded-full border px-3 py-1.5 text-xs transition",
-                        active
-                          ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
-                          : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
-                      ].join(" ")}
-                      title={c.id}
-                    >
-                      {c.title}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-xs text-[hsl(var(--muted))]">No categories loaded.</div>
-            )}
+            <div className="grid gap-2">
+              <ChipInput
+                value={editor.categories}
+                placeholder="Add category id and press Enter…"
+                onChange={(next) => {
+                  setDirty(true);
+                  setEditor((prev) => ({ ...prev, categories: next }));
+                }}
+              />
+
+              {allCategories.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {allCategories.map((c) => {
+                    const cid = String(c.id ?? "").toLowerCase();
+                    const active = editor.categories.includes(cid);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setDirty(true);
+                          setEditor((prev) => {
+                            const set = new Set(prev.categories);
+                            if (set.has(cid)) set.delete(cid);
+                            else set.add(cid);
+                            return { ...prev, categories: Array.from(set) };
+                          });
+                        }}
+                        className={[
+                          "rounded-full border px-3 py-1.5 text-xs transition",
+                          active
+                            ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
+                            : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
+                        ].join(" ")}
+                        title={c.id}
+                      >
+                        {c.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-[10px] text-[hsl(var(--muted))]">No categories loaded.</div>
+              )}
+
+              <a href="/studio/config?file=categories" className="text-[10px] text-[hsl(var(--muted))] underline underline-offset-2 hover:text-[hsl(var(--fg))]">
+                Manage categories in Config
+              </a>
+            </div>
           </Field>
 
           <Field label="Tags">
@@ -1393,8 +1444,11 @@ export function StudioNotesPage() {
             />
           </Field>
 
-          <label className="flex items-center justify-between rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm">
-            <span className="text-sm">Draft</span>
+          <label className="flex items-center justify-between gap-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2">
+            <div className="min-w-0">
+              <div className="text-sm">Draft (hide on public site)</div>
+              <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Still commits to GitHub. Frontend filters draft notes by default.</div>
+            </div>
             <input
               type="checkbox"
               checked={editor.draft}
@@ -1467,10 +1521,10 @@ export function StudioNotesPage() {
 
 function Field(props: { label: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-2">
-      <span className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">{props.label}</span>
+    <div className="grid gap-2">
+      <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">{props.label}</div>
       {props.children}
-    </label>
+    </div>
   );
 }
 

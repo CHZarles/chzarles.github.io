@@ -40,6 +40,14 @@ function StudioLayout() {
         <div className="flex items-center gap-2">
           {studio.token ? (
             <>
+              {studio.meError ? (
+                <div
+                  className="hidden max-w-[420px] truncate rounded-full border border-[color-mix(in_oklab,red_40%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] px-3 py-2 text-xs text-red-700 md:block"
+                  title={studio.meError}
+                >
+                  {studio.meError}
+                </div>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void studio.refreshMe()}

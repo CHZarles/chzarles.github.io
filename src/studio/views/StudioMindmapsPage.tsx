@@ -20,6 +20,7 @@ import "reactflow/dist/style.css";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { useStudioState } from "../state/StudioState";
 import { MindNode, type MindNodeData } from "../mindmap/MindNode";
+import { formatStudioError } from "../util/errors";
 
 type MindmapInput = {
   id: string;
@@ -337,8 +338,7 @@ export function StudioMindmapsPage() {
         setMindmaps((prev) => (opts?.append ? [...prev, ...res.mindmaps] : res.mindmaps));
         setPaging(res.paging);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setListError(msg);
+        setListError(formatStudioError(err).message);
       } finally {
         setListBusy(false);
       }
@@ -461,8 +461,7 @@ export function StudioMindmapsPage() {
           requestAnimationFrame(() => setViewport(nextViewport));
         }
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setNotice(`Open failed: ${msg}`);
+        setNotice(`Open failed: ${formatStudioError(err).message}`);
       } finally {
         setBusy(false);
       }
@@ -611,8 +610,7 @@ export function StudioMindmapsPage() {
       void studio.refreshMe();
       void refreshList();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setNotice(`Publish failed: ${msg}`);
+      setNotice(`Publish failed: ${formatStudioError(err).message}`);
     } finally {
       setBusy(false);
     }
@@ -649,8 +647,7 @@ export function StudioMindmapsPage() {
       setDirty(false);
       void refreshList();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setNotice(`Delete failed: ${msg}`);
+      setNotice(`Delete failed: ${formatStudioError(err).message}`);
     } finally {
       setBusy(false);
     }
@@ -1094,10 +1091,10 @@ export function StudioMindmapsPage() {
 
 function Field(props: { label: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-2">
-      <span className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">{props.label}</span>
+    <div className="grid gap-2">
+      <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">{props.label}</div>
       {props.children}
-    </label>
+    </div>
   );
 }
 

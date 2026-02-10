@@ -6,6 +6,7 @@ import { RoadmapMap } from "../../ui/roadmap/RoadmapMap";
 import { RoadmapOutline } from "../../ui/roadmap/RoadmapOutline";
 import type { Roadmap } from "../../ui/types";
 import { useStudioState } from "../state/StudioState";
+import { formatStudioError } from "../util/errors";
 
 type RoadmapsListResponse = {
   roadmaps: Array<{
@@ -204,8 +205,7 @@ export function StudioRoadmapsPage() {
         setRoadmaps((prev) => (opts?.append ? [...prev, ...res.roadmaps] : res.roadmaps));
         setPaging(res.paging);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setListError(msg);
+        setListError(formatStudioError(err).message);
       } finally {
         setListBusy(false);
       }
@@ -265,8 +265,7 @@ export function StudioRoadmapsPage() {
         setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
         setOutlineOpen(false);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setNotice(`Open failed: ${msg}`);
+        setNotice(`Open failed: ${formatStudioError(err).message}`);
       } finally {
         setBusy(false);
       }
@@ -407,8 +406,7 @@ export function StudioRoadmapsPage() {
       void studio.refreshMe();
       void refreshList();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setNotice(`Publish failed: ${msg}`);
+      setNotice(`Publish failed: ${formatStudioError(err).message}`);
     } finally {
       setBusy(false);
     }
@@ -435,8 +433,7 @@ export function StudioRoadmapsPage() {
       setSelectedNodeId(null);
       void refreshList();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setNotice(`Delete failed: ${msg}`);
+      setNotice(`Delete failed: ${formatStudioError(err).message}`);
     } finally {
       setBusy(false);
     }

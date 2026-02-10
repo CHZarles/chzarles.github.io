@@ -19,9 +19,33 @@ async function readRepoFileUtf8(args: { token: string; repo: string; path: strin
   return new TextDecoder().decode(bytes);
 }
 
+async function readRepoFileUtf8OrNull(args: { token: string; repo: string; path: string; ref: string }): Promise<string | null> {
+  try {
+    return await readRepoFileUtf8(args);
+  } catch (err) {
+    if (err instanceof HttpError && err.code === "GITHUB_UPSTREAM" && (err.details as any)?.githubStatus === 404) return null;
+    throw err;
+  }
+}
+
 function jsonPretty(raw: unknown): string {
   return JSON.stringify(raw, null, 2) + "\n";
 }
+
+const DEFAULT_PROFILE = {
+  name: "Your Name",
+  handle: "@you",
+  tagline: "",
+  accent: "270 95% 65%",
+  links: [{ label: "GitHub", href: "https://github.com/" }],
+  hero: { imageUrl: "/mountain.avif", blurPx: 0, opacity: 0.28, position: "center", tintOpacity: 0, washOpacity: 0 },
+};
+
+const DEFAULT_CATEGORIES = [
+  { id: "engineering", title: "Engineering", tone: "cyan" },
+  { id: "ai", title: "AI / LLM", tone: "violet" },
+  { id: "product", title: "Product", tone: "amber" },
+];
 
 export const adminConfigRoutes = new Hono();
 
@@ -30,7 +54,11 @@ adminConfigRoutes.get("/profile", async (c) => {
   const user = c.get("user");
   const relPath = validateRepoPath("content/profile.json");
   const path = applyContentRoot(cfg.contentRoot, relPath);
-  const raw = await readRepoFileUtf8({ token: user.ghToken, repo: cfg.contentRepo, path, ref: cfg.contentBranch });
+  const raw = await readRepoFileUtf8OrNull({ token: user.ghToken, repo: cfg.contentRepo, path, ref: cfg.contentBranch });
+
+  if (raw === null) {
+    return c.json({ file: { path: relPath, raw: jsonPretty(DEFAULT_PROFILE), json: DEFAULT_PROFILE, missing: true } });
+  }
 
   let json: unknown = null;
   try {
@@ -87,7 +115,12 @@ adminConfigRoutes.get("/categories", async (c) => {
   const user = c.get("user");
   const relPath = validateRepoPath("content/categories.yml");
   const path = applyContentRoot(cfg.contentRoot, relPath);
-  const raw = await readRepoFileUtf8({ token: user.ghToken, repo: cfg.contentRepo, path, ref: cfg.contentBranch });
+  const raw = await readRepoFileUtf8OrNull({ token: user.ghToken, repo: cfg.contentRepo, path, ref: cfg.contentBranch });
+
+  if (raw === null) {
+    const yaml = YAML.stringify(DEFAULT_CATEGORIES).trimEnd() + "\n";
+    return c.json({ file: { path: relPath, raw: yaml, json: DEFAULT_CATEGORIES, missing: true } });
+  }
 
   let data: unknown = null;
   try {
@@ -144,7 +177,11 @@ adminConfigRoutes.get("/projects", async (c) => {
   const user = c.get("user");
   const relPath = validateRepoPath("content/projects.json");
   const path = applyContentRoot(cfg.contentRoot, relPath);
-  const raw = await readRepoFileUtf8({ token: user.ghToken, repo: cfg.contentRepo, path, ref: cfg.contentBranch });
+  const raw = await readRepoFileUtf8OrNull({ token: user.ghToken, repo: cfg.contentRepo, path, ref: cfg.contentBranch });
+
+  if (raw === null) {
+    return c.json({ file: { path: relPath, raw: "[]\n", json: [], missing: true } });
+  }
 
   let json: unknown = null;
   try {
@@ -195,4 +232,3 @@ adminConfigRoutes.put("/projects", async (c) => {
 
   return c.json({ ok: true, file: { path: relPath }, commit: { sha: commit.sha, url: commit.url } });
 });
-

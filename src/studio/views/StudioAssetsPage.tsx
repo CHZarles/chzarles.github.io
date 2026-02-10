@@ -1,7 +1,8 @@
 import { ArrowUpRight, Check, Copy, ExternalLink, FileText, ImagePlus, RefreshCw, Trash2, X } from "lucide-react";
 import React from "react";
-import { publisherFetchJson, type PublisherError } from "../../ui/publisher/client";
+import { publisherFetchJson } from "../../ui/publisher/client";
 import { useStudioState } from "../state/StudioState";
+import { formatStudioError } from "../util/errors";
 
 type Asset = {
   path: string; // "public/uploads/..."
@@ -65,13 +66,6 @@ async function copyText(text: string): Promise<boolean> {
       return false;
     }
   }
-}
-
-function formatStudioError(err: unknown): { message: string; code?: string } {
-  const pub = (err as any)?.publisher as PublisherError | undefined;
-  if (pub && typeof pub.code === "string" && typeof pub.message === "string") return { message: `${pub.code}: ${pub.message}`, code: pub.code };
-  if (err instanceof Error) return { message: err.message };
-  return { message: String(err) };
 }
 
 async function fileToBase64(file: File): Promise<string> {

@@ -73,6 +73,7 @@ type LocalRoadmapDraftV1 = {
   roadmapId: string;
   title: string;
   yaml: string;
+  pendingDelete?: boolean;
 };
 
 type LocalDraftIndexItem = {
@@ -80,6 +81,7 @@ type LocalDraftIndexItem = {
   roadmapId: string;
   title: string;
   savedAt: number;
+  pendingDelete: boolean;
 };
 
 const DRAFT_ROADMAP_PREFIX = "hyperblog.studio.draft.roadmap:";
@@ -137,6 +139,7 @@ function readLocalDraft(key: string): LocalRoadmapDraftV1 | null {
     if (typeof v.roadmapId !== "string") return null;
     if (typeof v.title !== "string") return null;
     if (typeof v.yaml !== "string") return null;
+    if (typeof v.pendingDelete !== "undefined" && typeof v.pendingDelete !== "boolean") return null;
     return v;
   } catch {
     return null;
@@ -150,7 +153,13 @@ function listLocalDraftIndex(): LocalDraftIndexItem[] {
     if (!key.startsWith(DRAFT_ROADMAP_PREFIX)) continue;
     const d = readLocalDraft(key);
     if (!d) continue;
-    drafts.push({ key, roadmapId: d.roadmapId, title: d.title.trim() || d.roadmapId, savedAt: d.savedAt });
+    drafts.push({
+      key,
+      roadmapId: d.roadmapId,
+      title: d.title.trim() || d.roadmapId,
+      savedAt: d.savedAt,
+      pendingDelete: Boolean(d.pendingDelete),
+    });
   }
   drafts.sort((a, b) => b.savedAt - a.savedAt);
   return drafts;
@@ -193,6 +202,7 @@ export function StudioRoadmapsPage() {
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
   const [layout, setLayout] = React.useState<"horizontal" | "vertical">("horizontal");
   const [outlineOpen, setOutlineOpen] = React.useState(false);
+  const [pendingDelete, setPendingDelete] = React.useState(false);
 
   const [busy, setBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -290,6 +300,7 @@ export function StudioRoadmapsPage() {
 
       setNotice(null);
       setCommitUrl(null);
+      setPendingDelete(restore && local ? Boolean(local.pendingDelete) : false);
 
       const cached = readStudioDataCache<RoadmapGetResponse>(roadmapDetailCacheKey(id))?.value ?? null;
       const cachedYaml = cached?.roadmap?.yaml ?? "";
@@ -313,6 +324,7 @@ export function StudioRoadmapsPage() {
         setYamlText(cachedYaml);
         setDirty(false);
         setLocalSavedAt(null);
+        setPendingDelete(false);
         const parsed = safeRoadmapFromYaml(cachedYaml);
         setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
         setOutlineOpen(false);
@@ -335,6 +347,7 @@ export function StudioRoadmapsPage() {
           setYamlText(nextYaml);
           setDirty(false);
           setLocalSavedAt(null);
+          setPendingDelete(false);
           const parsed = safeRoadmapFromYaml(nextYaml);
           setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
           setOutlineOpen(false);
@@ -362,6 +375,7 @@ export function StudioRoadmapsPage() {
     setCommitUrl(null);
     setSelectedNodeId("foundations");
     setOutlineOpen(false);
+    setPendingDelete(false);
   }, [dirty]);
 
   const openLocalDraft = React.useCallback(
@@ -380,6 +394,7 @@ export function StudioRoadmapsPage() {
       setLocalSavedAt(d.savedAt);
       setNotice(`Opened local draft (${fmtRelative(d.savedAt)} ago).`);
       setCommitUrl(null);
+      setPendingDelete(Boolean(d.pendingDelete));
 
       const parsed = safeRoadmapFromYaml(d.yaml ?? "");
       setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
@@ -398,7 +413,7 @@ export function StudioRoadmapsPage() {
   );
 
   const saveLocal = React.useCallback(
-    (opts?: { quiet?: boolean }) => {
+    (opts?: { quiet?: boolean; pendingDelete?: boolean }) => {
       if (!activeId) {
         setNotice("Select a roadmap first.");
         return;
@@ -408,7 +423,14 @@ export function StudioRoadmapsPage() {
       if (draftKey !== key) setDraftKey(key);
 
       const title = preview.ok ? String(preview.roadmap.title ?? "").trim() || activeId : activeId;
-      const payload: LocalRoadmapDraftV1 = { v: 1, savedAt: Date.now(), roadmapId: activeId, title, yaml: yamlText };
+      const payload: LocalRoadmapDraftV1 = {
+        v: 1,
+        savedAt: Date.now(),
+        roadmapId: activeId,
+        title,
+        yaml: yamlText,
+        pendingDelete: typeof opts?.pendingDelete === "boolean" ? opts.pendingDelete : pendingDelete,
+      };
       const ok = safeLocalStorageSet(key, JSON.stringify(payload));
       if (!ok) {
         setNotice("Local save failed (storage unavailable or full).");
@@ -421,7 +443,7 @@ export function StudioRoadmapsPage() {
       refreshDraftIndex();
       if (!opts?.quiet) setNotice(`Saved locally (${fmtRelative(payload.savedAt)}).`);
     },
-    [activeId, draftKey, preview, refreshDraftIndex, yamlText],
+    [activeId, draftKey, pendingDelete, preview, refreshDraftIndex, yamlText],
   );
 
   React.useEffect(() => {
@@ -436,6 +458,58 @@ export function StudioRoadmapsPage() {
     if (!studio.token) return;
     if (!activeId) {
       setNotice("Missing roadmap id.");
+      return;
+    }
+    if (pendingDelete) {
+      setBusy(true);
+      setNotice(null);
+      setCommitUrl(null);
+      try {
+        const srcRel =
+          roadmaps.find((r) => r.id === activeId)?.path ??
+          readStudioDataCache<RoadmapGetResponse>(roadmapDetailCacheKey(activeId))?.value?.roadmap?.path ??
+          `content/roadmaps/${activeId}.yml`;
+        const filename = srcRel.split("/").pop() ?? `${activeId}.yml`;
+        const trashRel = `content/.trash/roadmaps/${filename}`;
+        const content = yamlText.trim() ? yamlText.trimEnd() + "\n" : `id: ${activeId}\n(title:)\n`;
+
+        const subject = `roadmap(trash): ${activeId}`;
+        const message = `${subject}\n\nid: ${activeId}`;
+
+        const res = await publisherFetchJson<{ commit: { sha: string; url: string; headSha?: string } }>({
+          path: "/api/admin/commit",
+          method: "POST",
+          token: studio.token,
+          body: {
+            message,
+            expectedHeadSha: studio.me?.repo.headSha ?? undefined,
+            files: [{ path: trashRel, encoding: "utf8", content }],
+            deletes: [srcRel],
+          },
+        });
+
+        safeLocalStorageRemove(roadmapDetailCacheKey(activeId));
+        safeLocalStorageRemove(roadmapDraftKey(activeId));
+        refreshDraftIndex();
+
+        setNotice(`Trashed: ${activeId}`);
+        setCommitUrl(res.commit.url);
+        setPendingDelete(false);
+        setDirty(false);
+        setLocalSavedAt(null);
+        setDraftKey(null);
+        setActiveId(null);
+        setYamlText("");
+        setSelectedNodeId(null);
+        setOutlineOpen(false);
+
+        void studio.refreshMe();
+        void refreshList();
+      } catch (err: unknown) {
+        setNotice(`Publish failed: ${formatStudioError(err).message}`);
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     if (!yamlText.trim()) {
@@ -496,9 +570,22 @@ export function StudioRoadmapsPage() {
     } finally {
       setBusy(false);
     }
-  }, [studio.token, studio.refreshMe, activeId, yamlText, preview, draftKey, refreshDraftIndex, refreshList]);
+  }, [
+    studio.token,
+    studio.me?.repo.headSha,
+    studio.refreshMe,
+    activeId,
+    pendingDelete,
+    yamlText,
+    preview,
+    draftKey,
+    refreshDraftIndex,
+    refreshList,
+    roadmaps,
+  ]);
 
-  const canPublish = Boolean(studio.token) && !busy && Boolean(activeId) && (dirty || Boolean(localSavedAt));
+  const canPublish =
+    Boolean(studio.token) && !busy && Boolean(activeId) && (pendingDelete || dirty || Boolean(localSavedAt));
   const headerPublish = React.useMemo(
     () => ({
       label: "Publish",
@@ -510,33 +597,20 @@ export function StudioRoadmapsPage() {
   );
   useRegisterStudioHeaderActions({ publish: headerPublish });
 
-  const del = React.useCallback(async () => {
-    if (!studio.token || !activeId) return;
-    const ok = window.confirm(`Trash roadmap ${activeId}?`);
-    if (!ok) return;
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
-    try {
-      const res = await publisherFetchJson<{ ok: true; commit: { sha: string; url: string } }>({
-        path: `/api/admin/roadmaps/${encodeURIComponent(activeId)}`,
-        method: "DELETE",
-        token: studio.token,
-      });
-      safeLocalStorageRemove(roadmapDetailCacheKey(activeId));
-      setNotice("Trashed.");
-      setCommitUrl(res.commit.url);
-      setDirty(false);
-      setActiveId(null);
-      setYamlText("");
-      setSelectedNodeId(null);
-      void refreshList();
-    } catch (err: unknown) {
-      setNotice(`Delete failed: ${formatStudioError(err).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [studio.token, activeId, refreshList]);
+  const setDeleteStaged = React.useCallback(
+    (next: boolean) => {
+      if (!activeId) return;
+      if (next) {
+        const ok = window.confirm(`Stage delete for ${activeId}? (Will commit on Publish)`);
+        if (!ok) return;
+      }
+      setPendingDelete(next);
+      saveLocal({ quiet: true, pendingDelete: next });
+      setCommitUrl(null);
+      setNotice(next ? "Delete staged. Click Publish to move the roadmap into content/.trash." : "Delete unstaged.");
+    },
+    [activeId, saveLocal],
+  );
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -698,6 +772,11 @@ export function StudioRoadmapsPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="truncate text-sm font-semibold tracking-tight">{activeId ?? "Select a roadmap"}</div>
+              {pendingDelete ? (
+                <span className="rounded-full bg-[color-mix(in_oklab,red_14%,transparent)] px-2 py-0.5 text-[10px] font-medium text-red-700">
+                  delete staged
+                </span>
+              ) : null}
               {dirty ? (
                 <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
               ) : localSavedAt ? (
@@ -721,12 +800,12 @@ export function StudioRoadmapsPage() {
             {activeId ? (
               <button
                 type="button"
-                onClick={() => void del()}
+                onClick={() => setDeleteStaged(!pendingDelete)}
                 disabled={!activeId || busy}
                 className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
               >
-                <Trash2 className="h-3.5 w-3.5 opacity-85" />
-                Trash
+                {pendingDelete ? <X className="h-3.5 w-3.5 opacity-85" /> : <Trash2 className="h-3.5 w-3.5 opacity-85" />}
+                {pendingDelete ? "Unstage delete" : "Stage delete"}
               </button>
             ) : null}
             <button

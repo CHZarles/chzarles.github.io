@@ -187,6 +187,7 @@ type LocalMindmapDraftV1 = {
   nodes: unknown[];
   edges: unknown[];
   viewport: Viewport;
+  pendingDelete?: boolean;
 };
 
 type LocalDraftIndexItem = {
@@ -196,6 +197,7 @@ type LocalDraftIndexItem = {
   savedAt: number;
   nodeCount: number;
   edgeCount: number;
+  pendingDelete: boolean;
 };
 
 const DRAFT_MINDMAP_PREFIX = "hyperblog.studio.draft.mindmap:";
@@ -256,6 +258,7 @@ function readLocalDraft(key: string): LocalMindmapDraftV1 | null {
     if (!Array.isArray(v.edges)) return null;
     const vp = v.viewport as any;
     if (!vp || typeof vp !== "object") return null;
+    if (typeof v.pendingDelete !== "undefined" && typeof v.pendingDelete !== "boolean") return null;
     return v;
   } catch {
     return null;
@@ -276,6 +279,7 @@ function listLocalDraftIndex(): LocalDraftIndexItem[] {
       savedAt: d.savedAt,
       nodeCount: Array.isArray(d.nodes) ? d.nodes.length : 0,
       edgeCount: Array.isArray(d.edges) ? d.edges.length : 0,
+      pendingDelete: Boolean(d.pendingDelete),
     });
   }
   drafts.sort((a, b) => b.savedAt - a.savedAt);
@@ -320,6 +324,7 @@ export function StudioMindmapsPage() {
   const [localSavedAt, setLocalSavedAt] = React.useState<number | null>(null);
   const [localDrafts, setLocalDrafts] = React.useState<LocalDraftIndexItem[]>(() => listLocalDraftIndex());
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = React.useState(false);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<MindNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -451,6 +456,7 @@ export function StudioMindmapsPage() {
     setDirty(true);
     setNotice(null);
     setCommitUrl(null);
+    setPendingDelete(false);
     requestAnimationFrame(() => setViewport(fresh.viewport));
   }, [dirty, setEdges, setNodes, setViewport]);
 
@@ -473,6 +479,7 @@ export function StudioMindmapsPage() {
 
       setNotice(null);
       setCommitUrl(null);
+      setPendingDelete(restore && local ? Boolean(local.pendingDelete) : false);
 
       const cached = readStudioDataCache<MindmapGetResponse>(mindmapDetailCacheKey(id))?.value ?? null;
 
@@ -506,6 +513,7 @@ export function StudioMindmapsPage() {
         setSelectedNodeId(nextNodes[0]?.id ?? null);
         setDirty(false);
         setLocalSavedAt(null);
+        setPendingDelete(false);
         requestAnimationFrame(() => setViewport(nextViewport));
       }
 
@@ -533,6 +541,7 @@ export function StudioMindmapsPage() {
           setSelectedNodeId(nextNodes[0]?.id ?? null);
           setDirty(false);
           setLocalSavedAt(null);
+          setPendingDelete(false);
           requestAnimationFrame(() => setViewport(nextViewport));
         }
       } catch (err: unknown) {
@@ -576,6 +585,7 @@ export function StudioMindmapsPage() {
       setLocalSavedAt(d.savedAt);
       setNotice(`Opened local draft (${fmtRelative(d.savedAt)} ago).`);
       setCommitUrl(null);
+      setPendingDelete(Boolean(d.pendingDelete));
       requestAnimationFrame(() => setViewport(nextViewport));
     },
     [dirty, mindmaps, refreshDraftIndex, setEdges, setNodes, setViewport],
@@ -591,7 +601,7 @@ export function StudioMindmapsPage() {
   );
 
   const saveLocal = React.useCallback(
-    (opts?: { quiet?: boolean }) => {
+    (opts?: { quiet?: boolean; pendingDelete?: boolean }) => {
       const id = fitToMindmapId(mindmapId);
       if (!id) {
         if (!opts?.quiet) setNotice("Missing or invalid mindmap id.");
@@ -610,6 +620,7 @@ export function StudioMindmapsPage() {
         nodes: persistNodes(nodes as MindNodeT[]),
         edges: persistEdges(edges as MindEdgeT[]),
         viewport,
+        pendingDelete: typeof opts?.pendingDelete === "boolean" ? opts.pendingDelete : pendingDelete,
       };
 
       const ok = safeLocalStorageSet(key, JSON.stringify(payload));
@@ -624,7 +635,7 @@ export function StudioMindmapsPage() {
       refreshDraftIndex();
       if (!opts?.quiet) setNotice(`Saved locally (${fmtRelative(payload.savedAt)}).`);
     },
-    [mindmapId, title, nodes, edges, draftKey, refreshDraftIndex],
+    [mindmapId, title, nodes, edges, draftKey, pendingDelete, refreshDraftIndex],
   );
 
   React.useEffect(() => {
@@ -640,6 +651,67 @@ export function StudioMindmapsPage() {
     const id = fitToMindmapId(mindmapId);
     if (!id) {
       setNotice("Missing or invalid mindmap id.");
+      return;
+    }
+
+    if (pendingDelete) {
+      setBusy(true);
+      setNotice(null);
+      setCommitUrl(null);
+      try {
+        const viewport = rfRef.current?.getViewport() ?? { x: 0, y: 0, zoom: 1 };
+        const payload: MindmapInput = {
+          id,
+          title: title.trim() || undefined,
+          format: "reactflow",
+          nodes: persistNodes(nodes as MindNodeT[]),
+          edges: persistEdges(edges as MindEdgeT[]),
+          viewport,
+        };
+        const json = JSON.stringify(payload, null, 2) + "\n";
+        const srcRel = `content/mindmaps/${id}.json`;
+        const trashRel = `content/.trash/mindmaps/${id}.json`;
+
+        const subject = `mindmap(trash): ${id}`;
+        const message = `${subject}\n\nid: ${id}`;
+
+        const res = await publisherFetchJson<{ commit: { sha: string; url: string; headSha?: string } }>({
+          path: "/api/admin/commit",
+          method: "POST",
+          token: studio.token,
+          body: {
+            message,
+            expectedHeadSha: studio.me?.repo.headSha ?? undefined,
+            files: [{ path: trashRel, encoding: "utf8", content: json }],
+            deletes: [srcRel],
+          },
+        });
+
+        safeLocalStorageRemove(mindmapDetailCacheKey(id));
+        safeLocalStorageRemove(mindmapDraftKey(id));
+        refreshDraftIndex();
+
+        setNotice(`Trashed: ${id}`);
+        setCommitUrl(res.commit.url);
+        setPendingDelete(false);
+        setDirty(false);
+        setLocalSavedAt(null);
+        setDraftKey(null);
+        setMode("create");
+        setMindmapId("");
+        setTitle("");
+        setNodes([]);
+        setEdges([]);
+        setSelectedNodeId(null);
+
+        void studio.refreshMe();
+        void refreshList();
+      } catch (err: unknown) {
+        const e = formatStudioError(err);
+        setNotice(e.code === "HEAD_MOVED" ? "Conflict: main moved. Sync and retry." : `Publish failed: ${e.message}`);
+      } finally {
+        setBusy(false);
+      }
       return;
     }
 
@@ -690,6 +762,7 @@ export function StudioMindmapsPage() {
       setLocalSavedAt(null);
       refreshDraftIndex();
 
+      setPendingDelete(false);
       void studio.refreshMe();
       void refreshList();
     } catch (err: unknown) {
@@ -697,10 +770,23 @@ export function StudioMindmapsPage() {
     } finally {
       setBusy(false);
     }
-  }, [studio.token, studio.refreshMe, mode, mindmapId, title, nodes, edges, draftKey, refreshDraftIndex, refreshList]);
+  }, [
+    studio.token,
+    studio.me?.repo.headSha,
+    studio.refreshMe,
+    pendingDelete,
+    mode,
+    mindmapId,
+    title,
+    nodes,
+    edges,
+    draftKey,
+    refreshDraftIndex,
+    refreshList,
+  ]);
 
   const canPublish =
-    Boolean(studio.token) && !busy && Boolean(fitToMindmapId(mindmapId)) && (dirty || Boolean(localSavedAt));
+    Boolean(studio.token) && !busy && Boolean(fitToMindmapId(mindmapId)) && (pendingDelete || dirty || Boolean(localSavedAt));
   const headerPublish = React.useMemo(
     () => ({
       label: "Publish",
@@ -712,43 +798,21 @@ export function StudioMindmapsPage() {
   );
   useRegisterStudioHeaderActions({ publish: headerPublish });
 
-  const del = React.useCallback(async () => {
-    if (!studio.token) return;
-    const id = fitToMindmapId(mindmapId);
-    if (!id) return;
-    const ok = window.confirm(`Trash mindmap ${id}?`);
-    if (!ok) return;
-
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
-    try {
-      const res = await publisherFetchJson<{ ok: true; commit: { sha: string; url: string } }>({
-        path: `/api/admin/mindmaps/${encodeURIComponent(id)}`,
-        method: "DELETE",
-        token: studio.token,
-      });
-      setNotice("Trashed.");
-      setCommitUrl(res.commit.url);
-      safeLocalStorageRemove(mindmapDetailCacheKey(id));
-      safeLocalStorageRemove(mindmapDraftKey(id));
-      refreshDraftIndex();
-      setDraftKey(null);
-      setLocalSavedAt(null);
-      setMode("create");
-      setMindmapId("");
-      setTitle("");
-      setNodes([]);
-      setEdges([]);
-      setSelectedNodeId(null);
-      setDirty(false);
-      void refreshList();
-    } catch (err: unknown) {
-      setNotice(`Delete failed: ${formatStudioError(err).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [studio.token, mindmapId, setEdges, setNodes, refreshDraftIndex, refreshList]);
+  const setDeleteStaged = React.useCallback(
+    (next: boolean) => {
+      const id = fitToMindmapId(mindmapId);
+      if (!id || mode !== "edit") return;
+      if (next) {
+        const ok = window.confirm(`Stage delete for ${id}? (Will commit on Publish)`);
+        if (!ok) return;
+      }
+      setPendingDelete(next);
+      saveLocal({ quiet: true, pendingDelete: next });
+      setCommitUrl(null);
+      setNotice(next ? "Delete staged. Click Publish to move the mindmap into content/.trash." : "Delete unstaged.");
+    },
+    [mindmapId, mode, saveLocal],
+  );
 
   const onNodesChangeDirty = React.useCallback(
     (changes: NodeChange[]) => {
@@ -952,6 +1016,11 @@ export function StudioMindmapsPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="truncate text-sm font-semibold tracking-tight">{mindmapId || "Mindmap"}</div>
+              {pendingDelete ? (
+                <span className="rounded-full bg-[color-mix(in_oklab,red_14%,transparent)] px-2 py-0.5 text-[10px] font-medium text-red-700">
+                  delete staged
+                </span>
+              ) : null}
               {dirty ? (
                 <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
               ) : localSavedAt ? (
@@ -975,7 +1044,7 @@ export function StudioMindmapsPage() {
             <button
               type="button"
               onClick={() => addNode({ connectFrom: selectedNodeId })}
-              disabled={busy || !mindmapId}
+              disabled={busy || !mindmapId || pendingDelete}
               className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
               title="Add node (double click background also works)"
             >
@@ -996,12 +1065,12 @@ export function StudioMindmapsPage() {
             {mode === "edit" ? (
               <button
                 type="button"
-                onClick={() => void del()}
+                onClick={() => setDeleteStaged(!pendingDelete)}
                 disabled={!mindmapId || busy}
                 className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
               >
-                <Trash2 className="h-3.5 w-3.5 opacity-85" />
-                Trash
+                {pendingDelete ? <X className="h-3.5 w-3.5 opacity-85" /> : <Trash2 className="h-3.5 w-3.5 opacity-85" />}
+                {pendingDelete ? "Unstage delete" : "Stage delete"}
               </button>
             ) : null}
 

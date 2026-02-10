@@ -86,7 +86,9 @@ Studio 故意把“写作的频繁保存”与“发布/写入仓库”分开：
 
 ### 删除
 
-- 打开已有 Note 时会出现 `Trash`：删除会产生一次 commit
+- 打开已有 Note 时会出现 `Stage delete`：这一步只是在本地标记“待删除”
+- 点击顶部 `Publish`：才会产生一次 commit，把文件移到 `content/.trash/notes/` 并从 `content/notes/` 删除
+- `Unstage delete`：撤销待删除标记（不会产生 commit）
 
 ### 冲突（main moved）
 
@@ -128,6 +130,7 @@ Roadmap 是 YAML（`content/roadmaps/<id>.yml`）。
 
 - `Save local`（`Ctrl/Cmd+S`）
 - `Publish`（`Ctrl/Cmd+Enter`，commit 到 GitHub）
+- 删除：`Stage delete` → 顶部 `Publish` 才会 commit（会移到 `content/.trash/roadmaps/`）
 
 ---
 
@@ -152,6 +155,7 @@ Mindmap 存储为 ReactFlow JSON（`content/mindmaps/<id>.json`）。
 
 - `Save local`：只存浏览器
 - `Publish/Update`：commit 到 GitHub
+- 删除：`Stage delete` → 顶部 `Publish` 才会 commit（会移到 `content/.trash/mindmaps/`）
 
 ---
 

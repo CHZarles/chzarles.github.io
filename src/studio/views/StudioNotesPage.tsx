@@ -90,6 +90,7 @@ type LocalNoteDraftV1 = {
   v: 1;
   savedAt: number; // epoch ms
   noteId: string | null; // when editing an existing note
+  pendingDelete?: boolean;
   editor: {
     title: string;
     date: string;
@@ -111,6 +112,7 @@ type LocalDraftIndexItem = {
   title: string;
   savedAt: number;
   draft: boolean;
+  pendingDelete: boolean;
 };
 
 const DRAFT_NOTE_PREFIX = "hyperblog.studio.draft.note:";
@@ -187,6 +189,7 @@ function readLocalDraft(key: string): LocalNoteDraftV1 | null {
     if (v.v !== 1) return null;
     if (typeof v.savedAt !== "number") return null;
     if (v.noteId !== null && typeof v.noteId !== "string") return null;
+    if (typeof v.pendingDelete !== "undefined" && typeof v.pendingDelete !== "boolean") return null;
     if (!v.editor || typeof v.editor !== "object") return null;
     if (typeof v.editor.title !== "string") return null;
     if (typeof v.editor.content !== "string") return null;
@@ -204,7 +207,14 @@ function listLocalDraftIndex(): LocalDraftIndexItem[] {
     const d = readLocalDraft(key);
     if (!d) continue;
     const title = d.editor.title.trim() || d.noteId || "Untitled";
-    drafts.push({ key, noteId: d.noteId, title, savedAt: d.savedAt, draft: Boolean(d.editor.draft) });
+    drafts.push({
+      key,
+      noteId: d.noteId,
+      title,
+      savedAt: d.savedAt,
+      draft: Boolean(d.editor.draft),
+      pendingDelete: Boolean(d.pendingDelete),
+    });
   }
   drafts.sort((a, b) => b.savedAt - a.savedAt);
   return drafts;
@@ -452,6 +462,7 @@ export function StudioNotesPage() {
   const [slugTouched, setSlugTouched] = React.useState(false);
   const [draftKey, setDraftKey] = React.useState<string | null>(null);
   const [localSavedAt, setLocalSavedAt] = React.useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = React.useState(false);
   const [localDrafts, setLocalDrafts] = React.useState<LocalDraftIndexItem[]>(() => listLocalDraftIndex());
 
   const contentRef = React.useRef<HTMLTextAreaElement | null>(null);
@@ -573,6 +584,7 @@ export function StudioNotesPage() {
     setSlugTouched(false);
     setDraftKey(newDraftKey());
     setLocalSavedAt(null);
+    setPendingDelete(false);
     retryRef.current = null;
     setTimeout(() => contentRef.current?.focus(), 0);
   }, [clearStagedUploads, dirty]);
@@ -594,6 +606,7 @@ export function StudioNotesPage() {
             ? window.confirm(`Restore local draft saved ${fmtRelative(local.savedAt)} ago?`)
             : false;
 
+      setPendingDelete(restore && local ? Boolean(local.pendingDelete) : false);
       retryRef.current = () => void openNote(id, opts);
       clearStagedUploads();
       setNotice(null);
@@ -663,6 +676,7 @@ export function StudioNotesPage() {
       } else if (cachedEditor) {
         setEditor(cachedEditor);
         setLocalSavedAt(null);
+        setPendingDelete(false);
         setDirty(false);
         setSlugTouched(true);
       }
@@ -704,6 +718,7 @@ export function StudioNotesPage() {
         } else if (!dirtyRef.current) {
           setEditor(remoteEditor);
           setLocalSavedAt(null);
+          setPendingDelete(false);
           setDirty(false);
           setSlugTouched(true);
         } else {
@@ -751,6 +766,7 @@ export function StudioNotesPage() {
       clearStagedUploads();
       setDraftKey(item.key);
       setLocalSavedAt(d.savedAt);
+      setPendingDelete(Boolean(d.pendingDelete));
       setCommitUrl(null);
       setNotice({ tone: "info", message: `Opened local draft (${fmtRelative(d.savedAt)} ago).` });
 
@@ -782,7 +798,7 @@ export function StudioNotesPage() {
   );
 
   const saveLocal = React.useCallback(
-    (opts?: { quiet?: boolean }) => {
+    (opts?: { quiet?: boolean; pendingDelete?: boolean }) => {
       const key = (() => {
         if (editor.mode === "edit" && editor.id) return noteDraftKey(editor.id);
         return draftKey ?? newDraftKey();
@@ -794,6 +810,7 @@ export function StudioNotesPage() {
         v: 1,
         savedAt: Date.now(),
         noteId: editor.mode === "edit" ? editor.id : null,
+        pendingDelete: typeof opts?.pendingDelete === "boolean" ? opts.pendingDelete : pendingDelete,
         editor: {
           title: editor.title,
           date: editor.date,
@@ -821,7 +838,7 @@ export function StudioNotesPage() {
       refreshDraftIndex();
       if (!opts?.quiet) setNotice({ tone: "success", message: `Saved locally (${fmtRelative(payload.savedAt)}).` });
     },
-    [editor, draftKey, refreshDraftIndex],
+    [editor, draftKey, pendingDelete, refreshDraftIndex],
   );
 
   React.useEffect(() => {
@@ -834,6 +851,70 @@ export function StudioNotesPage() {
 
   const publish = React.useCallback(async () => {
     if (!studio.token) return;
+    if (pendingDelete) {
+      if (editor.mode !== "edit" || !editor.id) {
+        setNotice({ tone: "error", message: "Nothing to delete." });
+        return;
+      }
+
+      const noteId = editor.id;
+      const notePath = `content/notes/${noteId}.md`;
+      const trashPath = `content/.trash/notes/${noteId}.md`;
+      const content = editor.baseMarkdown?.trim()
+        ? editor.baseMarkdown
+        : `---\nid: ${noteId}\ntitle: ${editor.title.trim() || noteId}\n---\n\n(trashed)\n`;
+
+      const subject = `trash: ${noteId}`;
+      const commitMessage = `${subject}\n\nid: ${noteId}`;
+
+      retryRef.current = () => void publish();
+      setBusy(true);
+      setNotice(null);
+      setCommitUrl(null);
+      try {
+        const res = await publisherFetchJson<CommitResponse>({
+          path: "/api/admin/commit",
+          method: "POST",
+          token: studio.token,
+          body: {
+            message: commitMessage,
+            expectedHeadSha: studio.me?.repo.headSha ?? undefined,
+            files: [{ path: trashPath, encoding: "utf8", content }],
+            deletes: [notePath],
+          },
+        });
+
+        safeLocalStorageRemove(noteDetailCacheKey(noteId));
+        safeLocalStorageRemove(noteDraftKey(noteId));
+        refreshDraftIndex();
+
+        setNotice({ tone: "success", message: `Trashed: ${noteId}` });
+        setCommitUrl(res.commit.url);
+        setPendingDelete(false);
+        clearStagedUploads();
+        setLastUploadUrl(null);
+        setEditor(emptyEditor());
+        setDirty(false);
+        setSlugTouched(false);
+        setDraftKey(newDraftKey());
+        setLocalSavedAt(null);
+
+        retryRef.current = null;
+        void studio.refreshMe();
+        void refreshList();
+      } catch (err: unknown) {
+        const e = formatStudioError(err);
+        setNotice(
+          e.code === "HEAD_MOVED"
+            ? { tone: "error", message: "Conflict: main moved. Refresh and retry." }
+            : { tone: "error", message: `Publish failed: ${e.message}` },
+        );
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (!editor.title.trim()) {
       setNotice({ tone: "error", message: "Missing title." });
       return;
@@ -909,6 +990,7 @@ export function StudioNotesPage() {
       setDirty(false);
       setLastUploadUrl(uploadFiles.at(-1)?.url ?? null);
       clearStagedUploads();
+      setPendingDelete(false);
 
       writeStudioDataCache(noteDetailCacheKey(noteId), {
         note: {
@@ -957,13 +1039,19 @@ export function StudioNotesPage() {
     studio.refreshMe,
     refreshList,
     editor,
+    pendingDelete,
     stagedUploads,
     clearStagedUploads,
     draftKey,
     refreshDraftIndex,
   ]);
 
-  const canPublish = Boolean(studio.token) && !busy && (editor.mode === "create" || dirty || Boolean(localSavedAt) || stagedUploads.length > 0);
+  const canPublish =
+    Boolean(studio.token) &&
+    !busy &&
+    (pendingDelete
+      ? editor.mode === "edit" && Boolean(editor.id)
+      : editor.mode === "create" || dirty || Boolean(localSavedAt) || stagedUploads.length > 0);
   const headerPublish = React.useMemo(
     () => ({
       label: "Publish",
@@ -975,33 +1063,25 @@ export function StudioNotesPage() {
   );
   useRegisterStudioHeaderActions({ publish: headerPublish });
 
-  const del = React.useCallback(async () => {
-    if (!studio.token || !editor.id) return;
-    const ok = window.confirm(`Trash note ${editor.id}?`);
-    if (!ok) return;
-    retryRef.current = () => void del();
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
-    try {
-      const res = await publisherFetchJson<{ ok: true; commit: { sha: string; url: string } }>({
-        path: `/api/admin/notes/${encodeURIComponent(editor.id)}`,
-        method: "DELETE",
-        token: studio.token,
+  const setDeleteStaged = React.useCallback(
+    (next: boolean) => {
+      if (editor.mode !== "edit" || !editor.id) return;
+      if (next) {
+        const ok = window.confirm(`Stage delete for ${editor.id}? (Will commit on Publish)`);
+        if (!ok) return;
+        clearStagedUploads();
+        setLastUploadUrl(null);
+      }
+      setPendingDelete(next);
+      saveLocal({ quiet: true, pendingDelete: next });
+      setCommitUrl(null);
+      setNotice({
+        tone: "info",
+        message: next ? "Delete staged. Click Publish to move the note into content/.trash." : "Delete unstaged.",
       });
-      safeLocalStorageRemove(noteDetailCacheKey(editor.id));
-      setNotice({ tone: "success", message: "Trashed." });
-      setCommitUrl(res.commit.url);
-      setDirty(false);
-      retryRef.current = null;
-      newNote();
-      void refreshList();
-    } catch (err: unknown) {
-      setNotice({ tone: "error", message: `Delete failed: ${formatStudioError(err).message}` });
-    } finally {
-      setBusy(false);
-    }
-  }, [studio.token, editor.id, newNote, refreshList]);
+    },
+    [editor.mode, editor.id, clearStagedUploads, saveLocal],
+  );
 
   const uploadAsset = React.useCallback(
     async (file: File) => {
@@ -1243,6 +1323,11 @@ export function StudioNotesPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="truncate text-sm font-semibold tracking-tight">{editor.mode === "create" ? "New note" : editor.id}</div>
+              {pendingDelete ? (
+                <span className="rounded-full bg-[color-mix(in_oklab,red_14%,transparent)] px-2 py-0.5 text-[10px] font-medium text-red-700">
+                  delete staged
+                </span>
+              ) : null}
               {dirty ? (
                 <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
               ) : localSavedAt ? (
@@ -1287,19 +1372,19 @@ export function StudioNotesPage() {
                   if (f) void uploadAsset(f);
                   e.currentTarget.value = "";
                 }}
-                disabled={!studio.token || busy}
+                disabled={!studio.token || busy || pendingDelete}
               />
             </label>
 
             {editor.mode === "edit" ? (
               <button
                 type="button"
-                onClick={() => void del()}
+                onClick={() => setDeleteStaged(!pendingDelete)}
                 disabled={!editor.id || busy}
                 className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
               >
-                <Trash2 className="h-3.5 w-3.5 opacity-85" />
-                Trash
+                {pendingDelete ? <X className="h-3.5 w-3.5 opacity-85" /> : <Trash2 className="h-3.5 w-3.5 opacity-85" />}
+                {pendingDelete ? "Unstage delete" : "Stage delete"}
               </button>
             ) : null}
 

@@ -76,6 +76,17 @@ export function HomePage() {
       ? `clamp(${(0.95 * heroScale).toFixed(3)}rem, ${(1.45 * heroScale).toFixed(3)}vw, ${(1.15 * heroScale).toFixed(3)}rem)`
       : undefined;
 
+  const heroTaglineClass =
+    heroVariant === "mimo"
+      ? "mt-6 mx-auto max-w-[62ch] font-serif font-medium leading-[1.95] tracking-[-0.018em]"
+      : "mt-5 mx-auto max-w-[64ch] leading-relaxed tracking-[-0.01em]";
+
+  const mimoHandleClass = [
+    "mt-6 inline-flex items-center justify-center",
+    "border-b border-[color-mix(in_oklab,hsl(var(--accent))_58%,transparent)] pb-1",
+    "font-mono font-semibold tracking-[0.14em] text-[hsl(var(--accent))]",
+  ].join(" ");
+
   const heroRef = React.useRef<HTMLElement | null>(null);
   const heroBackdropRef = React.useRef<HTMLDivElement | null>(null);
   const titleSpotRef = React.useRef<HTMLDivElement | null>(null);
@@ -263,15 +274,7 @@ export function HomePage() {
                   {heroTitleText}
                 </h1>
                 {heroVariant === "mimo" ? (
-                  <div
-                    className={[
-                      "mt-6 inline-flex items-center justify-center rounded-full border px-4 py-2",
-                      "border-[color-mix(in_oklab,hsl(var(--accent))_42%,transparent)]",
-                      "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)]",
-                      "font-mono font-semibold tracking-[0.08em] text-[hsl(var(--accent))]",
-                    ].join(" ")}
-                    style={{ fontSize: heroHandleSize }}
-                  >
+                  <div className={mimoHandleClass} style={{ fontSize: heroHandleSize }}>
                     {profile?.handle ?? "@you"}
                   </div>
                 ) : (
@@ -280,7 +283,7 @@ export function HomePage() {
                   </div>
                 )}
                 <p
-                  className="mt-5 mx-auto max-w-[64ch] leading-relaxed tracking-[-0.01em]"
+                  className={heroTaglineClass}
                   style={{
                     color: heroVariant === "mimo" ? "hsl(var(--muted))" : heroFg,
                     opacity: heroVariant === "mimo" ? 0.92 : 0.82,
@@ -303,19 +306,11 @@ export function HomePage() {
                     >
                       {heroTitleText}
                     </h1>
-                    <div
-                      className={[
-                        "mt-6 inline-flex items-center justify-center rounded-full border px-4 py-2",
-                        "border-[color-mix(in_oklab,hsl(var(--accent))_42%,transparent)]",
-                        "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)]",
-                        "font-mono font-semibold tracking-[0.08em] text-[hsl(var(--accent))]",
-                      ].join(" ")}
-                      style={{ fontSize: heroHandleSize }}
-                    >
+                    <div className={mimoHandleClass} style={{ fontSize: heroHandleSize }}>
                       {profile?.handle ?? "@you"}
                     </div>
                     <p
-                      className="mt-5 mx-auto max-w-[64ch] leading-relaxed tracking-[-0.01em]"
+                      className={heroTaglineClass}
                       style={{ color: "color-mix(in oklab, hsl(var(--bg)) 86%, transparent)", fontSize: heroTaglineSize }}
                     >
                       {heroTaglineText}

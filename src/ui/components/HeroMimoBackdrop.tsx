@@ -146,7 +146,13 @@ export function HeroMimoBackdrop(props: {
           opacity: overlayOpacity,
         }}
       >
-        <div className="absolute inset-0 bg-[hsl(var(--fg))]" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(420px 260px at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%), color-mix(in oklab, hsl(var(--accent)) 16%, transparent), transparent 62%), hsl(var(--fg))",
+          }}
+        />
         <PatternLayer token={token} tone="inverted" opacity={patternOpacity * 0.95} scale={patternScale} motion={patternMotion} />
       </div>
     </div>

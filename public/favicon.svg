@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <style>
+    :root { --fg: #111827; }
+    @media (prefers-color-scheme: dark) { :root { --fg: #f9fafb; } }
+  </style>
+  <path d="M14 32H50" stroke="var(--fg)" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="8" fill="var(--fg)"/>
+</svg>

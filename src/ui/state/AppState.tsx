@@ -95,6 +95,12 @@ export function AppStateProvider(props: { children: React.ReactNode }) {
     };
   }, []);
 
+  React.useEffect(() => {
+    if (!profile) return;
+    const t = profile.nav?.title ?? profile.name ?? "Hyperblog";
+    if (t?.trim()) document.title = t;
+  }, [profile]);
+
   const setTheme = React.useCallback((t: Theme) => {
     document.documentElement.dataset.theme = t;
     safeStorageSetItem("hyperblog.theme", t);

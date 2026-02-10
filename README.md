@@ -115,17 +115,23 @@ CONTENT_REPO=CHZarles/chzarles.github.io
 ALLOWED_ORIGINS=http://localhost:5173
 ```
 
-### 主页大卡片背景（可自定义）
+### 首页 Hero（image / mimo）
 
-在 `content/profile.json` 的 `hero` 配置：
+首页 `/` 的大封面（Hero）由 `content/profile.json` 的 `hero` 控制：
+
+- MiMo 风格（字纹 + 跟随鼠标的光圈反相）：
 
 ```json
-{
-  "hero": { "imageUrl": "/hero.svg", "blurPx": 22, "opacity": 0.28, "position": "center" }
-}
+{ "hero": { "variant": "mimo", "spotlightRadiusPx": 260, "textScale": 1.15 } }
 ```
 
-把图片放进 `public/`（例如 `public/hero.jpg`），然后用 `/hero.jpg` 引用即可。
+- 图片封面（推荐图片放 `public/`，用绝对路径 `"/..."` 引用，避免路由相对路径 404）：
+
+```json
+{ "hero": { "variant": "image", "imageUrl": "/mountain.avif", "washOpacity": 0.0 } }
+```
+
+完整字段说明见：`docs/configuration.md`
 
 ## 常用接口（mock）
 

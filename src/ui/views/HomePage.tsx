@@ -241,22 +241,6 @@ export function HomePage() {
                 ) : null}
               </div>
 
-              <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm">
-                <Link
-                  to="/roadmaps"
-                  className="inline-flex items-center gap-2 text-[hsl(var(--fg))] underline-offset-4 transition hover:underline"
-                >
-                  Explore Roadmaps
-                  <ArrowUpRight className="h-4 w-4 opacity-70" />
-                </Link>
-                <Link
-                  to="/notes"
-                  className="inline-flex items-center gap-2 text-[hsl(var(--muted))] underline-offset-4 transition hover:text-[hsl(var(--fg))] hover:underline"
-                >
-                  Browse Notes
-                  <ArrowUpRight className="h-4 w-4 opacity-70" />
-                </Link>
-              </div>
             </div>
           </div>
         </div>

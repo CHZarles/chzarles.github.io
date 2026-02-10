@@ -1,6 +1,6 @@
 [
   {
-    "id": "algo_problem",
+    "id": "algo-problem",
     "name": "AlgoWorkSpace",
     "description": "收集题面、笔记与题解沉淀、题集计划、间隔复习、统计热力图。",
     "repoUrl": "https://github.com/CHZarles/AlgoProblem",

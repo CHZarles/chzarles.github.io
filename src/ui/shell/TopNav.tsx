@@ -53,8 +53,8 @@ export function TopNav() {
             onClick={() => navigate("/")}
             className="group inline-flex items-center gap-3 rounded-xl px-2 py-1 text-left transition hover:bg-[hsl(var(--card2))]"
           >
-            <span className="grid h-9 w-9 place-items-center rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
-              <Sparkles className="h-4 w-4 opacity-85" />
+            <span className="relative grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[linear-gradient(180deg,color-mix(in_oklab,hsl(var(--card2))_72%,hsl(var(--card))),hsl(var(--card)))] shadow-[0_1px_0_rgba(255,255,255,.25)_inset,0_10px_28px_rgba(0,0,0,.08)] transition duration-200 group-hover:border-[color-mix(in_oklab,hsl(var(--accent))_40%,hsl(var(--border)))] group-hover:shadow-[0_1px_0_rgba(255,255,255,.28)_inset,0_14px_40px_rgba(0,0,0,.12)]">
+              <Sparkles className="h-4 w-4 text-[color-mix(in_oklab,hsl(var(--accent))_70%,hsl(var(--fg)))] opacity-85 transition group-hover:opacity-100" />
             </span>
             <span className="leading-tight">
               <span className="block text-sm font-sans font-bold leading-none tracking-[0.02em]">{navTitle}</span>

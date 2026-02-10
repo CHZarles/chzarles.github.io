@@ -1,4 +1,4 @@
-import { ArrowLeft, Link2 } from "lucide-react";
+import { Link2 } from "lucide-react";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import { Link, useParams } from "react-router-dom";
@@ -195,13 +195,6 @@ export function NotePage() {
         <div className="text-base font-semibold tracking-tight text-[hsl(var(--fg))]">加载失败</div>
         <div className="mt-2 break-words">{error}</div>
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          <Link
-            to="/notes"
-            className="inline-flex items-center gap-2 rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_70%,transparent)] px-4 py-2.5 text-sm transition hover:border-[color-mix(in_oklab,hsl(var(--accent))_35%,hsl(var(--border)))]"
-          >
-            <ArrowLeft className="h-4 w-4 opacity-80" />
-            返回 Notes
-          </Link>
           <button
             type="button"
             onClick={() => window.location.reload()}
@@ -225,19 +218,11 @@ export function NotePage() {
   return (
     <article className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-12">
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            to="/notes"
-            className="inline-flex items-center gap-2 rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_55%,transparent)] px-4 py-2.5 text-sm text-[color-mix(in_oklab,hsl(var(--fg))_82%,hsl(var(--muted)))] transition hover:border-[color-mix(in_oklab,hsl(var(--accent))_35%,hsl(var(--border)))] hover:text-[hsl(var(--fg))]"
-          >
-            <ArrowLeft className="h-4 w-4 opacity-80" />
-            返回 Notes
-          </Link>
-          <span className="text-xs text-[hsl(var(--muted))]">Updated · {fmtDate(note.updated)}</span>
-        </div>
-
-        <header className="mx-auto mt-8 max-w-[78ch]">
-          <div className="text-xs uppercase tracking-[0.22em] text-[hsl(var(--muted))]">Note</div>
+        <header className="mx-auto mt-6 max-w-[92ch]">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div className="text-xs uppercase tracking-[0.22em] text-[hsl(var(--muted))]">Note</div>
+            <div className="text-xs text-[hsl(var(--muted))]">Updated · {fmtDate(note.updated)}</div>
+          </div>
           <h1 className="mt-3 font-serif text-4xl font-semibold leading-[1.07] tracking-tight md:text-5xl">
             {note.title}
           </h1>
@@ -289,7 +274,7 @@ export function NotePage() {
           ) : null}
         </header>
 
-        <div className="mx-auto mt-10 max-w-[78ch] border-t border-[hsl(var(--border))] pt-8">
+        <div className="mx-auto mt-10 max-w-[92ch] border-t border-[hsl(var(--border))] pt-8">
           <div className="prose prose-lg max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-h1:text-2xl md:prose-h1:text-3xl prose-h2:text-xl md:prose-h2:text-2xl prose-h3:text-lg md:prose-h3:text-xl prose-p:leading-relaxed">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
               {note.content}

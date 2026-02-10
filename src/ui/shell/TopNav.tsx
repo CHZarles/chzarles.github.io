@@ -46,7 +46,7 @@ export function TopNav() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))]">
       <div className="container">
-        <div className="flex items-center justify-between gap-4 py-4">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 py-4">
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -63,7 +63,7 @@ export function TopNav() {
             <NavItem to="/projects" label="Projects" />
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             {links.length ? (
               <div className="hidden lg:flex items-center gap-2 pr-1">
                 {links.slice(0, 3).map((l) => (

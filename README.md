@@ -89,6 +89,8 @@ pnpm dev:publisher -- --port 8788
 - Roadmaps：`http://localhost:5173/studio/roadmaps`
 - Config：`http://localhost:5173/studio/config`
 
+Studio 使用说明见：`docs/studio-guide.md`
+
 - 首次会跳 GitHub OAuth，回到 `/auth/callback` 后把 token 存在 `sessionStorage`
 - Publisher 地址解析优先级：
   - `VITE_PUBLISHER_BASE_URL`（构建/本地环境变量）

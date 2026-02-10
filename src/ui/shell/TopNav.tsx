@@ -57,7 +57,7 @@ export function TopNav() {
               <Sparkles className="h-4 w-4 opacity-85" />
             </span>
             <span className="leading-tight">
-              <span className="block text-sm font-semibold tracking-tight">{navTitle}</span>
+              <span className="block text-sm font-sans font-bold leading-none tracking-[0.02em]">{navTitle}</span>
               <span className="block text-xs text-[hsl(var(--muted))]">{navTagline}</span>
             </span>
           </button>

@@ -73,6 +73,7 @@ export function HomePage() {
       : undefined;
 
   const heroRef = React.useRef<HTMLElement | null>(null);
+  const heroBackdropRef = React.useRef<HTMLDivElement | null>(null);
   const titleSpotRef = React.useRef<HTMLDivElement | null>(null);
   const spotRadius = clamp(profile?.hero?.spotlightRadiusPx ?? 240, 120, 520);
   const rafRef = React.useRef<number | null>(null);
@@ -87,12 +88,12 @@ export function HomePage() {
   const flushSpot = React.useCallback(() => {
     rafRef.current = null;
     if (heroVariant !== "mimo") return;
-    const heroEl = heroRef.current;
-    if (!heroEl) return;
+    const backdropEl = heroBackdropRef.current;
+    if (!backdropEl) return;
     const { x, y, tx, ty, active } = lastRef.current;
-    heroEl.style.setProperty("--hb-spot-x", `${x}px`);
-    heroEl.style.setProperty("--hb-spot-y", `${y}px`);
-    heroEl.style.setProperty("--hb-spot-r", active ? `${spotRadius}px` : "0px");
+    backdropEl.style.setProperty("--hb-spot-x", `${x}px`);
+    backdropEl.style.setProperty("--hb-spot-y", `${y}px`);
+    backdropEl.style.setProperty("--hb-spot-r", active ? `${spotRadius}px` : "0px");
 
     const titleEl = titleSpotRef.current;
     if (titleEl) {
@@ -111,10 +112,10 @@ export function HomePage() {
     (e: React.PointerEvent<HTMLElement>) => {
       if (heroVariant !== "mimo") return;
       if (e.pointerType === "touch") return;
-      const heroEl = heroRef.current;
-      if (!heroEl) return;
+      const backdropEl = heroBackdropRef.current;
+      if (!backdropEl) return;
 
-      const rect = heroEl.getBoundingClientRect();
+      const rect = backdropEl.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
@@ -154,6 +155,7 @@ export function HomePage() {
       >
         <div
           aria-hidden="true"
+          ref={heroBackdropRef}
           className={[
             "absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 overflow-hidden border-y",
             heroVariant === "mimo"

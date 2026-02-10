@@ -1,8 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
   <style>
-    :root { --fg: #111827; }
-    @media (prefers-color-scheme: dark) { :root { --fg: #f9fafb; } }
+    :root { --fg: #111827; --bg: #ffffff; }
+    @media (prefers-color-scheme: dark) { :root { --fg: #f9fafb; --bg: #0b0b0f; } }
   </style>
-  <path d="M14 32H50" stroke="var(--fg)" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="32" cy="32" r="8" fill="var(--fg)"/>
+  <circle cx="32" cy="32" r="30" fill="var(--bg)"/>
+  <circle cx="32" cy="32" r="26" fill="none" stroke="var(--fg)" stroke-opacity="0.28" stroke-width="2.5"/>
+  <path d="M24 16v32" stroke="var(--fg)" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="M24 16h12a8 8 0 0 1 0 16H24" stroke="var(--fg)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M24 32h14a8 8 0 0 1 0 16H24" stroke="var(--fg)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

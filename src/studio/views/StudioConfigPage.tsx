@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronUp, ExternalLink, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, ChevronUp, ExternalLink, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import YAML from "yaml";
@@ -15,14 +15,36 @@ type FileInfo = {
   key: FileKey;
   label: string;
   mode: FileMode;
+  contentPath: string;
   getPath: string;
   putPath: string;
 };
 
 const FILES: FileInfo[] = [
-  { key: "profile", label: "Profile", mode: "json", getPath: "/api/admin/profile", putPath: "/api/admin/profile" },
-  { key: "categories", label: "Categories", mode: "yaml", getPath: "/api/admin/categories", putPath: "/api/admin/categories" },
-  { key: "projects", label: "Projects", mode: "json", getPath: "/api/admin/projects", putPath: "/api/admin/projects" },
+  {
+    key: "profile",
+    label: "Profile",
+    mode: "json",
+    contentPath: "content/profile.json",
+    getPath: "/api/admin/profile",
+    putPath: "/api/admin/profile",
+  },
+  {
+    key: "categories",
+    label: "Categories",
+    mode: "yaml",
+    contentPath: "content/categories.yml",
+    getPath: "/api/admin/categories",
+    putPath: "/api/admin/categories",
+  },
+  {
+    key: "projects",
+    label: "Projects",
+    mode: "json",
+    contentPath: "content/projects.json",
+    getPath: "/api/admin/projects",
+    putPath: "/api/admin/projects",
+  },
 ];
 
 type GetFileResponse = {
@@ -36,11 +58,18 @@ function isValidCategoryId(id: string): boolean {
 const CATEGORY_TONES: Array<NonNullable<Category["tone"]>> = ["neutral", "cyan", "violet", "lime", "amber", "rose"];
 
 const CONFIG_CACHE_PREFIX = "hyperblog.studio.cache.config:v1:";
+const CONFIG_DRAFT_PREFIX = "hyperblog.studio.draft.config:v1:";
 
 type ConfigCacheV1 = {
   v: 1;
   savedAt: number;
   path: string;
+  raw: string;
+};
+
+type ConfigDraftV1 = {
+  v: 1;
+  savedAt: number;
   raw: string;
 };
 
@@ -55,6 +84,14 @@ function safeLocalStorageGet(key: string): string | null {
 function safeLocalStorageSet(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+}
+
+function safeLocalStorageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
   } catch {
     // ignore
   }
@@ -83,6 +120,39 @@ function readConfigCache(fileKey: FileKey): ConfigCacheV1 | null {
 function writeConfigCache(fileKey: FileKey, entry: { path: string; raw: string }) {
   const payload: ConfigCacheV1 = { v: 1, savedAt: Date.now(), path: entry.path, raw: entry.raw };
   safeLocalStorageSet(configCacheKey(fileKey), JSON.stringify(payload));
+}
+
+function configDraftKey(fileKey: FileKey): string {
+  return `${CONFIG_DRAFT_PREFIX}${PUBLISHER_BASE_URL}:${fileKey}`;
+}
+
+function readConfigDraft(fileKey: FileKey): ConfigDraftV1 | null {
+  const raw = safeLocalStorageGet(configDraftKey(fileKey));
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as ConfigDraftV1;
+    if (!v || typeof v !== "object") return null;
+    if (v.v !== 1) return null;
+    if (typeof v.savedAt !== "number") return null;
+    if (typeof v.raw !== "string") return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function writeConfigDraft(fileKey: FileKey, entry: { raw: string }): { ok: true; savedAt: number } | { ok: false; error: string } {
+  const payload: ConfigDraftV1 = { v: 1, savedAt: Date.now(), raw: entry.raw };
+  try {
+    localStorage.setItem(configDraftKey(fileKey), JSON.stringify(payload));
+    return { ok: true, savedAt: payload.savedAt };
+  } catch {
+    return { ok: false, error: "Local save failed (storage unavailable or full)." };
+  }
+}
+
+function deleteConfigDraft(fileKey: FileKey): void {
+  safeLocalStorageRemove(configDraftKey(fileKey));
 }
 
 function toneSwatch(tone: NonNullable<Category["tone"]>): string {
@@ -124,12 +194,13 @@ export function StudioConfigPage() {
 
   const [categoriesView, setCategoriesView] = React.useState<"form" | "yaml">("form");
 
-  const [raw, setRaw] = React.useState(() => readConfigCache(initialActive)?.raw ?? "");
+  const [raw, setRaw] = React.useState(() => readConfigDraft(initialActive)?.raw ?? readConfigCache(initialActive)?.raw ?? "");
   const [dirty, setDirty] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
+  const [localSavedAt, setLocalSavedAt] = React.useState<number | null>(() => readConfigDraft(initialActive)?.savedAt ?? null);
 
   const dirtyRef = React.useRef(dirty);
   React.useEffect(() => {
@@ -159,9 +230,11 @@ export function StudioConfigPage() {
       if (seq !== loadSeqRef.current) return;
       const nextRaw = res.file.raw ?? "";
       writeConfigCache(fileKey, { path: res.file.path, raw: nextRaw });
-      if (!dirtyRef.current) {
+      const hasDraft = Boolean(readConfigDraft(fileKey));
+      if (!dirtyRef.current && !hasDraft) {
         setRaw(nextRaw);
         setDirty(false);
+        setLocalSavedAt(null);
       }
     } catch (err: unknown) {
       if (seq !== loadSeqRef.current) return;
@@ -175,12 +248,14 @@ export function StudioConfigPage() {
   }, [studio.token, file.getPath]);
 
   React.useEffect(() => {
+    const draft = readConfigDraft(active);
     const cached = readConfigCache(active);
-    if (cached && !dirtyRef.current) {
-      setRaw(cached.raw);
+    if (!dirtyRef.current) {
+      setRaw(draft?.raw ?? cached?.raw ?? "");
       setDirty(false);
+      setLocalSavedAt(draft?.savedAt ?? null);
     }
-    if (studio.token) void load({ background: Boolean(cached) });
+    if (studio.token) void load({ background: Boolean(draft || cached) });
   }, [active, studio.token, studio.syncNonce, load]);
 
   const formatJson = React.useCallback(() => {
@@ -193,30 +268,111 @@ export function StudioConfigPage() {
     setDirty(true);
   }, [raw]);
 
-  const save = React.useCallback(async () => {
+  const saveLocal = React.useCallback(
+    (opts?: { quiet?: boolean }): boolean => {
+      const fileKey = activeRef.current;
+      const out = writeConfigDraft(fileKey, { raw });
+      if (!out.ok) {
+        setNotice(out.error);
+        return false;
+      }
+      setLocalSavedAt(out.savedAt);
+      setDirty(false);
+      setCommitUrl(null);
+      if (!opts?.quiet) setNotice("Saved locally.");
+      return true;
+    },
+    [raw],
+  );
+
+  React.useEffect(() => {
+    if (!dirty) return;
+    const t = window.setTimeout(() => {
+      saveLocal({ quiet: true });
+    }, 650);
+    return () => window.clearTimeout(t);
+  }, [dirty, raw, saveLocal]);
+
+  const publish = React.useCallback(async () => {
     if (!studio.token) return;
     const fileKey = active;
+
+    const normalized = (() => {
+      if (file.mode === "json") {
+        const parsed = tryParseJson(raw);
+        if (!parsed.ok) return { ok: false as const, error: parsed.error };
+        if (fileKey === "profile" && (!parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value))) {
+          return { ok: false as const, error: "Profile must be a JSON object." };
+        }
+        if (fileKey === "projects" && !Array.isArray(parsed.value)) {
+          return { ok: false as const, error: "Projects must be a JSON array." };
+        }
+        return { ok: true as const, raw: JSON.stringify(parsed.value, null, 2) + "\n" };
+      }
+
+      try {
+        const v = YAML.parse(raw);
+        if (fileKey === "categories" && raw.trim() && !Array.isArray(v)) {
+          return { ok: false as const, error: "Categories YAML must be a list." };
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { ok: false as const, error: msg };
+      }
+      return { ok: true as const, raw: raw.trimEnd() + "\n" };
+    })();
+
+    if (!normalized.ok) {
+      setNotice(`${file.mode.toUpperCase()} error: ${normalized.error}`);
+      return;
+    }
+
+    const subject = `config: ${fileKey}`;
+    const message = `${subject}\n\npath: ${file.contentPath}`;
+
     setBusy(true);
     setNotice(null);
     setCommitUrl(null);
     try {
-      const body = file.mode === "json" ? { raw } : { yaml: raw };
-      const res = await publisherFetchJson<{ ok: true; file: { path: string }; commit: { sha: string; url: string } }>({
-        path: file.putPath,
-        method: "PUT",
+      const res = await publisherFetchJson<{ commit: { sha: string; url: string; headSha?: string } }>({
+        path: "/api/admin/commit",
+        method: "POST",
         token: studio.token,
-        body,
+        body: {
+          message,
+          expectedHeadSha: studio.me?.repo.headSha ?? undefined,
+          files: [{ path: file.contentPath, encoding: "utf8", content: normalized.raw }],
+        },
       });
-      writeConfigCache(fileKey, { path: res.file.path, raw });
-      setNotice(`Saved: ${res.file.path}`);
-      setCommitUrl(res.commit.url);
+
+      writeConfigCache(fileKey, { path: file.contentPath, raw: normalized.raw });
+      deleteConfigDraft(fileKey);
+      setLocalSavedAt(null);
       setDirty(false);
+      setNotice(`Published: ${file.contentPath}`);
+      setCommitUrl(res.commit.url);
+      setRaw(normalized.raw);
+      void studio.refreshMe();
     } catch (err: unknown) {
-      setNotice(`Save failed: ${formatStudioError(err).message}`);
+      const e = formatStudioError(err);
+      setNotice(e.code === "HEAD_MOVED" ? "Conflict: main moved. Sync and retry." : `Publish failed: ${e.message}`);
     } finally {
       setBusy(false);
     }
-  }, [studio.token, active, file.mode, file.putPath, raw]);
+  }, [studio.token, studio.me?.repo.headSha, studio.refreshMe, active, file.mode, file.contentPath, raw]);
+
+  const discardLocal = React.useCallback(() => {
+    const fileKey = activeRef.current;
+    const ok = window.confirm("Discard local changes for this file?");
+    if (!ok) return;
+    deleteConfigDraft(fileKey);
+    setLocalSavedAt(null);
+    setDirty(false);
+    const cached = readConfigCache(fileKey);
+    setRaw(cached?.raw ?? "");
+    setNotice("Local changes discarded.");
+    setCommitUrl(null);
+  }, []);
 
   const jsonError = React.useMemo(() => {
     if (file.mode !== "json") return null;
@@ -274,6 +430,25 @@ export function StudioConfigPage() {
     setDirty(true);
   }, []);
 
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const cmd = e.ctrlKey || e.metaKey;
+      if (!cmd) return;
+      const key = e.key.toLowerCase();
+      if (key === "s") {
+        e.preventDefault();
+        saveLocal();
+        return;
+      }
+      if (key === "enter") {
+        e.preventDefault();
+        void publish();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [publish, saveLocal]);
+
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r">
@@ -291,9 +466,14 @@ export function StudioConfigPage() {
                     onClick={() => {
                       if (busy) return;
                       if (f.key === active) return;
-                      if (dirty && !window.confirm("Discard unsaved changes?")) return;
+                      if (dirty) {
+                        const ok = saveLocal({ quiet: true });
+                        if (!ok) return;
+                      }
+                      const draft = readConfigDraft(f.key);
                       const cached = readConfigCache(f.key);
-                      setRaw(cached?.raw ?? "");
+                      setRaw(draft?.raw ?? cached?.raw ?? "");
+                      setLocalSavedAt(draft?.savedAt ?? null);
                       setDirty(false);
                       setNotice(null);
                       setCommitUrl(null);
@@ -314,19 +494,24 @@ export function StudioConfigPage() {
         </div>
       </aside>
 
-      <section className="min-h-0 min-w-0 bg-[hsl(var(--bg))]">
-        <div className="flex items-center justify-between gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="truncate text-sm font-semibold tracking-tight">{file.label}</div>
-              {dirty ? <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span> : null}
-            </div>
-            {studio.me ? (
-              <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">
-                @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
-              </div>
-            ) : null}
-          </div>
+	      <section className="min-h-0 min-w-0 bg-[hsl(var(--bg))]">
+	        <div className="flex items-center justify-between gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
+	          <div className="min-w-0">
+	            <div className="flex items-center gap-2">
+	              <div className="truncate text-sm font-semibold tracking-tight">{file.label}</div>
+	              {dirty ? (
+	                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
+	              ) : localSavedAt ? (
+	                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">saved local</span>
+	              ) : null}
+	            </div>
+	            {studio.me ? (
+	              <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">
+	                @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
+	              </div>
+	            ) : null}
+	            <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">Save local first. Publish writes a GitHub commit.</div>
+	          </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             {active === "categories" ? (
@@ -382,20 +567,43 @@ export function StudioConfigPage() {
             </button>
             <button
               type="button"
-              onClick={() => void save()}
-              disabled={!studio.token || busy}
+              onClick={() => saveLocal()}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+              title="Save locally (⌘S / Ctrl+S)"
+            >
+              <Check className="h-3.5 w-3.5 opacity-85" />
+              Save local
+            </button>
+            <button
+              type="button"
+              onClick={() => void publish()}
+              disabled={!studio.token || busy || (!dirty && !localSavedAt)}
               className={[
                 "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
-                !studio.token || busy
+                !studio.token || busy || (!dirty && !localSavedAt)
                   ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
                   : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
               ].join(" ")}
+              title="Publish (GitHub commit) (⌘Enter / Ctrl+Enter)"
             >
-              <Check className="h-3.5 w-3.5 opacity-85" />
-              Save
+              <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
+              Publish
             </button>
-          </div>
-        </div>
+            {dirty || localSavedAt ? (
+              <button
+                type="button"
+                onClick={discardLocal}
+                disabled={busy}
+                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+                title="Discard local changes"
+              >
+                <X className="h-3.5 w-3.5 opacity-85" />
+                Discard
+              </button>
+            ) : null}
+	          </div>
+	        </div>
 
         {notice ? (
           <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm">

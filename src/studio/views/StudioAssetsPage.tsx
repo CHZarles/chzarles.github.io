@@ -240,7 +240,7 @@ export function StudioAssetsPage() {
           },
         ]);
 
-        setNotice(`Staged: ${stagedUrl} (commit when ready)`);
+        setNotice(`Staged: ${stagedUrl} (publish when ready)`);
       } catch (err: unknown) {
         setNotice(`Stage failed: ${formatStudioError(err).message}`);
       } finally {
@@ -264,13 +264,13 @@ export function StudioAssetsPage() {
     [],
   );
 
-  const commitStaged = React.useCallback(async () => {
+  const publishStaged = React.useCallback(async () => {
     if (!studio.token) return;
     if (!stagedUploads.length && !stagedDeletes.length) return;
     if (stagedDeletes.length) {
       const ok = window.confirm(
         stagedUploads.length
-          ? `Commit ${stagedUploads.length} upload(s) and delete ${stagedDeletes.length} file(s)?`
+          ? `Publish ${stagedUploads.length} upload(s) and delete ${stagedDeletes.length} file(s)?`
           : `Delete ${stagedDeletes.length} file(s)?`,
       );
       if (!ok) return;
@@ -312,14 +312,14 @@ export function StudioAssetsPage() {
           deletes: stagedDeletes,
         },
       });
-      setNotice("Committed.");
+      setNotice("Published.");
       setCommitUrl(res.commit.url);
       clearStage();
       await studio.refreshMe();
       await load({ append: false, query: q });
     } catch (err: unknown) {
       const e = formatStudioError(err);
-      setNotice(e.code === "HEAD_MOVED" ? "Conflict: main moved. Refresh and retry." : `Commit failed: ${e.message}`);
+      setNotice(e.code === "HEAD_MOVED" ? "Conflict: main moved. Refresh and retry." : `Publish failed: ${e.message}`);
     } finally {
       setBusy(false);
     }
@@ -344,7 +344,7 @@ export function StudioAssetsPage() {
         <div className="min-w-0">
           <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">ASSETS</div>
           <div className="mt-1 text-sm text-[hsl(var(--muted))]">
-            Browse files under <code>public/uploads/</code>. Stage changes locally, then commit once.
+            Browse files under <code>public/uploads/</code>. Stage changes locally, then publish once.
           </div>
         </div>
 
@@ -366,7 +366,7 @@ export function StudioAssetsPage() {
           </label>
           <button
             type="button"
-            onClick={() => void commitStaged()}
+            onClick={() => void publishStaged()}
             disabled={!studio.token || busy || (!stagedUploads.length && !stagedDeletes.length)}
             className={[
               "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
@@ -374,10 +374,10 @@ export function StudioAssetsPage() {
                 ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
                 : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
             ].join(" ")}
-            title="Commit staged uploads/deletes"
+            title="Publish staged uploads/deletes"
           >
             <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
-            Commit
+            Publish
           </button>
           {(stagedUploads.length || stagedDeletes.length) && (
             <button

@@ -222,16 +222,16 @@ export function HomePage() {
               : "border-[color-mix(in_oklab,hsl(var(--fg))_22%,hsl(var(--border)))] bg-[hsl(var(--card))]",
           ].join(" ")}
         >
-	          {heroVariant === "mimo" ? (
-	            <HeroMimoBackdrop
-	              patternText={profile?.hero?.patternText ?? profile?.handle ?? profile?.hero?.title ?? profile?.name ?? "HYPERBLOG"}
-	              patternOpacity={profile?.hero?.patternOpacity}
-	              patternScale={profile?.hero?.patternScale}
-	              patternMotion={profile?.hero?.patternMotion}
-	            />
-	          ) : (
-	            <HeroBackdrop
-	              imageUrl={profile?.hero?.imageUrl}
+          {heroVariant === "mimo" ? (
+            <HeroMimoBackdrop
+              patternText={profile?.hero?.patternText ?? profile?.handle ?? profile?.hero?.title ?? profile?.name ?? "HYPERBLOG"}
+              patternOpacity={profile?.hero?.patternOpacity}
+              patternScale={profile?.hero?.patternScale}
+              patternMotion={profile?.hero?.patternMotion}
+            />
+          ) : (
+            <HeroBackdrop
+              imageUrl={profile?.hero?.imageUrl}
               preload={profile?.hero?.preload}
               blurPx={profile?.hero?.blurPx}
               opacity={profile?.hero?.opacity}

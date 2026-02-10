@@ -14,6 +14,9 @@
 - `name`：站点/作者名（首页 Hero + 左上角品牌区）
 - `handle`：@id（首页 Hero）
 - `tagline`：一句话描述（首页 Hero + 左上角品牌区）
+- `nav`：可选，覆盖左上角品牌区的显示文案（不影响首页 Hero）
+  - `nav.title`：左上角第一行（默认 `name`）
+  - `nav.tagline`：左上角第二行（默认 `tagline`）
 - `accent`：强调色（HSL 三段字符串，如 `"270 85% 45%"`），用于 UI 的 `--accent`
 - `publisherBaseUrl`：Publisher API Base URL（例如 `https://<worker>.workers.dev`）
 - `links[]`：社交/外链按钮（显示在顶部导航右侧；会自动图标化 GitHub/X）
@@ -25,6 +28,22 @@
 `hero` 只影响首页 `/` 的大封面区域（Hero）。
 
 字段总览见类型：`src/ui/types.ts:9`
+
+基础文案（可选覆盖）：
+
+- `hero.title`：首页 Hero 标题（默认 `name`）
+- `hero.tagline`：首页 Hero 副标题（默认 `tagline`，若也为空则用内置 fallback）
+
+常见需求：**左上角短一些，首页 Hero 长一些**：
+
+```json
+{
+  "name": "Charles",
+  "tagline": "AI Infra / Observability",
+  "nav": { "title": "Charles", "tagline": "AI Infra" },
+  "hero": { "variant": "mimo", "title": "这里有一些碎片，或许你能拼出什么", "tagline": "AI Infra / Observability / 写作系统化" }
+}
+```
 
 #### `hero.variant`
 
@@ -102,4 +121,3 @@
 - `saturate` / `contrast`：图片滤镜
 - `textColor.light` / `textColor.dark`：封面文字颜色覆盖（可写 `"0 0% 100%"` 这种 HSL 三段，也可写 `#fff`/`rgb()`）
 - `textScale`：标题/handle/tagline 的字号整体缩放倍率；图片封面下 clamp 到 `0.85..1.25`
-

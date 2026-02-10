@@ -51,6 +51,10 @@ export function HomePage() {
   const heroVariant: "image" | "mimo" =
     profile?.hero?.variant === "mimo" ? "mimo" : profile?.hero?.imageUrl ? "image" : "mimo";
 
+  const heroTitleText = profile?.hero?.title ?? profile?.name ?? "Hyperblog";
+  const heroTaglineText =
+    profile?.hero?.tagline ?? profile?.tagline ?? "把 Notes、Categories 与 Roadmaps 三套入口合一：可读、可索引、可证明。";
+
   const heroFg = (() => {
     if (heroVariant === "mimo") return "hsl(var(--fg))";
     const cfg = profile?.hero?.textColor;
@@ -164,7 +168,9 @@ export function HomePage() {
           ].join(" ")}
         >
           {heroVariant === "mimo" ? (
-            <HeroMimoBackdrop patternText={profile?.hero?.patternText ?? profile?.handle ?? profile?.name ?? "HYPERBLOG"} />
+            <HeroMimoBackdrop
+              patternText={profile?.hero?.patternText ?? profile?.handle ?? profile?.hero?.title ?? profile?.name ?? "HYPERBLOG"}
+            />
           ) : (
             <HeroBackdrop
               imageUrl={profile?.hero?.imageUrl}
@@ -196,7 +202,7 @@ export function HomePage() {
                   ].join(" ")}
                   style={{ color: heroFg, fontSize: heroTitleSize }}
                 >
-                  {profile?.name ?? "Hyperblog"}
+                  {heroTitleText}
                 </h1>
                 <div className="mt-4 font-mono font-medium tracking-[-0.02em] text-[hsl(var(--accent))]" style={{ fontSize: heroHandleSize }}>
                   {profile?.handle ?? "@you"}
@@ -209,7 +215,7 @@ export function HomePage() {
                     fontSize: heroTaglineSize,
                   }}
                 >
-                  {profile?.tagline ?? "把 Notes、Categories 与 Roadmaps 三套入口合一：可读、可索引、可证明。"}
+                  {heroTaglineText}
                 </p>
 
                 {heroVariant === "mimo" ? (
@@ -223,7 +229,7 @@ export function HomePage() {
                       className="font-sans font-bold leading-none tracking-[0.02em]"
                       style={{ color: "hsl(var(--bg))", fontSize: heroTitleSize }}
                     >
-                      {profile?.name ?? "Hyperblog"}
+                      {heroTitleText}
                     </h1>
                     <div
                       className="mt-4 font-mono font-medium tracking-[-0.02em] text-[hsl(var(--accent))]"
@@ -235,7 +241,7 @@ export function HomePage() {
                       className="mt-5 mx-auto max-w-[64ch] leading-relaxed tracking-[-0.01em]"
                       style={{ color: "color-mix(in oklab, hsl(var(--bg)) 86%, transparent)", fontSize: heroTaglineSize }}
                     >
-                      {profile?.tagline ?? "把 Notes、Categories 与 Roadmaps 三套入口合一：可读、可索引、可证明。"}
+                      {heroTaglineText}
                     </p>
                   </div>
                 ) : null}

@@ -2,11 +2,17 @@ export type Profile = {
   name: string;
   handle: string;
   tagline: string;
+  nav?: {
+    title?: string;
+    tagline?: string;
+  };
   accent?: string; // "270 95% 65%"
   publisherBaseUrl?: string; // Publisher API base URL (e.g. https://<worker>.workers.dev)
   avatarUrl?: string;
   links?: Array<{ label: string; href: string }>;
   hero?: {
+    title?: string;
+    tagline?: string;
     variant?: "image" | "mimo"; // homepage hero style: image cover vs MiMo-style pattern + spotlight
     imageUrl?: string;
     preload?: boolean; // default true; preloads hero image on homepage

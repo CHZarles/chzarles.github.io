@@ -33,6 +33,8 @@ export function TopNav() {
   const navigate = useNavigate();
   const { open } = useCommandPalette();
   const links = profile?.links ?? [];
+  const navTitle = profile?.nav?.title ?? profile?.name ?? "Hyperblog";
+  const navTagline = profile?.nav?.tagline ?? profile?.tagline ?? "可探索的个人技术空间";
 
   function iconForLink(link: { label: string; href: string }) {
     const label = link.label.trim().toLowerCase();
@@ -55,8 +57,8 @@ export function TopNav() {
               <Sparkles className="h-4 w-4 opacity-85" />
             </span>
             <span className="leading-tight">
-              <span className="block text-sm font-semibold tracking-tight">{profile?.name ?? "Hyperblog"}</span>
-              <span className="block text-xs text-[hsl(var(--muted))]">{profile?.tagline ?? "可探索的个人技术空间"}</span>
+              <span className="block text-sm font-semibold tracking-tight">{navTitle}</span>
+              <span className="block text-xs text-[hsl(var(--muted))]">{navTagline}</span>
             </span>
           </button>
 

@@ -4,7 +4,6 @@ export type Profile = {
   tagline: string;
   nav?: {
     title?: string;
-    tagline?: string;
   };
   accent?: string; // "270 95% 65%"
   publisherBaseUrl?: string; // Publisher API base URL (e.g. https://<worker>.workers.dev)

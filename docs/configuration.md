@@ -11,12 +11,12 @@
 
 ### 顶层字段
 
-- `name`：站点/作者名（首页 Hero + 左上角品牌区）
+- `name`：站点/作者名（首页 Hero；也作为左上角报头的默认标题）
 - `handle`：@id（首页 Hero）
-- `tagline`：一句话描述（首页 Hero + 左上角品牌区）
-- `nav`：可选，覆盖左上角品牌区的显示文案（不影响首页 Hero）
-  - `nav.title`：左上角第一行（默认 `name`）
-  - `nav.tagline`：左上角第二行（默认 `tagline`）
+- `tagline`：一句话描述（首页 Hero）
+- `nav`：可选，覆盖左上角报头（masthead）的标题（不影响首页 Hero）
+  - `nav.title`：左上角标题（默认 `name`）
+  - （已移除）`nav.tagline`：旧版左上角第二行文案；当前不会渲染，建议删除
 - `accent`：强调色（HSL 三段字符串，如 `"270 85% 45%"`），用于 UI 的 `--accent`
 - `publisherBaseUrl`：Publisher API Base URL（例如 `https://<worker>.workers.dev`）
 - `links[]`：社交/外链按钮（显示在顶部导航右侧；会自动图标化 GitHub/X）
@@ -34,13 +34,13 @@
 - `hero.title`：首页 Hero 标题（默认 `name`）
 - `hero.tagline`：首页 Hero 副标题（默认 `tagline`，若也为空则用内置 fallback）
 
-常见需求：**左上角短一些，首页 Hero 长一些**：
+常见需求：**左上角短一些（只一行标题），首页 Hero 长一些**：
 
 ```json
 {
   "name": "Charles",
   "tagline": "AI Infra / Observability",
-  "nav": { "title": "Charles", "tagline": "AI Infra" },
+  "nav": { "title": "Charles" },
   "hero": { "variant": "mimo", "title": "这里有一些碎片，或许你能拼出什么", "tagline": "AI Infra / Observability / 写作系统化" }
 }
 ```

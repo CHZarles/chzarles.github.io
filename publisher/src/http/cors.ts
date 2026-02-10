@@ -22,7 +22,7 @@ export function corsAllowlist(allowedOrigins: string[]): MiddlewareHandler {
       c.header("Vary", "Origin");
     }
 
-    c.header("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+    c.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
     c.header("Access-Control-Allow-Headers", "Authorization,Content-Type");
     c.header("Access-Control-Max-Age", "600");
 
@@ -33,4 +33,3 @@ export function corsAllowlist(allowedOrigins: string[]): MiddlewareHandler {
     await next();
   };
 }
-

@@ -12,6 +12,7 @@ export type Profile = {
   avatarUrl?: string;
   links?: Array<{ label: string; href: string }>;
   hero?: {
+    variant?: "image" | "mimo";
     imageUrl?: string;
     blurPx?: number;
     opacity?: number;
@@ -22,6 +23,8 @@ export type Profile = {
     contrast?: number;
     textColor?: { light?: string; dark?: string };
     textScale?: number;
+    patternText?: string;
+    spotlightRadiusPx?: number;
   };
 };
 

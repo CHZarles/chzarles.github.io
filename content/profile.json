@@ -5,19 +5,9 @@
   "accent": "270 85% 45%",
   "publisherBaseUrl": "https://hyperblog-publisher.chzarles.workers.dev",
   "hero": {
-    "imageUrl": "./mountain.avif",
-    "blurPx": 0,
-    "opacity": 1,
-    "position": "20% 1%",
-    "washOpacity": 0,
-    "tintOpacity": 0.25,
-    "saturate": 1,
-    "contrast": 1.12,
-    "textColor": {
-      "light": "0 0% 100%",
-      "dark": "0 0% 100%"
-    },
-    "textScale": 1.5
+    "variant": "mimo",
+    "spotlightRadiusPx": 260,
+    "textScale": 1.15
   },
   "links": [
     {

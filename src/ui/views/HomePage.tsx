@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/api";
 import { Chip } from "../components/Chip";
 import { HeroBackdrop } from "../components/HeroBackdrop";
+import { HeroMimoBackdrop } from "../components/HeroMimoBackdrop";
 import { NoteCard } from "../components/NoteCard";
 import { SectionHeader } from "../components/SectionHeader";
 import { useAppState } from "../state/AppState";
@@ -58,91 +59,218 @@ export function HomePage() {
     };
   }, []);
 
+  const heroVariant: "image" | "mimo" =
+    profile?.hero?.variant === "mimo" ? "mimo" : profile?.hero?.imageUrl ? "image" : "mimo";
+
   const heroFg = (() => {
+    if (heroVariant === "mimo") return "hsl(var(--fg))";
     const cfg = profile?.hero?.textColor;
     const raw = theme === "dark" ? cfg?.dark : cfg?.light;
     return raw ? cssColor(raw) : "hsl(var(--hero-fg))";
   })();
+  const heroMetaColor = heroVariant === "mimo" ? "hsl(var(--muted))" : heroFg;
 
-  const heroScale = clamp(profile?.hero?.textScale ?? 1, 0.85, 1.25);
-  const heroTitleSize = `clamp(${(2.25 * heroScale).toFixed(3)}rem, ${(4.4 * heroScale).toFixed(3)}vw, ${(
-    3.25 * heroScale
-  ).toFixed(3)}rem)`;
-  const heroTaglineSize = `clamp(${(0.95 * heroScale).toFixed(3)}rem, ${(1.15 * heroScale).toFixed(3)}vw, ${(
-    1.06 * heroScale
-  ).toFixed(3)}rem)`;
+  const heroScale = clamp(profile?.hero?.textScale ?? 1, 0.85, heroVariant === "mimo" ? 1.6 : 1.25);
+  const heroTitleSize =
+    heroVariant === "mimo"
+      ? `clamp(${(3.2 * heroScale).toFixed(3)}rem, ${(7.2 * heroScale).toFixed(3)}vw, ${(6.0 * heroScale).toFixed(3)}rem)`
+      : `clamp(${(2.25 * heroScale).toFixed(3)}rem, ${(4.4 * heroScale).toFixed(3)}vw, ${(3.25 * heroScale).toFixed(3)}rem)`;
+  const heroTaglineSize =
+    heroVariant === "mimo"
+      ? `clamp(${(1.00 * heroScale).toFixed(3)}rem, ${(1.25 * heroScale).toFixed(3)}vw, ${(1.18 * heroScale).toFixed(3)}rem)`
+      : `clamp(${(0.95 * heroScale).toFixed(3)}rem, ${(1.15 * heroScale).toFixed(3)}vw, ${(1.06 * heroScale).toFixed(3)}rem)`;
+  const heroHandleSize =
+    heroVariant === "mimo"
+      ? `clamp(${(0.95 * heroScale).toFixed(3)}rem, ${(1.45 * heroScale).toFixed(3)}vw, ${(1.15 * heroScale).toFixed(3)}rem)`
+      : undefined;
+
+  const heroRef = React.useRef<HTMLElement | null>(null);
+  const titleSpotRef = React.useRef<HTMLDivElement | null>(null);
+  const spotRadius = clamp(profile?.hero?.spotlightRadiusPx ?? 240, 120, 520);
+  const rafRef = React.useRef<number | null>(null);
+  const lastRef = React.useRef<{ x: number; y: number; tx: number; ty: number; active: boolean }>({
+    x: 0,
+    y: 0,
+    tx: 0,
+    ty: 0,
+    active: false,
+  });
+
+  const flushSpot = React.useCallback(() => {
+    rafRef.current = null;
+    if (heroVariant !== "mimo") return;
+    const heroEl = heroRef.current;
+    if (!heroEl) return;
+    const { x, y, tx, ty, active } = lastRef.current;
+    heroEl.style.setProperty("--hb-spot-x", `${x}px`);
+    heroEl.style.setProperty("--hb-spot-y", `${y}px`);
+    heroEl.style.setProperty("--hb-spot-r", active ? `${spotRadius}px` : "0px");
+
+    const titleEl = titleSpotRef.current;
+    if (titleEl) {
+      titleEl.style.setProperty("--hb-spot-x", `${tx}px`);
+      titleEl.style.setProperty("--hb-spot-y", `${ty}px`);
+      titleEl.style.setProperty("--hb-spot-r", active ? `${spotRadius}px` : "0px");
+    }
+  }, [heroVariant, spotRadius]);
+
+  const scheduleFlush = React.useCallback(() => {
+    if (rafRef.current !== null) return;
+    rafRef.current = window.requestAnimationFrame(flushSpot);
+  }, [flushSpot]);
+
+  const onPointerMove = React.useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      if (heroVariant !== "mimo") return;
+      if (e.pointerType === "touch") return;
+      const heroEl = heroRef.current;
+      if (!heroEl) return;
+
+      const rect = heroEl.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      let tx = x;
+      let ty = y;
+      const titleEl = titleSpotRef.current;
+      if (titleEl) {
+        const tr = titleEl.getBoundingClientRect();
+        tx = e.clientX - tr.left;
+        ty = e.clientY - tr.top;
+      }
+
+      lastRef.current = { x, y, tx, ty, active: true };
+      scheduleFlush();
+    },
+    [heroVariant, scheduleFlush],
+  );
+
+  const onPointerLeave = React.useCallback(() => {
+    if (heroVariant !== "mimo") return;
+    lastRef.current = { ...lastRef.current, active: false };
+    scheduleFlush();
+  }, [heroVariant, scheduleFlush]);
 
   return (
     <div className="grid gap-8">
-      <section className="relative flex min-h-[440px] md:min-h-[clamp(600px,68vh,960px)]">
+      <section
+        ref={heroRef}
+        onPointerMove={onPointerMove}
+        onPointerLeave={onPointerLeave}
+        className="relative flex min-h-[440px] md:min-h-[clamp(560px,64vh,860px)]"
+      >
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 overflow-hidden border-y border-[hsl(var(--border))] bg-[hsl(var(--card))]"
+          className={[
+            "absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 overflow-hidden border-y",
+            "border-[color-mix(in_oklab,hsl(var(--fg))_22%,hsl(var(--border)))]",
+            heroVariant === "mimo" ? "bg-[hsl(var(--bg))]" : "bg-[hsl(var(--card))]",
+          ].join(" ")}
         >
-          <HeroBackdrop
-            imageUrl={profile?.hero?.imageUrl}
-            preload={profile?.hero?.preload}
-            blurPx={profile?.hero?.blurPx}
-            opacity={profile?.hero?.opacity}
-            position={profile?.hero?.position}
-            tintOpacity={profile?.hero?.tintOpacity}
-            washOpacity={profile?.hero?.washOpacity}
-            saturate={profile?.hero?.saturate}
-            contrast={profile?.hero?.contrast}
-          />
+          {heroVariant === "mimo" ? (
+            <HeroMimoBackdrop patternText={profile?.hero?.patternText ?? profile?.handle ?? profile?.name ?? "HYPERBLOG"} />
+          ) : (
+            <HeroBackdrop
+              imageUrl={profile?.hero?.imageUrl}
+              preload={profile?.hero?.preload}
+              blurPx={profile?.hero?.blurPx}
+              opacity={profile?.hero?.opacity}
+              position={profile?.hero?.position}
+              tintOpacity={profile?.hero?.tintOpacity}
+              washOpacity={profile?.hero?.washOpacity}
+              saturate={profile?.hero?.saturate}
+              contrast={profile?.hero?.contrast}
+            />
+          )}
         </div>
-        <div className="relative z-10 flex flex-1 flex-col py-10 md:py-14">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div
-              className="text-[10px] font-semibold tracking-[0.26em] uppercase"
-              style={{ color: heroFg, opacity: 0.86 }}
-            >
-              Editorial Notes
-            </div>
-            <div className="text-[10px] tracking-[0.26em] uppercase" style={{ color: heroFg, opacity: 0.78 }}>
-              ISSUE · {fmtIssue(notes[0]?.updated)}
-            </div>
-          </div>
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-center py-12 md:py-16">
+          <div className="w-full">
+            <div className="mx-auto flex max-w-[92ch] flex-col items-center px-1 text-center">
+              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                <div
+                  className="text-[10px] font-semibold tracking-[0.26em] uppercase"
+                  style={{ color: heroMetaColor, opacity: heroVariant === "mimo" ? 0.92 : 0.86 }}
+                >
+                  Editorial Notes
+                </div>
+                <div
+                  className="text-[10px] tracking-[0.26em] uppercase"
+                  style={{ color: heroMetaColor, opacity: heroVariant === "mimo" ? 0.78 : 0.78 }}
+                >
+                  ISSUE · {fmtIssue(notes[0]?.updated)}
+                </div>
+              </div>
 
-          <div className="mt-10 min-w-0 max-w-[78ch]">
-            <h1
-              className="hero-ink font-serif font-semibold leading-[1.02] tracking-tight"
-              style={{ color: heroFg, fontSize: heroTitleSize }}
-            >
-              {profile?.name ?? "Hyperblog"}
-              <span
-                aria-hidden="true"
-                className="mx-3 inline-block h-[0.9em] w-px bg-[color-mix(in_oklab,hsl(var(--accent))_70%,transparent)] align-[-0.12em]"
-              />
-              <span className="font-mono text-[0.9em] font-medium tracking-[-0.02em] text-[hsl(var(--accent))]">
-                {profile?.handle ?? "@you"}
-              </span>
-            </h1>
-            <p
-              className="mt-4 max-w-[60ch] leading-relaxed tracking-[-0.01em]"
-              style={{ color: heroFg, opacity: 0.82, fontSize: heroTaglineSize }}
-            >
-              {profile?.tagline ?? "把 Notes、Categories 与 Roadmaps 三套入口合一：可读、可索引、可证明。"}
-            </p>
-          </div>
+              <div ref={titleSpotRef} className="relative mt-10 w-full max-w-[78ch]">
+                <h1
+                  className={[
+                    heroVariant === "mimo" ? "" : "hero-ink",
+                    "font-serif font-semibold leading-[0.98] tracking-tight",
+                  ].join(" ")}
+                  style={{ color: heroFg, fontSize: heroTitleSize }}
+                >
+                  {profile?.name ?? "Hyperblog"}
+                </h1>
+                <div className="mt-4 font-mono font-medium tracking-[-0.02em] text-[hsl(var(--accent))]" style={{ fontSize: heroHandleSize }}>
+                  {profile?.handle ?? "@you"}
+                </div>
+                <p
+                  className="mt-5 mx-auto max-w-[64ch] leading-relaxed tracking-[-0.01em]"
+                  style={{
+                    color: heroVariant === "mimo" ? "hsl(var(--muted))" : heroFg,
+                    opacity: heroVariant === "mimo" ? 0.92 : 0.82,
+                    fontSize: heroTaglineSize,
+                  }}
+                >
+                  {profile?.tagline ?? "把 Notes、Categories 与 Roadmaps 三套入口合一：可读、可索引、可证明。"}
+                </p>
 
-          <div className="mt-auto pt-10">
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                to="/roadmaps"
-                className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_28%,hsl(var(--border)))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[hsl(var(--card2))]"
-              >
-                <Compass className="h-4 w-4 opacity-80" />
-                Explore Roadmaps
-                <ArrowUpRight className="h-4 w-4 opacity-80" />
-              </Link>
-              <Link
-                to="/notes"
-                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm text-[color-mix(in_oklab,hsl(var(--fg))_82%,hsl(var(--muted)))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-              >
-                Browse Notes
-                <ArrowUpRight className="h-4 w-4 opacity-70" />
-              </Link>
+                {heroVariant === "mimo" ? (
+                  <div
+                    className="pointer-events-none absolute inset-0 will-change-[clip-path]"
+                    style={{
+                      clipPath: "circle(var(--hb-spot-r, 0px) at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%))",
+                    }}
+                  >
+                    <h1
+                      className="font-serif font-semibold leading-[0.98] tracking-tight"
+                      style={{ color: "hsl(var(--bg))", fontSize: heroTitleSize }}
+                    >
+                      {profile?.name ?? "Hyperblog"}
+                    </h1>
+                    <div
+                      className="mt-4 font-mono font-medium tracking-[-0.02em] text-[hsl(var(--accent))]"
+                      style={{ fontSize: heroHandleSize }}
+                    >
+                      {profile?.handle ?? "@you"}
+                    </div>
+                    <p
+                      className="mt-5 mx-auto max-w-[64ch] leading-relaxed tracking-[-0.01em]"
+                      style={{ color: "color-mix(in oklab, hsl(var(--bg)) 86%, transparent)", fontSize: heroTaglineSize }}
+                    >
+                      {profile?.tagline ?? "把 Notes、Categories 与 Roadmaps 三套入口合一：可读、可索引、可证明。"}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  to="/roadmaps"
+                  className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_28%,hsl(var(--border)))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[hsl(var(--card2))]"
+                >
+                  <Compass className="h-4 w-4 opacity-80" />
+                  Explore Roadmaps
+                  <ArrowUpRight className="h-4 w-4 opacity-80" />
+                </Link>
+                <Link
+                  to="/notes"
+                  className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm text-[color-mix(in_oklab,hsl(var(--fg))_82%,hsl(var(--muted)))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                >
+                  Browse Notes
+                  <ArrowUpRight className="h-4 w-4 opacity-70" />
+                </Link>
+              </div>
             </div>
           </div>
         </div>

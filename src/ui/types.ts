@@ -7,6 +7,7 @@ export type Profile = {
   avatarUrl?: string;
   links?: Array<{ label: string; href: string }>;
   hero?: {
+    variant?: "image" | "mimo";
     imageUrl?: string;
     preload?: boolean; // default true; preloads hero image on homepage
     blurPx?: number;
@@ -18,6 +19,8 @@ export type Profile = {
     contrast?: number; // CSS filter contrast()
     textColor?: { light?: string; dark?: string }; // HSL string like "0 0% 100%"
     textScale?: number; // 0.85..1.25
+    patternText?: string;
+    spotlightRadiusPx?: number;
   };
 };
 

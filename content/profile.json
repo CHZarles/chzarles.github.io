@@ -1,12 +1,16 @@
 {
-  "name": "一个博客",
+  "name": "朝花夕拾",
   "handle": "@charles",
-  "tagline": "AI Infra / Observability / 写作系统化",
+  "tagline": "CS / Observability / 写作系统化",
   "accent": "270 85% 45%",
+  "nav": {
+    "title": "Blog.",
+    "tagline": "这里碎片很多，也许你能拼出点什么。"
+  },
   "publisherBaseUrl": "https://hyperblog-publisher.chzarles.workers.dev",
   "hero": {
     "variant": "mimo",
-    "spotlightRadiusPx": 260,
+    "spotlightRadiusPx": 220,
     "textScale": 1.15
   },
   "links": [

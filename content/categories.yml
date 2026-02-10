@@ -1,1 +1,4 @@
-[]
+- id: llm-apply
+  title: LLM应用
+  description: 从llm调用的层面，理解llm的能力
+  tone: rose

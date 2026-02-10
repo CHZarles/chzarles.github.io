@@ -1,8 +1,9 @@
-import { Check, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ExternalLink, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
+import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import type { Category } from "../../ui/types";
 import { useStudioState } from "../state/StudioState";
 import { formatStudioError } from "../util/errors";
@@ -34,6 +35,74 @@ function isValidCategoryId(id: string): boolean {
 
 const CATEGORY_TONES: Array<NonNullable<Category["tone"]>> = ["neutral", "cyan", "violet", "lime", "amber", "rose"];
 
+const CONFIG_CACHE_PREFIX = "hyperblog.studio.cache.config:v1:";
+
+type ConfigCacheV1 = {
+  v: 1;
+  savedAt: number;
+  path: string;
+  raw: string;
+};
+
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+}
+
+function configCacheKey(fileKey: FileKey): string {
+  return `${CONFIG_CACHE_PREFIX}${PUBLISHER_BASE_URL}:${fileKey}`;
+}
+
+function readConfigCache(fileKey: FileKey): ConfigCacheV1 | null {
+  const raw = safeLocalStorageGet(configCacheKey(fileKey));
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as ConfigCacheV1;
+    if (!v || typeof v !== "object") return null;
+    if (v.v !== 1) return null;
+    if (typeof v.savedAt !== "number") return null;
+    if (typeof v.path !== "string") return null;
+    if (typeof v.raw !== "string") return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function writeConfigCache(fileKey: FileKey, entry: { path: string; raw: string }) {
+  const payload: ConfigCacheV1 = { v: 1, savedAt: Date.now(), path: entry.path, raw: entry.raw };
+  safeLocalStorageSet(configCacheKey(fileKey), JSON.stringify(payload));
+}
+
+function toneSwatch(tone: NonNullable<Category["tone"]>): string {
+  switch (tone) {
+    case "cyan":
+      return "190 95% 55%";
+    case "violet":
+      return "270 90% 63%";
+    case "lime":
+      return "95 85% 55%";
+    case "amber":
+      return "40 95% 55%";
+    case "rose":
+      return "350 85% 63%";
+    case "neutral":
+    default:
+      return "0 0% 65%";
+  }
+}
+
 function tryParseJson(raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
   try {
     return { ok: true, value: JSON.parse(raw) };
@@ -49,36 +118,70 @@ export function StudioConfigPage() {
   const [searchParams] = useSearchParams();
   const initial = searchParams.get("file");
   const initialKey = (initial === "profile" || initial === "categories" || initial === "projects" ? initial : null) as FileKey | null;
-  const [active, setActive] = React.useState<FileKey>(initialKey ?? "profile");
+  const initialActive = initialKey ?? "profile";
+  const [active, setActive] = React.useState<FileKey>(initialActive);
   const file = React.useMemo(() => FILES.find((f) => f.key === active)!, [active]);
 
   const [categoriesView, setCategoriesView] = React.useState<"form" | "yaml">("form");
 
-  const [raw, setRaw] = React.useState("");
+  const [raw, setRaw] = React.useState(() => readConfigCache(initialActive)?.raw ?? "");
   const [dirty, setDirty] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
 
-  const load = React.useCallback(async () => {
+  const dirtyRef = React.useRef(dirty);
+  React.useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+
+  const activeRef = React.useRef(active);
+  React.useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  const loadSeqRef = React.useRef(0);
+
+  const load = React.useCallback(async (opts?: { background?: boolean }) => {
     if (!studio.token) return;
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
+    const seq = (loadSeqRef.current += 1);
+    const fileKey = activeRef.current;
+    const background = Boolean(opts?.background);
+    if (background) setRefreshing(true);
+    else setBusy(true);
+    if (!background) {
+      setNotice(null);
+      setCommitUrl(null);
+    }
     try {
       const res = await publisherFetchJson<GetFileResponse>({ path: file.getPath, token: studio.token });
-      setRaw(res.file.raw ?? "");
-      setDirty(false);
+      if (seq !== loadSeqRef.current) return;
+      const nextRaw = res.file.raw ?? "";
+      writeConfigCache(fileKey, { path: res.file.path, raw: nextRaw });
+      if (!dirtyRef.current) {
+        setRaw(nextRaw);
+        setDirty(false);
+      }
     } catch (err: unknown) {
-      setNotice(`Load failed: ${formatStudioError(err).message}`);
+      if (seq !== loadSeqRef.current) return;
+      const msg = formatStudioError(err).message;
+      if (!background) setNotice(`Load failed: ${msg}`);
     } finally {
-      setBusy(false);
+      if (seq !== loadSeqRef.current) return;
+      if (background) setRefreshing(false);
+      else setBusy(false);
     }
   }, [studio.token, file.getPath]);
 
   React.useEffect(() => {
-    void load();
-  }, [load]);
+    const cached = readConfigCache(active);
+    if (cached && !dirtyRef.current) {
+      setRaw(cached.raw);
+      setDirty(false);
+    }
+    if (studio.token) void load({ background: Boolean(cached) });
+  }, [active, studio.token, load]);
 
   const formatJson = React.useCallback(() => {
     const parsed = tryParseJson(raw);
@@ -92,6 +195,7 @@ export function StudioConfigPage() {
 
   const save = React.useCallback(async () => {
     if (!studio.token) return;
+    const fileKey = active;
     setBusy(true);
     setNotice(null);
     setCommitUrl(null);
@@ -103,6 +207,7 @@ export function StudioConfigPage() {
         token: studio.token,
         body,
       });
+      writeConfigCache(fileKey, { path: res.file.path, raw });
       setNotice(`Saved: ${res.file.path}`);
       setCommitUrl(res.commit.url);
       setDirty(false);
@@ -111,7 +216,7 @@ export function StudioConfigPage() {
     } finally {
       setBusy(false);
     }
-  }, [studio.token, file.mode, file.putPath, raw]);
+  }, [studio.token, active, file.mode, file.putPath, raw]);
 
   const jsonError = React.useMemo(() => {
     if (file.mode !== "json") return null;
@@ -144,6 +249,28 @@ export function StudioConfigPage() {
     }
   }, [active, raw]);
 
+  const categoriesList = React.useMemo(() => {
+    if (!categoriesState || !categoriesState.ok) return [] as Array<Category & Record<string, unknown>>;
+    return categoriesState.categories ?? [];
+  }, [categoriesState]);
+
+  const categoryIdCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of categoriesList) {
+      const id = String((c as any).id ?? "")
+        .trim()
+        .toLowerCase();
+      if (!id) continue;
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    return counts;
+  }, [categoriesList]);
+
+  const setCategoriesYaml = React.useCallback((next: Array<Record<string, unknown>>) => {
+    setRaw(YAML.stringify(next).trimEnd() + "\n");
+    setDirty(true);
+  }, []);
+
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
       <aside className="min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r">
@@ -158,7 +285,17 @@ export function StudioConfigPage() {
                 <li key={f.key}>
                   <button
                     type="button"
-                    onClick={() => setActive(f.key)}
+                    onClick={() => {
+                      if (busy) return;
+                      if (f.key === active) return;
+                      if (dirty && !window.confirm("Discard unsaved changes?")) return;
+                      const cached = readConfigCache(f.key);
+                      setRaw(cached?.raw ?? "");
+                      setDirty(false);
+                      setNotice(null);
+                      setCommitUrl(null);
+                      setActive(f.key);
+                    }}
                     className={[
                       "w-full rounded-xl px-3 py-2 text-left transition",
                       isActive ? "bg-[hsl(var(--card2))] text-[hsl(var(--fg))]" : "hover:bg-[hsl(var(--card2))]",
@@ -237,7 +374,7 @@ export function StudioConfigPage() {
               disabled={busy}
               className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
             >
-              <RefreshCw className="h-3.5 w-3.5 opacity-85" />
+              <RefreshCw className={["h-3.5 w-3.5 opacity-85", refreshing ? "animate-spin" : ""].join(" ")} />
               Reload
             </button>
             <button
@@ -291,86 +428,124 @@ export function StudioConfigPage() {
             ) : null}
 
             {categoriesState && categoriesState.ok ? (
-              <div className="grid gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-xs text-[hsl(var(--muted))]">
-                    Edit <code>content/categories.yml</code>. IDs should be <code>a-z0-9-</code>.
+              <div className="grid gap-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold tracking-tight">
+                      Categories <span className="text-xs font-medium text-[hsl(var(--muted))]">· {categoriesList.length}</span>
+                    </div>
+                    <div className="mt-1 text-xs text-[hsl(var(--muted))]">
+                      IDs are stable keys used in note frontmatter. Use <code>a-z0-9-</code>; rename titles freely.
+                    </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => {
-                      const next = [
-                        ...(categoriesState.categories ?? []),
-                        { id: "", title: "", description: "", tone: "neutral" as const },
-                      ];
-                      setRaw(YAML.stringify(next).trimEnd() + "\n");
-                      setDirty(true);
+                      const next = [...categoriesList, { id: "", title: "", description: "", tone: "neutral" as const }];
+                      setCategoriesYaml(next);
                     }}
                     className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
                     title="Add category"
                   >
-                    + Add
+                    <Plus className="h-3.5 w-3.5 opacity-85" />
+                    Add
                   </button>
                 </div>
 
-                <div className="grid gap-3">
-                  {(categoriesState.categories ?? []).map((c, idx) => {
-                    const id = String((c as any).id ?? "");
-                    const title = String((c as any).title ?? "");
-                    const description = typeof (c as any).description === "string" ? (c as any).description : "";
-                    const tone = (CATEGORY_TONES.includes((c as any).tone) ? (c as any).tone : "neutral") as NonNullable<
-                      Category["tone"]
-                    >;
-                    const idOk = !id || isValidCategoryId(id);
-                    return (
-                      <div key={`${idx}:${id}`} className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
-                        <div className="grid gap-3 sm:grid-cols-[200px_minmax(0,1fr)]">
-                          <div className="grid gap-2">
-                            <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">ID</div>
-                            <input
-                              value={id}
-                              onChange={(e) => {
-                                const next = [...(categoriesState.categories ?? [])];
-                                (next[idx] as any).id = e.target.value.trim().toLowerCase();
-                                setRaw(YAML.stringify(next).trimEnd() + "\n");
-                                setDirty(true);
-                              }}
-                              placeholder="ai-infra"
-                              className={[
-                                "w-full rounded-xl border bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]",
-                                idOk ? "border-[hsl(var(--border))]" : "border-[color-mix(in_oklab,red_50%,hsl(var(--border)))]",
-                              ].join(" ")}
-                            />
-                            {!idOk ? <div className="text-[10px] text-red-700">Invalid id. Use a-z0-9-.</div> : null}
-                          </div>
+                <div className="overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
+                  <div className="hidden grid-cols-[180px_minmax(0,1fr)_160px_minmax(0,1fr)_112px] items-center gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-4 py-2 text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))] md:grid">
+                    <div>ID</div>
+                    <div>Title</div>
+                    <div>Tone</div>
+                    <div>Description</div>
+                    <div className="text-right">Actions</div>
+                  </div>
 
-                          <div className="grid gap-3">
-                            <div className="grid gap-2">
-                              <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">TITLE</div>
+                  <div className="divide-y divide-[hsl(var(--border))]">
+                    {categoriesList.map((c, idx) => {
+                      const id = String((c as any).id ?? "");
+                      const title = String((c as any).title ?? "");
+                      const description = typeof (c as any).description === "string" ? (c as any).description : "";
+                      const tone = (CATEGORY_TONES.includes((c as any).tone) ? (c as any).tone : "neutral") as NonNullable<
+                        Category["tone"]
+                      >;
+
+                      const idLower = id.trim().toLowerCase();
+                      const idOk = !id || isValidCategoryId(idLower);
+                      const idDup = Boolean(idLower) && (categoryIdCounts.get(idLower) ?? 0) > 1;
+
+                      const update = (patch: Record<string, unknown>) => {
+                        const next = [...categoriesList];
+                        next[idx] = { ...(next[idx] as any), ...patch } as any;
+                        setCategoriesYaml(next);
+                      };
+
+                      const move = (to: number) => {
+                        const next = [...categoriesList];
+                        const [it] = next.splice(idx, 1);
+                        next.splice(to, 0, it);
+                        setCategoriesYaml(next);
+                      };
+
+                      const actionBtn = (disabled: boolean) =>
+                        [
+                          "inline-flex h-8 w-8 items-center justify-center rounded-full border transition",
+                          disabled
+                            ? "cursor-not-allowed border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))] opacity-60"
+                            : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
+                        ].join(" ");
+
+                      return (
+                        <div
+                          key={`${idx}:${idLower || "new"}`}
+                          className="border-l-4 border-l-transparent px-4 py-4"
+                          style={{ borderLeftColor: `hsl(${toneSwatch(tone)})` }}
+                        >
+                          <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_160px_minmax(0,1fr)_112px] md:items-start">
+                            <div className="grid gap-1.5">
+                              <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))] md:hidden">ID</div>
+                              <input
+                                value={id}
+                                onChange={(e) => update({ id: e.target.value.trim().toLowerCase() })}
+                                placeholder="ai-infra"
+                                aria-label="Category id"
+                                className={[
+                                  "w-full rounded-xl border bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]",
+                                  idOk && !idDup
+                                    ? "border-[hsl(var(--border))]"
+                                    : "border-[color-mix(in_oklab,red_50%,hsl(var(--border)))]",
+                                ].join(" ")}
+                              />
+                              {!idOk ? (
+                                <div className="text-[10px] text-red-700">Use a-z0-9-.</div>
+                              ) : idDup ? (
+                                <div className="text-[10px] text-red-700">Duplicate id.</div>
+                              ) : null}
+                            </div>
+
+                            <div className="grid gap-1.5">
+                              <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))] md:hidden">TITLE</div>
                               <input
                                 value={title}
-                                onChange={(e) => {
-                                  const next = [...(categoriesState.categories ?? [])];
-                                  (next[idx] as any).title = e.target.value;
-                                  setRaw(YAML.stringify(next).trimEnd() + "\n");
-                                  setDirty(true);
-                                }}
+                                onChange={(e) => update({ title: e.target.value })}
                                 placeholder="AI Infra"
+                                aria-label="Category title"
                                 className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
                               />
                             </div>
 
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              <div className="grid gap-2">
-                                <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">TONE</div>
+                            <div className="grid gap-1.5">
+                              <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))] md:hidden">TONE</div>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="h-2 w-2 shrink-0 rounded-full"
+                                  style={{ backgroundColor: `hsl(${toneSwatch(tone)})` }}
+                                />
                                 <select
                                   value={tone}
-                                  onChange={(e) => {
-                                    const next = [...(categoriesState.categories ?? [])];
-                                    (next[idx] as any).tone = e.target.value;
-                                    setRaw(YAML.stringify(next).trimEnd() + "\n");
-                                    setDirty(true);
-                                  }}
+                                  onChange={(e) => update({ tone: e.target.value })}
+                                  aria-label="Category tone"
                                   className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none focus:border-[hsl(var(--accent))]"
                                 >
                                   {CATEGORY_TONES.map((t) => (
@@ -380,44 +555,58 @@ export function StudioConfigPage() {
                                   ))}
                                 </select>
                               </div>
-
-                              <div className="grid gap-2">
-                                <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">DESCRIPTION</div>
-                                <input
-                                  value={description}
-                                  onChange={(e) => {
-                                    const next = [...(categoriesState.categories ?? [])];
-                                    (next[idx] as any).description = e.target.value;
-                                    setRaw(YAML.stringify(next).trimEnd() + "\n");
-                                    setDirty(true);
-                                  }}
-                                  placeholder="Optional"
-                                  className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
-                                />
-                              </div>
                             </div>
 
-                            <div className="flex items-center justify-end">
+                            <div className="grid gap-1.5">
+                              <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))] md:hidden">DESCRIPTION</div>
+                              <input
+                                value={description}
+                                onChange={(e) => update({ description: e.target.value })}
+                                placeholder="Optional"
+                                aria-label="Category description"
+                                className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => move(idx - 1)}
+                                disabled={idx === 0}
+                                className={actionBtn(idx === 0)}
+                                title="Move up"
+                              >
+                                <ChevronUp className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => move(idx + 1)}
+                                disabled={idx === categoriesList.length - 1}
+                                className={actionBtn(idx === categoriesList.length - 1)}
+                                title="Move down"
+                              >
+                                <ChevronDown className="h-4 w-4" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => {
                                   const ok = window.confirm(`Delete category "${title || id || "Untitled"}"?`);
                                   if (!ok) return;
-                                  const next = [...(categoriesState.categories ?? [])];
+                                  const next = [...categoriesList];
                                   next.splice(idx, 1);
-                                  setRaw(YAML.stringify(next).trimEnd() + "\n");
-                                  setDirty(true);
+                                  setCategoriesYaml(next);
                                 }}
-                                className="rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                                className={actionBtn(false)}
+                                title="Delete"
                               >
-                                Delete
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             ) : null}

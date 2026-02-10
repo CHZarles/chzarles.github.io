@@ -1,4 +1,4 @@
-import { ArrowUpRight, Compass } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/api";
@@ -9,17 +9,6 @@ import { NoteCard } from "../components/NoteCard";
 import { SectionHeader } from "../components/SectionHeader";
 import { useAppState } from "../state/AppState";
 import type { Category, NoteListItem } from "../types";
-
-function fmtIssue(iso?: string) {
-  const d = iso ? new Date(iso) : new Date();
-  if (Number.isNaN(d.getTime())) return "—";
-  try {
-    const s = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(d);
-    return s.toUpperCase();
-  } catch {
-    return d.toISOString().slice(0, 7);
-  }
-}
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -68,7 +57,6 @@ export function HomePage() {
     const raw = theme === "dark" ? cfg?.dark : cfg?.light;
     return raw ? cssColor(raw) : "hsl(var(--hero-fg))";
   })();
-  const heroMetaColor = heroVariant === "mimo" ? "hsl(var(--muted))" : heroFg;
 
   const heroScale = clamp(profile?.hero?.textScale ?? 1, 0.85, heroVariant === "mimo" ? 1.6 : 1.25);
   const heroTitleSize =
@@ -157,14 +145,20 @@ export function HomePage() {
         ref={heroRef}
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}
-        className="relative flex min-h-[440px] md:min-h-[clamp(560px,64vh,860px)]"
+        className={[
+          "relative flex overflow-hidden",
+          heroVariant === "mimo"
+            ? "h-[420px] sm:h-[470px] md:h-[500px] cursor-crosshair"
+            : "min-h-[440px] md:min-h-[clamp(560px,64vh,860px)]",
+        ].join(" ")}
       >
         <div
           aria-hidden="true"
           className={[
             "absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 overflow-hidden border-y",
-            "border-[color-mix(in_oklab,hsl(var(--fg))_22%,hsl(var(--border)))]",
-            heroVariant === "mimo" ? "bg-[hsl(var(--bg))]" : "bg-[hsl(var(--card))]",
+            heroVariant === "mimo"
+              ? "border-[hsl(var(--fg))] bg-[hsl(var(--bg))]"
+              : "border-[color-mix(in_oklab,hsl(var(--fg))_22%,hsl(var(--border)))] bg-[hsl(var(--card))]",
           ].join(" ")}
         >
           {heroVariant === "mimo" ? (
@@ -183,29 +177,20 @@ export function HomePage() {
             />
           )}
         </div>
-        <div className="relative z-10 flex flex-1 flex-col items-center justify-center py-12 md:py-16">
+        <div
+          className={[
+            "relative z-10 flex flex-1 flex-col items-center justify-center",
+            heroVariant === "mimo" ? "" : "py-12 md:py-16",
+          ].join(" ")}
+        >
           <div className="w-full">
-            <div className="mx-auto flex max-w-[92ch] flex-col items-center px-1 text-center">
-              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-                <div
-                  className="text-[10px] font-semibold tracking-[0.26em] uppercase"
-                  style={{ color: heroMetaColor, opacity: heroVariant === "mimo" ? 0.92 : 0.86 }}
-                >
-                  Editorial Notes
-                </div>
-                <div
-                  className="text-[10px] tracking-[0.26em] uppercase"
-                  style={{ color: heroMetaColor, opacity: heroVariant === "mimo" ? 0.78 : 0.78 }}
-                >
-                  ISSUE · {fmtIssue(notes[0]?.updated)}
-                </div>
-              </div>
-
-              <div ref={titleSpotRef} className="relative mt-10 w-full max-w-[78ch]">
+            <div className="mx-auto flex max-w-[72rem] flex-col items-center px-1 text-center">
+              <div ref={titleSpotRef} className="relative w-full max-w-[78ch]">
                 <h1
                   className={[
-                    heroVariant === "mimo" ? "" : "hero-ink",
-                    "font-serif font-semibold leading-[0.98] tracking-tight",
+                    heroVariant === "mimo"
+                      ? "font-sans font-bold leading-none tracking-[0.02em]"
+                      : "hero-ink font-serif font-semibold leading-[0.98] tracking-tight",
                   ].join(" ")}
                   style={{ color: heroFg, fontSize: heroTitleSize }}
                 >
@@ -233,7 +218,7 @@ export function HomePage() {
                     }}
                   >
                     <h1
-                      className="font-serif font-semibold leading-[0.98] tracking-tight"
+                      className="font-sans font-bold leading-none tracking-[0.02em]"
                       style={{ color: "hsl(var(--bg))", fontSize: heroTitleSize }}
                     >
                       {profile?.name ?? "Hyperblog"}
@@ -254,18 +239,17 @@ export function HomePage() {
                 ) : null}
               </div>
 
-              <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+              <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm">
                 <Link
                   to="/roadmaps"
-                  className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_28%,hsl(var(--border)))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[hsl(var(--card2))]"
+                  className="inline-flex items-center gap-2 text-[hsl(var(--fg))] underline-offset-4 transition hover:underline"
                 >
-                  <Compass className="h-4 w-4 opacity-80" />
                   Explore Roadmaps
-                  <ArrowUpRight className="h-4 w-4 opacity-80" />
+                  <ArrowUpRight className="h-4 w-4 opacity-70" />
                 </Link>
                 <Link
                   to="/notes"
-                  className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm text-[color-mix(in_oklab,hsl(var(--fg))_82%,hsl(var(--muted)))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                  className="inline-flex items-center gap-2 text-[hsl(var(--muted))] underline-offset-4 transition hover:text-[hsl(var(--fg))] hover:underline"
                 >
                   Browse Notes
                   <ArrowUpRight className="h-4 w-4 opacity-70" />

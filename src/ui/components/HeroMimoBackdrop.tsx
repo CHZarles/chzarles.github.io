@@ -54,15 +54,15 @@ function PatternLayer(props: { token: string; tone: "base" | "inverted" }) {
           const cls =
             props.tone === "base"
               ? [
-                  "flex whitespace-nowrap font-mono font-semibold leading-[1.6]",
-                  "text-[42px] md:text-[52px] tracking-[0.32em]",
-                  "text-[color-mix(in_oklab,hsl(var(--fg))_7%,transparent)]",
+                  "flex whitespace-nowrap font-sans font-bold leading-[1.6]",
+                  "text-[42px] md:text-[52px] tracking-[0.30em]",
+                  "text-[color-mix(in_oklab,hsl(var(--fg))_5%,transparent)]",
                   odd ? "-ml-10" : "",
                 ].join(" ")
               : [
-                  "flex whitespace-nowrap font-mono font-semibold leading-[1.6]",
-                  "text-[28px] md:text-[34px] tracking-[0.32em]",
-                  "text-[color-mix(in_oklab,hsl(var(--bg))_16%,transparent)]",
+                  "flex whitespace-nowrap font-sans font-bold leading-[1.6]",
+                  "text-[28px] md:text-[32px] tracking-[0.30em]",
+                  "text-[color-mix(in_oklab,hsl(var(--bg))_12%,transparent)]",
                   odd ? "-ml-6" : "",
                 ].join(" ");
 
@@ -75,7 +75,7 @@ function PatternLayer(props: { token: string; tone: "base" | "inverted" }) {
                   className={[
                     "mr-[0.6em] shrink-0 transition-[color,text-shadow] duration-300",
                     props.tone === "base"
-                      ? "hover:text-[color-mix(in_oklab,hsl(var(--fg))_14%,transparent)] hover:[text-shadow:0_0_28px_color-mix(in_oklab,hsl(var(--fg))_10%,transparent)]"
+                      ? "hover:text-[color-mix(in_oklab,hsl(var(--fg))_12%,transparent)] hover:[text-shadow:0_0_28px_color-mix(in_oklab,hsl(var(--fg))_9%,transparent)]"
                       : "",
                   ].join(" ")}
                 >
@@ -95,11 +95,11 @@ export function HeroMimoBackdrop(props: { patternText: string; overlayOpacity?: 
   const overlayOpacity = clamp(props.overlayOpacity ?? 1, 0, 1);
 
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+    <div aria-hidden="true" className="absolute inset-0">
       <PatternLayer token={token} tone="base" />
 
       <div
-        className="absolute inset-0 overflow-hidden will-change-[clip-path]"
+        className="pointer-events-none absolute inset-0 overflow-hidden will-change-[clip-path]"
         style={{
           clipPath: "circle(var(--hb-spot-r, 0px) at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%))",
           opacity: overlayOpacity,
@@ -111,4 +111,3 @@ export function HeroMimoBackdrop(props: { patternText: string; overlayOpacity?: 
     </div>
   );
 }
-

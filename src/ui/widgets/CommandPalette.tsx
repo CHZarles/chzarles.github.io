@@ -35,12 +35,27 @@ function iconFor(hit: SearchHit) {
   }
 }
 
+function isExternalHref(href: string): boolean {
+  return /^https?:\/\//i.test(href);
+}
+
 export function CommandPalette(props: { onClose: () => void }) {
   const navigate = useNavigate();
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<SearchHit[]>([]);
   const [active, setActive] = React.useState(0);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const openHit = React.useCallback(
+    (href: string) => {
+      if (isExternalHref(href)) {
+        window.open(href, "_blank", "noreferrer");
+        return;
+      }
+      navigate(href);
+    },
+    [navigate],
+  );
 
   React.useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -79,12 +94,12 @@ export function CommandPalette(props: { onClose: () => void }) {
         if (!hit) return;
         e.preventDefault();
         props.onClose();
-        navigate(hit.href);
+        openHit(hit.href);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [results, active, navigate, props]);
+  }, [results, active, openHit, props]);
 
   return (
     <div
@@ -119,7 +134,7 @@ export function CommandPalette(props: { onClose: () => void }) {
                   onMouseEnter={() => setActive(idx)}
                   onClick={() => {
                     props.onClose();
-                    navigate(hit.href);
+                    openHit(hit.href);
                   }}
                   className={[
                     "flex items-center justify-between gap-4 rounded-2xl px-3 py-2.5 text-left transition",

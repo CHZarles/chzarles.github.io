@@ -37,7 +37,6 @@ export type RoadmapNode = {
   icon?: string;
   edges?: string[];
   pinned?: string[];
-  projects?: string[];
   children?: RoadmapNode[];
 };
 
@@ -97,7 +96,6 @@ export type RoadmapNodeEntry = {
   children: Array<{ nodeId: string; title: string; status?: RoadmapNode["status"] }>;
   dependencies: Array<{ nodeId: string; title: string }>;
   pinned?: string[];
-  projects?: string[];
 };
 
 export type RoadmapNodeDetail = {
@@ -137,7 +135,6 @@ export type Project = {
   homepage?: string;
   stack?: string[];
   highlights?: string[];
-  nodes?: string[];
 };
 
 export type SearchHit = {

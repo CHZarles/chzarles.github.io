@@ -6,11 +6,9 @@
     "repoUrl": "https://github.com/",
     "stack": ["React", "OpenTelemetry", "ClickHouse"],
     "highlights": [
-      "一键从 Node（Roadmap 节点）进入相关的 Notes 与 Projects 证据",
       "聚合跨服务的关键 span，用“问题叙事”替代纯列表",
       "支持快速对比两次 release 的延迟分布差异"
-    ],
-    "nodes": ["ai-infra/otel", "ai-infra/observability"]
+    ]
   },
   {
     "id": "k8s-warmup",
@@ -21,8 +19,6 @@
     "highlights": [
       "把环境准备、依赖检查、压测与回收写成一个可复用的流程",
       "所有指标都有可追溯的实验参数与 commit"
-    ],
-    "nodes": ["ai-infra/k8s", "ai-infra/otel"]
+    ]
   }
 ]
-

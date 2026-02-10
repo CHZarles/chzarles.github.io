@@ -19,6 +19,22 @@ export function createMockApp(options?: { enableCors?: boolean }) {
     return (raw ?? "").replace(/\.json$/i, "");
   }
 
+  function normalizeExternalUrl(input: string | undefined): string | null {
+    const raw = String(input ?? "").trim();
+    if (!raw) return null;
+    try {
+      const u = new URL(raw);
+      if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+      return u.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  function primaryProjectUrl(p: { repoUrl?: string; homepage?: string }): string | null {
+    return normalizeExternalUrl(p.repoUrl) ?? normalizeExternalUrl(p.homepage);
+  }
+
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
   app.get(["/api/profile", "/api/profile.json"], asyncHandler(async (_req, res) => {
@@ -208,7 +224,7 @@ export function createMockApp(options?: { enableCors?: boolean }) {
     for (const p of db.projects) {
       if (hits.length >= 34) break;
       if (p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)) {
-        hits.push({ type: "project", title: p.name, subtitle: "Project", href: `/projects/${p.id}` });
+        hits.push({ type: "project", title: p.name, subtitle: "Project", href: primaryProjectUrl(p) ?? `/projects/${p.id}` });
       }
     }
 

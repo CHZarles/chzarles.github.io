@@ -86,22 +86,8 @@ export function ProjectPage() {
               <span className="text-sm text-[hsl(var(--muted))]">—</span>
             )}
           </div>
-          {project.nodes?.length ? (
-            <>
-              <div className="mt-6 text-sm font-medium">Related Roadmap Nodes</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {project.nodes.map((ref) => {
-                  const [roadmapId, nodeId] = ref.split("/");
-                  return (
-                    <Chip key={ref} label={ref} to={`/roadmaps/${roadmapId}/node/${nodeId}`} tone="accent" />
-                  );
-                })}
-              </div>
-            </>
-          ) : null}
         </div>
       </div>
     </div>
   );
 }
-

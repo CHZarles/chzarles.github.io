@@ -41,7 +41,6 @@ export type RoadmapNode = {
   children?: RoadmapNode[];
   edges?: string[]; // dependency node ids (same roadmap)
   pinned?: string[]; // note ids
-  projects?: string[]; // project ids
 };
 
 export type RoadmapFile = {
@@ -61,7 +60,6 @@ export type Project = {
   homepage?: string;
   stack?: string[];
   highlights?: string[];
-  nodes?: string[]; // roadmap refs: "ai-infra/otel"
 };
 
 export type Mindmap = {
@@ -130,7 +128,6 @@ export type NodeIndexEntry = {
   children: Array<{ nodeId: string; title: string; status?: RoadmapNode["status"] }>;
   dependencies: Array<{ nodeId: string; title: string }>;
   pinned?: string[];
-  projects?: string[];
 };
 
 export type NoteListItem = {
@@ -280,7 +277,6 @@ export async function loadDb(): Promise<Db> {
       children,
       dependencies: [],
       pinned: node.pinned,
-      projects: node.projects,
     });
 
     for (const child of node.children ?? []) {

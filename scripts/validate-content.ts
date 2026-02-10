@@ -182,6 +182,9 @@ async function main() {
           else projectIds.add(id);
           if (!name) error(issues, "content/projects.json", `Project ${id || idx} missing name.`);
           if (typeof item.repoUrl !== "string" || !String(item.repoUrl).trim()) warn(issues, "content/projects.json", `Project ${id || idx} missing repoUrl.`);
+          if ((item as any).nodes !== undefined) {
+            error(issues, "content/projects.json", `Project ${id || idx} uses deprecated field "nodes" (Projects are decoupled from Roadmap nodes).`);
+          }
         }
       }
     } catch (e) {
@@ -226,7 +229,7 @@ async function main() {
         const nodeIdsInRoadmap = new Set<string>();
         for (const [idx, node] of nodes.entries()) collectRoadmapNodeIds(node, nodeIdsInRoadmap, issues, rel, `nodes[${idx}]`);
 
-        // edges / pinned / projects validation
+        // edges / pinned validation
         for (const node of nodes) {
           walkRoadmapNodes(node, (n) => {
             const nid = typeof n?.id === "string" ? n.id.trim() : "";
@@ -243,17 +246,8 @@ async function main() {
                 if (!nodeIdsInRoadmap.has(depId)) error(issues, rel, `Unknown edge dependency: ${id}/${nid} -> ${depId}.`);
               }
             }
-
-            const projects = n?.projects;
-            if (projects !== undefined && projects !== null && !Array.isArray(projects)) {
-              error(issues, rel, `projects must be array (${id}/${nid}).`);
-            }
-            if (Array.isArray(projects)) {
-              for (const pid of projects) {
-                const p = typeof pid === "string" ? pid.trim() : "";
-                if (!p) continue;
-                if (!projectIds.has(p)) warn(issues, rel, `Unknown project reference: ${id}/${nid} -> ${p}.`);
-              }
+            if (n?.projects !== undefined) {
+              error(issues, rel, `Roadmap node field "projects" is no longer supported (Projects are decoupled). Remove it (${id}/${nid}).`);
             }
           });
         }

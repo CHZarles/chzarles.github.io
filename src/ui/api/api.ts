@@ -104,6 +104,22 @@ function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
 
+function normalizeExternalUrl(input: string | undefined): string | null {
+  const raw = String(input ?? "").trim();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function primaryProjectUrl(p: Project): string | null {
+  return normalizeExternalUrl(p.repoUrl) ?? normalizeExternalUrl(p.homepage);
+}
+
 function filterNotes(all: NoteListItem[], params?: { q?: string; category?: string; roadmap?: string; node?: string }) {
   const q = params?.q ? normalize(params.q) : "";
   const category = params?.category ?? "";
@@ -220,7 +236,12 @@ export const api = {
       if (hits.length >= 34) break;
       const hay = `${p.name} ${p.description}`.toLowerCase();
       if (hay.includes(query))
-        hits.push({ type: "project", title: p.name, subtitle: "Project", href: `/projects/${p.id}` });
+        hits.push({
+          type: "project",
+          title: p.name,
+          subtitle: "Project",
+          href: primaryProjectUrl(p) ?? `/projects/${p.id}`,
+        });
     }
 
     for (const m of mindmaps) {

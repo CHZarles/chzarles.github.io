@@ -79,14 +79,13 @@ export function ProjectsPage() {
       ) : projects.length ? (
         <div className="grid gap-3 md:grid-cols-2">
           {projects.map((p) => {
-            const href = primaryProjectUrl(p);
-            const repoSlug = href ? repoSlugFromUrl(href) : null;
-            const isGithub = Boolean(href && href.toLowerCase().includes("github.com"));
-            const badge = isGithub ? "GitHub Repo" : "Project Link";
-            return (
-              <a
-                key={p.id}
-                href={href ?? undefined}
+          const href = primaryProjectUrl(p);
+          const repoSlug = href ? repoSlugFromUrl(href) : null;
+          const isGithub = Boolean(href && href.toLowerCase().includes("github.com"));
+          return (
+            <a
+              key={p.id}
+              href={href ?? undefined}
                 target={href ? "_blank" : undefined}
                 rel={href ? "noreferrer" : undefined}
                 className={[
@@ -107,18 +106,17 @@ export function ProjectsPage() {
                       <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,green_55%,transparent)]" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate font-mono text-xs text-[hsl(var(--muted))]">{repoSlug ?? p.id}</div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[10px] font-semibold tracking-[0.22em] uppercase text-[hsl(var(--muted))]">
-                        {isGithub ? (
-                          <Github className="h-3.5 w-3.5 opacity-85" />
-                        ) : (
-                          <Code2 className="h-3.5 w-3.5 opacity-85" />
-                        )}
-                        {badge}
-                        {p.homepage ? (
-                          <span className="rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-0.5 font-mono tracking-normal">
-                            live
-                          </span>
+                    <div className="truncate font-mono text-xs text-[hsl(var(--muted))]">{repoSlug ?? p.id}</div>
+                    <div className="mt-0.5 flex items-center gap-2 text-[10px] font-semibold tracking-[0.22em] uppercase text-[hsl(var(--muted))]">
+                      {isGithub ? (
+                        <Github className="h-3.5 w-3.5 opacity-85" />
+                      ) : (
+                        <Code2 className="h-3.5 w-3.5 opacity-85" />
+                      )}
+                      {p.homepage ? (
+                        <span className="rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-0.5 font-mono tracking-normal">
+                          live
+                        </span>
                         ) : null}
                       </div>
                     </div>

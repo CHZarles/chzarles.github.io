@@ -90,6 +90,7 @@ pnpm dev:publisher -- --port 8788
 - Config：`http://localhost:5173/studio/config`
 
 Studio 使用说明见：`docs/studio-guide.md`
+内容格式规范见：`docs/content-formats.md`
 
 - 首次会跳 GitHub OAuth，回到 `/auth/callback` 后把 token 存在 `sessionStorage`
 - Publisher 地址解析优先级：

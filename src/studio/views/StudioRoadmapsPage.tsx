@@ -1,4 +1,4 @@
-import { ArrowDownUp, ArrowLeftRight, Check, ExternalLink, LayoutList, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowDownUp, ArrowLeftRight, Check, LayoutList, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import React from "react";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
@@ -6,8 +6,8 @@ import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { RoadmapMap } from "../../ui/roadmap/RoadmapMap";
 import { RoadmapOutline } from "../../ui/roadmap/RoadmapOutline";
 import type { Roadmap } from "../../ui/types";
-import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
+import { emitWorkspaceChanged } from "../state/StudioWorkspace";
 import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { formatStudioError } from "../util/errors";
 
@@ -73,6 +73,7 @@ type LocalRoadmapDraftV1 = {
   roadmapId: string;
   title: string;
   yaml: string;
+  pathHint?: string;
   pendingDelete?: boolean;
 };
 
@@ -139,6 +140,7 @@ function readLocalDraft(key: string): LocalRoadmapDraftV1 | null {
     if (typeof v.roadmapId !== "string") return null;
     if (typeof v.title !== "string") return null;
     if (typeof v.yaml !== "string") return null;
+    if (typeof v.pathHint !== "undefined" && typeof v.pathHint !== "string") return null;
     if (typeof v.pendingDelete !== "undefined" && typeof v.pendingDelete !== "boolean") return null;
     return v;
   } catch {
@@ -206,7 +208,6 @@ export function StudioRoadmapsPage() {
 
   const [busy, setBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
-  const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
 
   const dirtyRef = React.useRef(dirty);
   React.useEffect(() => {
@@ -299,7 +300,6 @@ export function StudioRoadmapsPage() {
       const restore = local ? window.confirm(`Restore local draft saved ${fmtRelative(local.savedAt)} ago?`) : false;
 
       setNotice(null);
-      setCommitUrl(null);
       setPendingDelete(restore && local ? Boolean(local.pendingDelete) : false);
 
       const cached = readStudioDataCache<RoadmapGetResponse>(roadmapDetailCacheKey(id))?.value ?? null;
@@ -372,7 +372,6 @@ export function StudioRoadmapsPage() {
     setDirty(true);
     setLocalSavedAt(null);
     setNotice(null);
-    setCommitUrl(null);
     setSelectedNodeId("foundations");
     setOutlineOpen(false);
     setPendingDelete(false);
@@ -393,7 +392,6 @@ export function StudioRoadmapsPage() {
       setDirty(false);
       setLocalSavedAt(d.savedAt);
       setNotice(`Opened local draft (${fmtRelative(d.savedAt)} ago).`);
-      setCommitUrl(null);
       setPendingDelete(Boolean(d.pendingDelete));
 
       const parsed = safeRoadmapFromYaml(d.yaml ?? "");
@@ -408,6 +406,7 @@ export function StudioRoadmapsPage() {
       safeLocalStorageRemove(key);
       if (draftKey === key) setLocalSavedAt(null);
       refreshDraftIndex();
+      emitWorkspaceChanged();
     },
     [draftKey, refreshDraftIndex],
   );
@@ -423,12 +422,17 @@ export function StudioRoadmapsPage() {
       if (draftKey !== key) setDraftKey(key);
 
       const title = preview.ok ? String(preview.roadmap.title ?? "").trim() || activeId : activeId;
+      const pathHint =
+        roadmaps.find((r) => r.id === activeId)?.path ??
+        readStudioDataCache<RoadmapGetResponse>(roadmapDetailCacheKey(activeId))?.value?.roadmap?.path ??
+        null;
       const payload: LocalRoadmapDraftV1 = {
         v: 1,
         savedAt: Date.now(),
         roadmapId: activeId,
         title,
         yaml: yamlText,
+        pathHint: pathHint ?? undefined,
         pendingDelete: typeof opts?.pendingDelete === "boolean" ? opts.pendingDelete : pendingDelete,
       };
       const ok = safeLocalStorageSet(key, JSON.stringify(payload));
@@ -439,11 +443,11 @@ export function StudioRoadmapsPage() {
 
       setLocalSavedAt(payload.savedAt);
       setDirty(false);
-      setCommitUrl(null);
       refreshDraftIndex();
+      emitWorkspaceChanged();
       if (!opts?.quiet) setNotice(`Saved locally (${fmtRelative(payload.savedAt)}).`);
     },
-    [activeId, draftKey, pendingDelete, preview, refreshDraftIndex, yamlText],
+    [activeId, draftKey, pendingDelete, preview, refreshDraftIndex, yamlText, roadmaps],
   );
 
   React.useEffect(() => {
@@ -454,149 +458,6 @@ export function StudioRoadmapsPage() {
     return () => window.clearTimeout(t);
   }, [dirty, saveLocal, yamlText]);
 
-  const publish = React.useCallback(async () => {
-    if (!studio.token) return;
-    if (!activeId) {
-      setNotice("Missing roadmap id.");
-      return;
-    }
-    if (pendingDelete) {
-      setBusy(true);
-      setNotice(null);
-      setCommitUrl(null);
-      try {
-        const srcRel =
-          roadmaps.find((r) => r.id === activeId)?.path ??
-          readStudioDataCache<RoadmapGetResponse>(roadmapDetailCacheKey(activeId))?.value?.roadmap?.path ??
-          `content/roadmaps/${activeId}.yml`;
-        const filename = srcRel.split("/").pop() ?? `${activeId}.yml`;
-        const trashRel = `content/.trash/roadmaps/${filename}`;
-        const content = yamlText.trim() ? yamlText.trimEnd() + "\n" : `id: ${activeId}\n(title:)\n`;
-
-        const subject = `roadmap(trash): ${activeId}`;
-        const message = `${subject}\n\nid: ${activeId}`;
-
-        const res = await publisherFetchJson<{ commit: { sha: string; url: string; headSha?: string } }>({
-          path: "/api/admin/commit",
-          method: "POST",
-          token: studio.token,
-          body: {
-            message,
-            expectedHeadSha: studio.me?.repo.headSha ?? undefined,
-            files: [{ path: trashRel, encoding: "utf8", content }],
-            deletes: [srcRel],
-          },
-        });
-
-        safeLocalStorageRemove(roadmapDetailCacheKey(activeId));
-        safeLocalStorageRemove(roadmapDraftKey(activeId));
-        refreshDraftIndex();
-
-        setNotice(`Trashed: ${activeId}`);
-        setCommitUrl(res.commit.url);
-        setPendingDelete(false);
-        setDirty(false);
-        setLocalSavedAt(null);
-        setDraftKey(null);
-        setActiveId(null);
-        setYamlText("");
-        setSelectedNodeId(null);
-        setOutlineOpen(false);
-
-        void studio.refreshMe();
-        void refreshList();
-      } catch (err: unknown) {
-        setNotice(`Publish failed: ${formatStudioError(err).message}`);
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-    if (!yamlText.trim()) {
-      setNotice("Empty YAML.");
-      return;
-    }
-    if (!preview.ok) {
-      setNotice(`YAML error: ${preview.error}`);
-      return;
-    }
-
-    const parsedId = String(preview.roadmap.id ?? "").trim().toLowerCase();
-    if (parsedId && parsedId !== activeId) {
-      setNotice(`YAML id mismatch: expected ${activeId}, got ${parsedId}`);
-      return;
-    }
-
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
-    try {
-      const title = String(preview.roadmap.title ?? "").trim() || activeId;
-      const first = `roadmap: ${title}`;
-      const subject = first.length > 72 ? `${first.slice(0, 71)}…` : first;
-      const message = `${subject}\n\nid: ${activeId}`;
-
-      const res = await publisherFetchJson<{ ok: true; roadmap: { id: string; path: string }; commit: { sha: string; url: string } }>({
-        path: `/api/admin/roadmaps/${encodeURIComponent(activeId)}`,
-        method: "PUT",
-        token: studio.token,
-        body: { yaml: yamlText, message },
-      });
-      setNotice(`Published: ${res.roadmap.id}`);
-      setCommitUrl(res.commit.url);
-      setDirty(false);
-
-      writeStudioDataCache(roadmapDetailCacheKey(activeId), {
-        roadmap: {
-          id: activeId,
-          path: res.roadmap.path,
-          exists: true,
-          yaml: yamlText,
-          json: preview.roadmap as unknown as Record<string, unknown>,
-        },
-      });
-      pruneStudioDataCache(ROADMAP_DETAIL_CACHE_PREFIX, MAX_ROADMAP_DETAIL_CACHE);
-
-      const dk = draftKey ?? roadmapDraftKey(activeId);
-      safeLocalStorageRemove(dk);
-      setDraftKey(roadmapDraftKey(activeId));
-      setLocalSavedAt(null);
-      refreshDraftIndex();
-
-      void studio.refreshMe();
-      void refreshList();
-    } catch (err: unknown) {
-      setNotice(`Publish failed: ${formatStudioError(err).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    studio.token,
-    studio.me?.repo.headSha,
-    studio.refreshMe,
-    activeId,
-    pendingDelete,
-    yamlText,
-    preview,
-    draftKey,
-    refreshDraftIndex,
-    refreshList,
-    roadmaps,
-  ]);
-
-  const canPublish =
-    Boolean(studio.token) && !busy && Boolean(activeId) && (pendingDelete || dirty || Boolean(localSavedAt));
-  const headerPublish = React.useMemo(
-    () => ({
-      label: "Publish",
-      title: "Publish current roadmap to GitHub (commit) (⌘Enter / Ctrl+Enter)",
-      disabled: !canPublish,
-      onClick: () => void publish(),
-    }),
-    [canPublish, publish],
-  );
-  useRegisterStudioHeaderActions({ publish: headerPublish });
-
   const setDeleteStaged = React.useCallback(
     (next: boolean) => {
       if (!activeId) return;
@@ -606,8 +467,7 @@ export function StudioRoadmapsPage() {
       }
       setPendingDelete(next);
       saveLocal({ quiet: true, pendingDelete: next });
-      setCommitUrl(null);
-      setNotice(next ? "Delete staged. Click Publish to move the roadmap into content/.trash." : "Delete unstaged.");
+      setNotice(next ? "Delete staged. Publish (top bar) will move it into content/.trash." : "Delete unstaged.");
     },
     [activeId, saveLocal],
   );
@@ -620,16 +480,11 @@ export function StudioRoadmapsPage() {
       if (key === "s") {
         e.preventDefault();
         saveLocal();
-        return;
-      }
-      if (key === "enter") {
-        e.preventDefault();
-        void publish();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [publish, saveLocal]);
+  }, [saveLocal]);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_520px]">
@@ -683,8 +538,8 @@ export function StudioRoadmapsPage() {
                     for (const d of localDrafts) safeLocalStorageRemove(d.key);
                     refreshDraftIndex();
                     setNotice("Cleared local drafts.");
-                    setCommitUrl(null);
                     setLocalSavedAt(null);
+                    emitWorkspaceChanged();
                   }}
                   title="Delete all local drafts"
                 >
@@ -718,7 +573,7 @@ export function StudioRoadmapsPage() {
                           if (!ok) return;
                           deleteLocalDraft(d.key);
                           setNotice("Deleted local draft.");
-                          setCommitUrl(null);
+                          emitWorkspaceChanged();
                         }}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -793,7 +648,9 @@ export function StudioRoadmapsPage() {
                 @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
               </div>
             ) : null}
-            <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Local drafts auto-save in your browser. Publish writes a GitHub commit.</div>
+            <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">
+              Local drafts auto-save in your browser. Publish (Changes tab) creates a single GitHub commit.
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -825,16 +682,6 @@ export function StudioRoadmapsPage() {
           <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 text-[hsl(var(--muted))]">{notice}</div>
-              {commitUrl ? (
-                <a
-                  href={commitUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-                >
-                  View commit <ExternalLink className="h-3.5 w-3.5 opacity-80" />
-                </a>
-              ) : null}
             </div>
           </div>
         ) : null}

@@ -29,11 +29,11 @@ adminCommitRoutes.post("/", async (c) => {
 
   const message = String(body.message ?? "").trim();
   if (!message) throw new HttpError(422, "VALIDATION_FAILED", "Missing commit message.");
-  if (!Array.isArray(body.files) || body.files.length === 0) {
-    throw new HttpError(422, "VALIDATION_FAILED", "Missing files.");
-  }
+  const hasFiles = Array.isArray(body.files) && body.files.length > 0;
+  const hasDeletes = Array.isArray(body.deletes) && body.deletes.length > 0;
+  if (!hasFiles && !hasDeletes) throw new HttpError(422, "VALIDATION_FAILED", "Missing files or deletes.");
 
-  const writes = body.files.map((f) => {
+  const writes = (body.files ?? []).map((f) => {
     const rawPath = validateRepoPath(String((f as any).path ?? ""));
     const path = applyContentRoot(cfg.contentRoot, rawPath);
     if ((f as any).encoding === "base64") {

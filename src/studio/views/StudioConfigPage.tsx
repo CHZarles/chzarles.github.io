@@ -1,12 +1,12 @@
-import { Check, ChevronDown, ChevronUp, ExternalLink, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import type { Category } from "../../ui/types";
-import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
+import { emitWorkspaceChanged } from "../state/StudioWorkspace";
 import { formatStudioError } from "../util/errors";
 
 type FileKey = "profile" | "categories" | "projects";
@@ -200,7 +200,6 @@ export function StudioConfigPage() {
   const [busy, setBusy] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
-  const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
   const [localSavedAt, setLocalSavedAt] = React.useState<number | null>(() => readConfigDraft(initialActive)?.savedAt ?? null);
 
   const dirtyRef = React.useRef(dirty);
@@ -224,7 +223,6 @@ export function StudioConfigPage() {
     else setBusy(true);
     if (!background) {
       setNotice(null);
-      setCommitUrl(null);
     }
     try {
       const res = await publisherFetchJson<GetFileResponse>({ path: file.getPath, token: studio.token });
@@ -279,7 +277,7 @@ export function StudioConfigPage() {
       }
       setLocalSavedAt(out.savedAt);
       setDirty(false);
-      setCommitUrl(null);
+      emitWorkspaceChanged();
       if (!opts?.quiet) setNotice("Saved locally.");
       return true;
     },
@@ -294,86 +292,6 @@ export function StudioConfigPage() {
     return () => window.clearTimeout(t);
   }, [dirty, raw, saveLocal]);
 
-  const publish = React.useCallback(async () => {
-    if (!studio.token) return;
-    const fileKey = active;
-
-    const normalized = (() => {
-      if (file.mode === "json") {
-        const parsed = tryParseJson(raw);
-        if (!parsed.ok) return { ok: false as const, error: parsed.error };
-        if (fileKey === "profile" && (!parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value))) {
-          return { ok: false as const, error: "Profile must be a JSON object." };
-        }
-        if (fileKey === "projects" && !Array.isArray(parsed.value)) {
-          return { ok: false as const, error: "Projects must be a JSON array." };
-        }
-        return { ok: true as const, raw: JSON.stringify(parsed.value, null, 2) + "\n" };
-      }
-
-      try {
-        const v = YAML.parse(raw);
-        if (fileKey === "categories" && raw.trim() && !Array.isArray(v)) {
-          return { ok: false as const, error: "Categories YAML must be a list." };
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { ok: false as const, error: msg };
-      }
-      return { ok: true as const, raw: raw.trimEnd() + "\n" };
-    })();
-
-    if (!normalized.ok) {
-      setNotice(`${file.mode.toUpperCase()} error: ${normalized.error}`);
-      return;
-    }
-
-    const subject = `config: ${fileKey}`;
-    const message = `${subject}\n\npath: ${file.contentPath}`;
-
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
-    try {
-      const res = await publisherFetchJson<{ commit: { sha: string; url: string; headSha?: string } }>({
-        path: "/api/admin/commit",
-        method: "POST",
-        token: studio.token,
-        body: {
-          message,
-          expectedHeadSha: studio.me?.repo.headSha ?? undefined,
-          files: [{ path: file.contentPath, encoding: "utf8", content: normalized.raw }],
-        },
-      });
-
-      writeConfigCache(fileKey, { path: file.contentPath, raw: normalized.raw });
-      deleteConfigDraft(fileKey);
-      setLocalSavedAt(null);
-      setDirty(false);
-      setNotice(`Published: ${file.contentPath}`);
-      setCommitUrl(res.commit.url);
-      setRaw(normalized.raw);
-      void studio.refreshMe();
-    } catch (err: unknown) {
-      const e = formatStudioError(err);
-      setNotice(e.code === "HEAD_MOVED" ? "Conflict: main moved. Sync and retry." : `Publish failed: ${e.message}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [studio.token, studio.me?.repo.headSha, studio.refreshMe, active, file.mode, file.contentPath, raw]);
-
-  const canPublish = Boolean(studio.token) && !busy && (dirty || Boolean(localSavedAt));
-  const headerPublish = React.useMemo(
-    () => ({
-      label: "Publish",
-      title: `Publish ${file.label} to GitHub (commit) (⌘Enter / Ctrl+Enter)`,
-      disabled: !canPublish,
-      onClick: () => void publish(),
-    }),
-    [canPublish, file.label, publish],
-  );
-  useRegisterStudioHeaderActions({ publish: headerPublish });
-
   const discardLocal = React.useCallback(() => {
     const fileKey = activeRef.current;
     const ok = window.confirm("Discard local changes for this file?");
@@ -384,7 +302,7 @@ export function StudioConfigPage() {
     const cached = readConfigCache(fileKey);
     setRaw(cached?.raw ?? "");
     setNotice("Local changes discarded.");
-    setCommitUrl(null);
+    emitWorkspaceChanged();
   }, []);
 
   const jsonError = React.useMemo(() => {
@@ -451,16 +369,11 @@ export function StudioConfigPage() {
       if (key === "s") {
         e.preventDefault();
         saveLocal();
-        return;
-      }
-      if (key === "enter") {
-        e.preventDefault();
-        void publish();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [publish, saveLocal]);
+  }, [saveLocal]);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
@@ -489,7 +402,6 @@ export function StudioConfigPage() {
                       setLocalSavedAt(draft?.savedAt ?? null);
                       setDirty(false);
                       setNotice(null);
-                      setCommitUrl(null);
                       setActive(f.key);
                     }}
                     className={[
@@ -523,7 +435,9 @@ export function StudioConfigPage() {
 	                @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
 	              </div>
 	            ) : null}
-	            <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">Local drafts auto-save in your browser. Publish writes a GitHub commit.</div>
+	            <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">
+	              Local drafts auto-save in your browser. Publish (Changes tab) creates a single GitHub commit.
+	            </div>
 	          </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -605,16 +519,6 @@ export function StudioConfigPage() {
           <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 text-[hsl(var(--muted))]">{notice}</div>
-              {commitUrl ? (
-                <a
-                  href={commitUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-                >
-                  View commit <ExternalLink className="h-3.5 w-3.5 opacity-80" />
-                </a>
-              ) : null}
             </div>
           </div>
         ) : null}

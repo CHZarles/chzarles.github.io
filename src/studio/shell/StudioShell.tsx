@@ -3,16 +3,16 @@ import React from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { AppStateProvider } from "../../ui/state/AppState";
-import { StudioHeaderActionsProvider, useStudioHeaderActions } from "../state/StudioHeaderActions";
 import { StudioStateProvider, useStudioState } from "../state/StudioState";
+import { StudioWorkspaceProvider, useStudioWorkspace } from "../state/StudioWorkspace";
 
 export function StudioShell() {
   return (
     <AppStateProvider>
       <StudioStateProvider>
-        <StudioHeaderActionsProvider>
+        <StudioWorkspaceProvider>
           <StudioLayout />
-        </StudioHeaderActionsProvider>
+        </StudioWorkspaceProvider>
       </StudioStateProvider>
     </AppStateProvider>
   );
@@ -21,8 +21,7 @@ export function StudioShell() {
 function StudioLayout() {
   const studio = useStudioState();
   const location = useLocation();
-  const header = useStudioHeaderActions();
-  const publish = header.actions.publish;
+  const ws = useStudioWorkspace();
 
   return (
     <div className="flex h-dvh flex-col bg-[hsl(var(--bg))] text-[hsl(var(--fg))]">
@@ -34,6 +33,9 @@ function StudioLayout() {
           </div>
 
           <nav className="hidden items-center gap-1 md:flex">
+            <StudioTab to="/studio/changes" badge={ws.stats.total ? ws.stats.total : null}>
+              Changes
+            </StudioTab>
             <StudioTab to="/studio/notes">Notes</StudioTab>
             <StudioTab to="/studio/mindmaps">Mindmaps</StudioTab>
             <StudioTab to="/studio/assets">Assets</StudioTab>
@@ -53,23 +55,21 @@ function StudioLayout() {
                   {studio.meError}
                 </div>
               ) : null}
-              {publish ? (
-                <button
-                  type="button"
-                  onClick={publish.onClick}
-                  disabled={Boolean(publish.disabled)}
-                  className={[
-                    "inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition",
-                    publish.disabled
-                      ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
-                      : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
-                  ].join(" ")}
-                  title={publish.title ?? "Publish (GitHub commit)"}
-                >
-                  <ArrowUpRight className="h-4 w-4 opacity-85" />
-                  {publish.label}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => void ws.publishAll({ confirm: true })}
+                disabled={!ws.stats.total || ws.publishing}
+                className={[
+                  "inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition",
+                  !ws.stats.total || ws.publishing
+                    ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
+                    : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
+                ].join(" ")}
+                title="Publish all local changes (single GitHub commit)"
+              >
+                <ArrowUpRight className="h-4 w-4 opacity-85" />
+                {ws.publishing ? "Publishing…" : ws.stats.total ? `Publish ${ws.stats.total}` : "Publish"}
+              </button>
               <button
                 type="button"
                 onClick={studio.forceSync}
@@ -126,13 +126,13 @@ function StudioLayout() {
   );
 }
 
-function StudioTab(props: { to: string; children: React.ReactNode }) {
+function StudioTab(props: { to: string; children: React.ReactNode; badge?: number | null }) {
   return (
     <NavLink
       to={props.to}
       className={({ isActive }) =>
         [
-          "rounded-full px-3 py-1.5 text-sm transition",
+          "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition",
           isActive
             ? "bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
             : "text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
@@ -140,6 +140,11 @@ function StudioTab(props: { to: string; children: React.ReactNode }) {
       }
     >
       {props.children}
+      {props.badge ? (
+        <span className="inline-flex min-w-5 items-center justify-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-1.5 py-0.5 text-[10px] font-semibold tracking-tight text-[hsl(var(--muted))]">
+          {props.badge}
+        </span>
+      ) : null}
     </NavLink>
   );
 }

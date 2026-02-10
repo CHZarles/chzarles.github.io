@@ -34,6 +34,9 @@ const ProjectPageLazy = React.lazy(() => import("./ui/views/ProjectPage").then((
 
 const StudioShellLazy = React.lazy(() => import("./studio/shell/StudioShell").then((m) => ({ default: m.StudioShell })));
 const StudioNotesPageLazy = React.lazy(() => import("./studio/views/StudioNotesPage").then((m) => ({ default: m.StudioNotesPage })));
+const StudioChangesPageLazy = React.lazy(() =>
+  import("./studio/views/StudioChangesPage").then((m) => ({ default: m.StudioChangesPage })),
+);
 const StudioAssetsPageLazy = React.lazy(() =>
   import("./studio/views/StudioAssetsPage").then((m) => ({ default: m.StudioAssetsPage })),
 );
@@ -61,6 +64,14 @@ export const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       { index: true, element: <Navigate to="/studio/notes" replace /> },
+      {
+        path: "changes",
+        element: (
+          <Lazy label="Loading changes…" tone="plain">
+            <StudioChangesPageLazy />
+          </Lazy>
+        ),
+      },
       {
         path: "notes",
         element: (
@@ -218,4 +229,3 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-

@@ -2,8 +2,8 @@ import { Check, Copy, ExternalLink, FileText, ImagePlus, RefreshCw, Trash2, X } 
 import React from "react";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
-import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
+import { emitWorkspaceChanged } from "../state/StudioWorkspace";
 import { pruneStudioDataCache, readStudioDataCache, stableCacheKeySegment, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { formatStudioError } from "../util/errors";
 
@@ -34,10 +34,6 @@ const MAX_ASSETS_LIST_CACHES = 6;
 function assetsListCacheKey(query: string): string {
   return studioDataCacheKey(PUBLISHER_BASE_URL, ["assets", "list", stableCacheKeySegment(query)]);
 }
-
-type CommitResponse = {
-  commit: { sha: string; url: string; headSha?: string };
-};
 
 type StagedUpload = {
   name: string;
@@ -115,9 +111,76 @@ function buildUploadName(file: File): string {
   return `${stamp}-${safeBase}-${rand}${safeExt ? `.${safeExt}` : ""}`;
 }
 
+type AssetsDraftV1 = {
+  v: 1;
+  savedAt: number;
+  uploads: Array<{ name: string; path: string; url: string; bytes: number; contentType: string; contentBase64: string }>;
+  deletes: string[];
+};
+
+const ASSETS_DRAFT_KEY = `hyperblog.studio.draft.assets:v1:${PUBLISHER_BASE_URL}`;
+
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeLocalStorageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+function readAssetsDraft(): AssetsDraftV1 | null {
+  const raw = safeLocalStorageGet(ASSETS_DRAFT_KEY);
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as AssetsDraftV1;
+    if (!v || typeof v !== "object") return null;
+    if (v.v !== 1) return null;
+    if (typeof v.savedAt !== "number") return null;
+    if (!Array.isArray(v.uploads)) return null;
+    if (!Array.isArray(v.deletes)) return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function writeAssetsDraft(next: { uploads: AssetsDraftV1["uploads"]; deletes: string[] }): { ok: true; savedAt: number } | { ok: false; error: string } {
+  if (!next.uploads.length && !next.deletes.length) {
+    safeLocalStorageRemove(ASSETS_DRAFT_KEY);
+    return { ok: true, savedAt: Date.now() };
+  }
+  const payload: AssetsDraftV1 = { v: 1, savedAt: Date.now(), uploads: next.uploads, deletes: next.deletes };
+  const ok = safeLocalStorageSet(ASSETS_DRAFT_KEY, JSON.stringify(payload));
+  if (!ok) return { ok: false, error: "Local save failed (storage unavailable or full)." };
+  return { ok: true, savedAt: payload.savedAt };
+}
+
+function uploadToStaged(u: AssetsDraftV1["uploads"][number]): StagedUpload {
+  const previewUrl = u.contentType.startsWith("image/") ? `data:${u.contentType};base64,${u.contentBase64}` : null;
+  return { ...u, previewUrl };
+}
+
 export function StudioAssetsPage() {
   const studio = useStudioState();
 
+  const initialDraft = readAssetsDraft();
   const [assets, setAssets] = React.useState<Asset[]>(
     () => readStudioDataCache<AssetsListCacheV1>(assetsListCacheKey(""))?.value.assets ?? [],
   );
@@ -129,10 +192,9 @@ export function StudioAssetsPage() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
-  const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
 
-  const [stagedUploads, setStagedUploads] = React.useState<StagedUpload[]>([]);
-  const [stagedDeletes, setStagedDeletes] = React.useState<string[]>([]);
+  const [stagedUploads, setStagedUploads] = React.useState<StagedUpload[]>(() => (initialDraft?.uploads ?? []).map(uploadToStaged));
+  const [stagedDeletes, setStagedDeletes] = React.useState<string[]>(() => initialDraft?.deletes ?? []);
 
   const loadSeqRef = React.useRef(0);
   const load = React.useCallback(
@@ -208,11 +270,13 @@ export function StudioAssetsPage() {
   }, [q]);
 
   const clearStage = React.useCallback(() => {
+    safeLocalStorageRemove(ASSETS_DRAFT_KEY);
     setStagedUploads((prev) => {
       for (const s of prev) if (s.previewUrl) URL.revokeObjectURL(s.previewUrl);
       return [];
     });
     setStagedDeletes([]);
+    emitWorkspaceChanged();
   }, []);
 
   const stageUpload = React.useCallback(
@@ -220,7 +284,6 @@ export function StudioAssetsPage() {
       if (!studio.token) return;
       setBusy(true);
       setNotice(null);
-      setCommitUrl(null);
       try {
         const uploadName = buildUploadName(file);
         const stagedUrl = `/uploads/${uploadName}`;
@@ -228,8 +291,8 @@ export function StudioAssetsPage() {
         const contentBase64 = await fileToBase64(file);
         const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
 
-        setStagedUploads((prev) => [
-          ...prev,
+        const nextUploads: StagedUpload[] = [
+          ...stagedUploads,
           {
             name: uploadName,
             path: stagedPath,
@@ -239,7 +302,17 @@ export function StudioAssetsPage() {
             contentBase64,
             previewUrl,
           },
-        ]);
+        ];
+        const out = writeAssetsDraft({
+          uploads: nextUploads.map(({ previewUrl: _previewUrl, ...rest }) => rest),
+          deletes: stagedDeletes,
+        });
+        if (!out.ok) {
+          setNotice(out.error);
+          return;
+        }
+        setStagedUploads(nextUploads);
+        emitWorkspaceChanged();
 
         setNotice(`Staged: ${stagedUrl} (publish when ready)`);
       } catch (err: unknown) {
@@ -248,107 +321,41 @@ export function StudioAssetsPage() {
         setBusy(false);
       }
     },
-    [studio.token],
+    [studio.token, stagedUploads, stagedDeletes],
   );
 
   const toggleStageDelete = React.useCallback(
     (asset: Asset) => {
-      setStagedDeletes((prev) => {
-        const set = new Set(prev);
-        if (set.has(asset.path)) set.delete(asset.path);
-        else set.add(asset.path);
-        return Array.from(set);
+      const set = new Set(stagedDeletes);
+      if (set.has(asset.path)) set.delete(asset.path);
+      else set.add(asset.path);
+      const nextDeletes = Array.from(set);
+
+      const out = writeAssetsDraft({
+        uploads: stagedUploads.map(({ previewUrl: _previewUrl, ...rest }) => rest),
+        deletes: nextDeletes,
       });
+      if (!out.ok) {
+        setNotice(out.error);
+        return;
+      }
+
+      setStagedDeletes(nextDeletes);
       setNotice(null);
-      setCommitUrl(null);
+      emitWorkspaceChanged();
     },
-    [],
+    [stagedDeletes, stagedUploads],
   );
-
-  const publishStaged = React.useCallback(async () => {
-    if (!studio.token) return;
-    if (!stagedUploads.length && !stagedDeletes.length) return;
-    if (stagedDeletes.length) {
-      const ok = window.confirm(
-        stagedUploads.length
-          ? `Publish ${stagedUploads.length} upload(s) and delete ${stagedDeletes.length} file(s)?`
-          : `Delete ${stagedDeletes.length} file(s)?`,
-      );
-      if (!ok) return;
-    }
-
-    const subject = (() => {
-      if (stagedUploads.length && !stagedDeletes.length) {
-        const one = stagedUploads.length === 1 ? stagedUploads[0]?.name ?? "asset" : `${stagedUploads.length} files`;
-        const s = `assets: upload ${one}`;
-        return s.length > 72 ? `${s.slice(0, 71)}…` : s;
-      }
-      if (!stagedUploads.length && stagedDeletes.length) {
-        const one = stagedDeletes.length === 1 ? stagedDeletes[0]?.split("/").at(-1) ?? "asset" : `${stagedDeletes.length} files`;
-        const s = `assets: delete ${one}`;
-        return s.length > 72 ? `${s.slice(0, 71)}…` : s;
-      }
-      const s = `assets: ${stagedUploads.length} uploads, ${stagedDeletes.length} deletes`;
-      return s.length > 72 ? `${s.slice(0, 71)}…` : s;
-    })();
-
-    const bodyLines = [
-      ...(stagedUploads.length ? [`uploads: ${stagedUploads.length}`] : []),
-      ...(stagedDeletes.length ? [`deletes: ${stagedDeletes.length}`] : []),
-    ];
-    const message = bodyLines.length ? `${subject}\n\n${bodyLines.join("\n")}` : subject;
-
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
-    try {
-      const res = await publisherFetchJson<CommitResponse>({
-        path: "/api/admin/commit",
-        method: "POST",
-        token: studio.token,
-        body: {
-          message,
-          expectedHeadSha: studio.me?.repo.headSha,
-          files: stagedUploads.map((u) => ({ path: u.path, encoding: "base64" as const, contentBase64: u.contentBase64 })),
-          deletes: stagedDeletes,
-        },
-      });
-      setNotice("Published.");
-      setCommitUrl(res.commit.url);
-      clearStage();
-      await studio.refreshMe();
-      await load({ append: false, query: q });
-    } catch (err: unknown) {
-      const e = formatStudioError(err);
-      setNotice(e.code === "HEAD_MOVED" ? "Conflict: main moved. Refresh and retry." : `Publish failed: ${e.message}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [studio.token, studio.me?.repo.headSha, studio.refreshMe, stagedUploads, stagedDeletes, clearStage, load, q]);
-
-  const canPublish = Boolean(studio.token) && !busy && (stagedUploads.length > 0 || stagedDeletes.length > 0);
-  const headerPublish = React.useMemo(
-    () => ({
-      label: "Publish",
-      title: "Publish staged assets to GitHub (commit)",
-      disabled: !canPublish,
-      onClick: () => void publishStaged(),
-    }),
-    [canPublish, publishStaged],
-  );
-  useRegisterStudioHeaderActions({ publish: headerPublish });
 
   const copyUrl = React.useCallback(async (asset: Asset) => {
     const ok = await copyText(asset.url);
     setNotice(ok ? `Copied URL: ${asset.url}` : "Copy failed.");
-    setCommitUrl(null);
   }, []);
 
   const copyMd = React.useCallback(async (asset: Asset) => {
     const md = `![](${asset.url})`;
     const ok = await copyText(md);
     setNotice(ok ? "Copied Markdown." : "Copy failed.");
-    setCommitUrl(null);
   }, []);
 
   return (
@@ -357,7 +364,7 @@ export function StudioAssetsPage() {
         <div className="min-w-0">
           <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">ASSETS</div>
           <div className="mt-1 text-sm text-[hsl(var(--muted))]">
-            Browse files under <code>public/uploads/</code>. Stage changes locally, then publish once.
+            Browse files under <code>public/uploads/</code>. Stage changes locally, then publish globally (Changes tab).
           </div>
         </div>
 
@@ -385,7 +392,6 @@ export function StudioAssetsPage() {
                 if (!ok) return;
                 clearStage();
                 setNotice("Cleared stage.");
-                setCommitUrl(null);
               }}
               disabled={busy}
               className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
@@ -411,16 +417,6 @@ export function StudioAssetsPage() {
         <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 text-[hsl(var(--muted))]">{notice}</div>
-            {commitUrl ? (
-              <a
-                href={commitUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-              >
-                View commit <ExternalLink className="h-3.5 w-3.5 opacity-80" />
-              </a>
-            ) : null}
           </div>
         </div>
       ) : null}
@@ -464,13 +460,19 @@ export function StudioAssetsPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setStagedUploads((prev) => {
-                          const next = prev.filter((x) => x.path !== u.path);
-                          if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
-                          return next;
+                        const nextUploads = stagedUploads.filter((x) => x.path !== u.path);
+                        if (u.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(u.previewUrl);
+                        const out = writeAssetsDraft({
+                          uploads: nextUploads.map(({ previewUrl: _previewUrl, ...rest }) => rest),
+                          deletes: stagedDeletes,
                         });
+                        if (!out.ok) {
+                          setNotice(out.error);
+                          return;
+                        }
+                        setStagedUploads(nextUploads);
+                        emitWorkspaceChanged();
                         setNotice("Removed from stage.");
-                        setCommitUrl(null);
                       }}
                       className="absolute right-2 top-2 inline-flex items-center justify-center rounded-full border border-[hsl(var(--border))] bg-[color-mix(in_oklab,hsl(var(--card))_80%,transparent)] p-2 text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card))] hover:text-[hsl(var(--fg))]"
                       title="Remove staged upload"
@@ -491,7 +493,6 @@ export function StudioAssetsPage() {
                         onClick={async () => {
                           const ok = await copyText(u.url);
                           setNotice(ok ? `Copied URL: ${u.url}` : "Copy failed.");
-                          setCommitUrl(null);
                         }}
                         className="inline-flex items-center gap-1 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-1 text-[11px] text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
                         title="Copy URL"
@@ -505,7 +506,6 @@ export function StudioAssetsPage() {
                           const md = `![](${u.url})`;
                           const ok = await copyText(md);
                           setNotice(ok ? "Copied Markdown." : "Copy failed.");
-                          setCommitUrl(null);
                         }}
                         className="inline-flex items-center gap-1 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-1 text-[11px] text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
                         title="Copy Markdown"

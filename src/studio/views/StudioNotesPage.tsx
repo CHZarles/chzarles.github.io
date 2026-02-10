@@ -1,6 +1,5 @@
 import {
   Check,
-  ExternalLink,
   Eye,
   ImagePlus,
   PencilLine,
@@ -17,8 +16,8 @@ import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import type { Category, MindmapListItem, RoadmapNodeEntry } from "../../ui/types";
-import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
+import { emitWorkspaceChanged } from "../state/StudioWorkspace";
 import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { formatStudioError } from "../util/errors";
 
@@ -52,10 +51,6 @@ type NoteGetResponse = {
   note: { id: string; path: string; input: NoteInput; markdown: string };
 };
 
-type CommitResponse = {
-  commit: { sha: string; url: string; headSha?: string };
-};
-
 type ViewMode = "edit" | "split" | "preview";
 
 type EditorState = {
@@ -77,19 +72,11 @@ type EditorState = {
 
 type Notice = { tone: "info" | "success" | "error"; message: string };
 
-type StagedUpload = {
-  path: string; // "public/uploads/..."
-  url: string; // "/uploads/..."
-  bytes: number;
-  contentType: string;
-  contentBase64: string;
-  previewUrl: string | null;
-};
-
 type LocalNoteDraftV1 = {
   v: 1;
   savedAt: number; // epoch ms
   noteId: string | null; // when editing an existing note
+  baseMarkdown?: string;
   pendingDelete?: boolean;
   editor: {
     title: string;
@@ -189,6 +176,7 @@ function readLocalDraft(key: string): LocalNoteDraftV1 | null {
     if (v.v !== 1) return null;
     if (typeof v.savedAt !== "number") return null;
     if (v.noteId !== null && typeof v.noteId !== "string") return null;
+    if (typeof v.baseMarkdown !== "undefined" && typeof v.baseMarkdown !== "string") return null;
     if (typeof v.pendingDelete !== "undefined" && typeof v.pendingDelete !== "boolean") return null;
     if (!v.editor || typeof v.editor !== "object") return null;
     if (typeof v.editor.title !== "string") return null;
@@ -440,8 +428,6 @@ export function StudioNotesPage() {
   const [nodesIndex, setNodesIndex] = React.useState<RoadmapNodeEntry[]>([]);
   const [mindmapsIndex, setMindmapsIndex] = React.useState<MindmapListItem[]>([]);
 
-  const [stagedUploads, setStagedUploads] = React.useState<StagedUpload[]>([]);
-
   const [notes, setNotes] = React.useState<NotesListResponse["notes"]>(
     () => readStudioDataCache<NotesListCacheV1>(NOTES_LIST_CACHE_KEY)?.value.notes ?? [],
   );
@@ -457,7 +443,6 @@ export function StudioNotesPage() {
   const [dirty, setDirty] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<Notice | null>(null);
-  const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
   const [lastUploadUrl, setLastUploadUrl] = React.useState<string | null>(null);
   const [slugTouched, setSlugTouched] = React.useState(false);
   const [draftKey, setDraftKey] = React.useState<string | null>(null);
@@ -566,20 +551,11 @@ export function StudioNotesPage() {
     void refreshList({ background: Boolean(cached) });
   }, [studio.token, studio.syncNonce, refreshList]);
 
-  const clearStagedUploads = React.useCallback(() => {
-    setStagedUploads((prev) => {
-      for (const s of prev) if (s.previewUrl) URL.revokeObjectURL(s.previewUrl);
-      return [];
-    });
-  }, []);
-
   const newNote = React.useCallback(() => {
     if (dirty && !window.confirm("Discard unsaved changes?")) return;
-    clearStagedUploads();
     setEditor(emptyEditor());
     setDirty(false);
     setNotice(null);
-    setCommitUrl(null);
     setLastUploadUrl(null);
     setSlugTouched(false);
     setDraftKey(newDraftKey());
@@ -587,7 +563,7 @@ export function StudioNotesPage() {
     setPendingDelete(false);
     retryRef.current = null;
     setTimeout(() => contentRef.current?.focus(), 0);
-  }, [clearStagedUploads, dirty]);
+  }, [dirty]);
 
   const noteLoadSeqRef = React.useRef(0);
   const openNote = React.useCallback(
@@ -608,9 +584,7 @@ export function StudioNotesPage() {
 
       setPendingDelete(restore && local ? Boolean(local.pendingDelete) : false);
       retryRef.current = () => void openNote(id, opts);
-      clearStagedUploads();
       setNotice(null);
-      setCommitUrl(null);
 
       const cached = readStudioDataCache<NoteGetResponse>(noteDetailCacheKey(id))?.value ?? null;
       const cachedEditor: EditorState | null = (() => {
@@ -668,6 +642,7 @@ export function StudioNotesPage() {
           cover: typeof le.cover === "string" ? le.cover : "",
           draft: Boolean(le.draft),
           content: typeof le.content === "string" ? le.content : "",
+          baseMarkdown: typeof local.baseMarkdown === "string" ? local.baseMarkdown : seed.baseMarkdown,
         });
         setLocalSavedAt(local.savedAt);
         setNotice({ tone: "info", message: `Restored local draft (${fmtRelative(local.savedAt)} ago).` });
@@ -734,7 +709,7 @@ export function StudioNotesPage() {
         if (!background) setBusy(false);
       }
     },
-    [studio.token, clearStagedUploads, dirty],
+    [studio.token, dirty],
   );
 
   const deleteLocalDraft = React.useCallback(
@@ -744,6 +719,7 @@ export function StudioNotesPage() {
         setLocalSavedAt(null);
       }
       refreshDraftIndex();
+      emitWorkspaceChanged();
     },
     [draftKey, refreshDraftIndex],
   );
@@ -763,11 +739,9 @@ export function StudioNotesPage() {
 
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
 
-      clearStagedUploads();
       setDraftKey(item.key);
       setLocalSavedAt(d.savedAt);
       setPendingDelete(Boolean(d.pendingDelete));
-      setCommitUrl(null);
       setNotice({ tone: "info", message: `Opened local draft (${fmtRelative(d.savedAt)} ago).` });
 
       const le = d.editor;
@@ -794,7 +768,7 @@ export function StudioNotesPage() {
       retryRef.current = null;
       setTimeout(() => contentRef.current?.focus(), 0);
     },
-    [dirty, clearStagedUploads, openNote, refreshDraftIndex],
+    [dirty, openNote, refreshDraftIndex],
   );
 
   const saveLocal = React.useCallback(
@@ -810,6 +784,7 @@ export function StudioNotesPage() {
         v: 1,
         savedAt: Date.now(),
         noteId: editor.mode === "edit" ? editor.id : null,
+        baseMarkdown: editor.baseMarkdown,
         pendingDelete: typeof opts?.pendingDelete === "boolean" ? opts.pendingDelete : pendingDelete,
         editor: {
           title: editor.title,
@@ -834,8 +809,8 @@ export function StudioNotesPage() {
 
       setLocalSavedAt(payload.savedAt);
       setDirty(false);
-      setCommitUrl(null);
       refreshDraftIndex();
+      emitWorkspaceChanged();
       if (!opts?.quiet) setNotice({ tone: "success", message: `Saved locally (${fmtRelative(payload.savedAt)}).` });
     },
     [editor, draftKey, pendingDelete, refreshDraftIndex],
@@ -849,238 +824,22 @@ export function StudioNotesPage() {
     return () => window.clearTimeout(t);
   }, [dirty, editor, saveLocal]);
 
-  const publish = React.useCallback(async () => {
-    if (!studio.token) return;
-    if (pendingDelete) {
-      if (editor.mode !== "edit" || !editor.id) {
-        setNotice({ tone: "error", message: "Nothing to delete." });
-        return;
-      }
-
-      const noteId = editor.id;
-      const notePath = `content/notes/${noteId}.md`;
-      const trashPath = `content/.trash/notes/${noteId}.md`;
-      const content = editor.baseMarkdown?.trim()
-        ? editor.baseMarkdown
-        : `---\nid: ${noteId}\ntitle: ${editor.title.trim() || noteId}\n---\n\n(trashed)\n`;
-
-      const subject = `trash: ${noteId}`;
-      const commitMessage = `${subject}\n\nid: ${noteId}`;
-
-      retryRef.current = () => void publish();
-      setBusy(true);
-      setNotice(null);
-      setCommitUrl(null);
-      try {
-        const res = await publisherFetchJson<CommitResponse>({
-          path: "/api/admin/commit",
-          method: "POST",
-          token: studio.token,
-          body: {
-            message: commitMessage,
-            expectedHeadSha: studio.me?.repo.headSha ?? undefined,
-            files: [{ path: trashPath, encoding: "utf8", content }],
-            deletes: [notePath],
-          },
-        });
-
-        safeLocalStorageRemove(noteDetailCacheKey(noteId));
-        safeLocalStorageRemove(noteDraftKey(noteId));
-        refreshDraftIndex();
-
-        setNotice({ tone: "success", message: `Trashed: ${noteId}` });
-        setCommitUrl(res.commit.url);
-        setPendingDelete(false);
-        clearStagedUploads();
-        setLastUploadUrl(null);
-        setEditor(emptyEditor());
-        setDirty(false);
-        setSlugTouched(false);
-        setDraftKey(newDraftKey());
-        setLocalSavedAt(null);
-
-        retryRef.current = null;
-        void studio.refreshMe();
-        void refreshList();
-      } catch (err: unknown) {
-        const e = formatStudioError(err);
-        setNotice(
-          e.code === "HEAD_MOVED"
-            ? { tone: "error", message: "Conflict: main moved. Refresh and retry." }
-            : { tone: "error", message: `Publish failed: ${e.message}` },
-        );
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-
-    if (!editor.title.trim()) {
-      setNotice({ tone: "error", message: "Missing title." });
-      return;
-    }
-    if (!editor.content.trim()) {
-      setNotice({ tone: "error", message: "Missing content." });
-      return;
-    }
-
-    const resolved =
-      editor.mode === "edit" && editor.id
-        ? { ok: true as const, noteId: editor.id, slug: "" }
-        : buildNoteId({ title: editor.title, date: editor.date, slug: editor.slug });
-
-    if (!resolved.ok) {
-      setNotice({ tone: "error", message: resolved.error });
-      return;
-    }
-
-    if (editor.mode === "create" && !editor.slug.trim() && resolved.slug) {
-      setEditor((prev) => ({ ...prev, slug: resolved.slug }));
-    }
-
-    const noteId = resolved.noteId;
-    const notePath = `content/notes/${noteId}.md`;
-    const updatedYmd = todayLocal();
-    const md = renderNoteMarkdownFromEditor({ editor, updatedYmd });
-
-    const uploadFiles = stagedUploads;
-    const files: Array<
-      | { path: string; encoding: "utf8"; content: string }
-      | { path: string; encoding: "base64"; contentBase64: string }
-    > = [
-      { path: notePath, encoding: "utf8", content: md },
-      ...uploadFiles.map((u) => ({ path: u.path, encoding: "base64" as const, contentBase64: u.contentBase64 })),
-    ];
-
-    const subject = (() => {
-      const prefix = editor.draft ? "draft" : editor.mode === "create" ? "publish" : "update";
-      const title = editor.title.trim().replace(/\s+/g, " ");
-      const first = `${prefix}: ${title}`;
-      return first.length > 72 ? `${first.slice(0, 71)}…` : first;
-    })();
-    const bodyLines = [
-      `id: ${noteId}`,
-      ...(editor.draft ? ["draft: true"] : []),
-      ...(uploadFiles.length ? [`uploads: ${uploadFiles.length}`] : []),
-    ];
-    const commitMessage = `${subject}\n\n${bodyLines.join("\n")}`;
-
-    retryRef.current = () => void publish();
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
-    try {
-      const res = await publisherFetchJson<CommitResponse>({
-        path: "/api/admin/commit",
-        method: "POST",
-        token: studio.token,
-        body: {
-          message: commitMessage,
-          expectedHeadSha: studio.me?.repo.headSha ?? undefined,
-          files,
-        },
-      });
-
-      setNotice({
-        tone: "success",
-        message: editor.draft ? `Committed draft: ${noteId}` : editor.mode === "create" ? `Published: ${noteId}` : `Updated: ${noteId}`,
-      });
-      setCommitUrl(res.commit.url);
-      setEditor((prev) => ({ ...prev, mode: "edit", id: noteId, baseMarkdown: md }));
-      setDirty(false);
-      setLastUploadUrl(uploadFiles.at(-1)?.url ?? null);
-      clearStagedUploads();
-      setPendingDelete(false);
-
-      writeStudioDataCache(noteDetailCacheKey(noteId), {
-        note: {
-          id: noteId,
-          path: notePath,
-          input: {
-            title: editor.title,
-            content: editor.content,
-            excerpt: editor.excerpt.trim() ? editor.excerpt.trim() : undefined,
-            categories: editor.categories,
-            tags: editor.tags,
-            nodes: editor.nodes,
-            mindmaps: editor.mindmaps,
-            cover: editor.cover.trim() ? editor.cover.trim() : undefined,
-            draft: editor.draft ? true : undefined,
-            slug: editor.slug.trim() ? editor.slug.trim() : undefined,
-            date: editor.date,
-            updated: updatedYmd !== editor.date ? updatedYmd : undefined,
-          },
-          markdown: md,
-        },
-      });
-      pruneStudioDataCache(NOTE_DETAIL_CACHE_PREFIX, MAX_NOTE_DETAIL_CACHE);
-
-      if (draftKey) safeLocalStorageRemove(draftKey);
-      setDraftKey(noteDraftKey(noteId));
-      setLocalSavedAt(null);
-      refreshDraftIndex();
-
-      retryRef.current = null;
-      void studio.refreshMe();
-      void refreshList();
-    } catch (err: unknown) {
-      const e = formatStudioError(err);
-      setNotice(
-        e.code === "HEAD_MOVED"
-          ? { tone: "error", message: "Conflict: main moved. Refresh and retry." }
-          : { tone: "error", message: `Publish failed: ${e.message}` },
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    studio.token,
-    studio.me?.repo.headSha,
-    studio.refreshMe,
-    refreshList,
-    editor,
-    pendingDelete,
-    stagedUploads,
-    clearStagedUploads,
-    draftKey,
-    refreshDraftIndex,
-  ]);
-
-  const canPublish =
-    Boolean(studio.token) &&
-    !busy &&
-    (pendingDelete
-      ? editor.mode === "edit" && Boolean(editor.id)
-      : editor.mode === "create" || dirty || Boolean(localSavedAt) || stagedUploads.length > 0);
-  const headerPublish = React.useMemo(
-    () => ({
-      label: "Publish",
-      title: "Publish current note to GitHub (commit) (⌘Enter / Ctrl+Enter)",
-      disabled: !canPublish,
-      onClick: () => void publish(),
-    }),
-    [canPublish, publish],
-  );
-  useRegisterStudioHeaderActions({ publish: headerPublish });
-
   const setDeleteStaged = React.useCallback(
     (next: boolean) => {
       if (editor.mode !== "edit" || !editor.id) return;
       if (next) {
         const ok = window.confirm(`Stage delete for ${editor.id}? (Will commit on Publish)`);
         if (!ok) return;
-        clearStagedUploads();
         setLastUploadUrl(null);
       }
       setPendingDelete(next);
       saveLocal({ quiet: true, pendingDelete: next });
-      setCommitUrl(null);
       setNotice({
         tone: "info",
-        message: next ? "Delete staged. Click Publish to move the note into content/.trash." : "Delete unstaged.",
+        message: next ? "Delete staged. Publish (top bar) will move it into content/.trash." : "Delete unstaged.",
       });
     },
-    [editor.mode, editor.id, clearStagedUploads, saveLocal],
+    [editor.mode, editor.id, saveLocal],
   );
 
   const uploadAsset = React.useCallback(
@@ -1089,28 +848,40 @@ export function StudioNotesPage() {
       retryRef.current = () => void uploadAsset(file);
       setBusy(true);
       setNotice(null);
-      setCommitUrl(null);
       try {
         const uploadName = buildUploadName(file);
         const stagedUrl = `/uploads/${uploadName}`;
         const stagedPath = `public/uploads/${uploadName}`;
         const contentBase64 = await fileToBase64(file);
-        const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+        const contentType = file.type || "application/octet-stream";
 
-        setStagedUploads((prev) => [
-          ...prev,
-          {
-            path: stagedPath,
-            url: stagedUrl,
-            bytes: file.size,
-            contentType: file.type || "application/octet-stream",
-            contentBase64,
-            previewUrl,
-          },
-        ]);
+        const assetsDraftKey = `hyperblog.studio.draft.assets:v1:${PUBLISHER_BASE_URL}`;
+        const existing = (() => {
+          const raw = safeLocalStorageGet(assetsDraftKey);
+          if (!raw) return null;
+          try {
+            return JSON.parse(raw) as { uploads?: any[]; deletes?: any[] };
+          } catch {
+            return null;
+          }
+        })();
+        const prevUploads = Array.isArray(existing?.uploads) ? existing!.uploads : [];
+        const prevDeletes = Array.isArray(existing?.deletes) ? (existing!.deletes as any[]).map(String) : [];
+        const nextUploads = [
+          ...prevUploads.filter((u) => String(u?.path ?? "") !== stagedPath),
+          { name: uploadName, path: stagedPath, url: stagedUrl, bytes: file.size, contentType, contentBase64 },
+        ];
+        const nextDeletes = prevDeletes.filter((p) => p !== stagedPath);
+        const payload = { v: 1, savedAt: Date.now(), uploads: nextUploads, deletes: nextDeletes };
+        const ok = safeLocalStorageSet(assetsDraftKey, JSON.stringify(payload));
+        if (!ok) {
+          setNotice({ tone: "error", message: "Local save failed (storage unavailable or full)." });
+          return;
+        }
+        emitWorkspaceChanged();
 
         setLastUploadUrl(stagedUrl);
-        setNotice({ tone: "info", message: `Staged: ${stagedUrl} (will commit on publish/update)` });
+        setNotice({ tone: "info", message: `Staged: ${stagedUrl} (will publish on Publish)` });
         setEditor((prev) => ({ ...prev, cover: prev.cover.trim() ? prev.cover : stagedUrl }));
 
         const isImage = (file.type || "").startsWith("image/");
@@ -1138,16 +909,11 @@ export function StudioNotesPage() {
       if (key === "s") {
         e.preventDefault();
         saveLocal();
-        return;
-      }
-      if (key === "enter") {
-        e.preventDefault();
-        void publish();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [publish, saveLocal]);
+  }, [saveLocal]);
 
   React.useEffect(() => {
     if (editor.mode !== "create") return;
@@ -1344,7 +1110,9 @@ export function StudioNotesPage() {
                 @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
               </div>
             ) : null}
-            <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Local drafts auto-save in your browser. Publish (top bar) writes a GitHub commit.</div>
+            <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">
+              Local drafts auto-save in your browser. Publish (Changes tab) creates a single GitHub commit.
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1422,16 +1190,6 @@ export function StudioNotesPage() {
                     Retry <RefreshCw className="h-3.5 w-3.5 opacity-80" />
                   </button>
                 ) : null}
-                {commitUrl ? (
-                  <a
-                    href={commitUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-                  >
-                    View commit <ExternalLink className="h-3.5 w-3.5 opacity-80" />
-                  </a>
-                ) : null}
               </div>
             </div>
           </div>
@@ -1484,7 +1242,7 @@ export function StudioNotesPage() {
               </div>
             ) : null}
             <div className="mt-2 text-[10px] text-[hsl(var(--muted))]">
-              Local saves stay in your browser. Publish writes a GitHub commit.
+              Local saves stay in your browser. Publish (Changes tab) creates a single GitHub commit.
             </div>
           </div>
 
@@ -1680,55 +1438,6 @@ export function StudioNotesPage() {
               }}
             />
           </label>
-
-          {stagedUploads.length ? (
-            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">Staged uploads · {stagedUploads.length}</div>
-                <button
-                  type="button"
-                  className="text-xs text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-                  onClick={() => {
-                    clearStagedUploads();
-                    setNotice({ tone: "info", message: "Cleared staged uploads." });
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
-              <div className="mt-2 grid gap-2">
-                {stagedUploads.map((u) => (
-                  <div
-                    key={u.path}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-2"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate text-xs font-medium">{u.url}</div>
-                      <div className="mt-0.5 truncate text-[10px] text-[hsl(var(--muted))]">
-                        {Math.max(1, Math.round(u.bytes / 1024))} KB · {u.contentType}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDirty(true);
-                        setStagedUploads((prev) => {
-                          const next = prev.filter((x) => x.path !== u.path);
-                          if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
-                          return next;
-                        });
-                      }}
-                      className="inline-flex items-center justify-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card2))] p-1.5 text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                      title="Remove staged upload"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-2 text-[10px] text-[hsl(var(--muted))]">Committed on publish/update.</div>
-            </div>
-          ) : null}
 
           {lastUploadUrl ? (
             <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-xs text-[hsl(var(--muted))]">

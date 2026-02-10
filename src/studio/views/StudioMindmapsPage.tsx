@@ -1,4 +1,4 @@
-import { Check, ExternalLink, Maximize2, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { Check, Maximize2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import React from "react";
 import ReactFlow, {
   Background,
@@ -19,8 +19,8 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
-import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
+import { emitWorkspaceChanged } from "../state/StudioWorkspace";
 import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { MindNode, type MindNodeData } from "../mindmap/MindNode";
 import { formatStudioError } from "../util/errors";
@@ -331,7 +331,6 @@ export function StudioMindmapsPage() {
 
   const [busy, setBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
-  const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
 
   const dirtyRef = React.useRef(dirty);
   React.useEffect(() => {
@@ -455,7 +454,6 @@ export function StudioMindmapsPage() {
     setSelectedNodeId(fresh.nodes[0]?.id ?? null);
     setDirty(true);
     setNotice(null);
-    setCommitUrl(null);
     setPendingDelete(false);
     requestAnimationFrame(() => setViewport(fresh.viewport));
   }, [dirty, setEdges, setNodes, setViewport]);
@@ -478,7 +476,6 @@ export function StudioMindmapsPage() {
             : false;
 
       setNotice(null);
-      setCommitUrl(null);
       setPendingDelete(restore && local ? Boolean(local.pendingDelete) : false);
 
       const cached = readStudioDataCache<MindmapGetResponse>(mindmapDetailCacheKey(id))?.value ?? null;
@@ -584,7 +581,6 @@ export function StudioMindmapsPage() {
       setDirty(false);
       setLocalSavedAt(d.savedAt);
       setNotice(`Opened local draft (${fmtRelative(d.savedAt)} ago).`);
-      setCommitUrl(null);
       setPendingDelete(Boolean(d.pendingDelete));
       requestAnimationFrame(() => setViewport(nextViewport));
     },
@@ -596,6 +592,7 @@ export function StudioMindmapsPage() {
       safeLocalStorageRemove(key);
       if (draftKey === key) setLocalSavedAt(null);
       refreshDraftIndex();
+      emitWorkspaceChanged();
     },
     [draftKey, refreshDraftIndex],
   );
@@ -631,8 +628,8 @@ export function StudioMindmapsPage() {
 
       setLocalSavedAt(payload.savedAt);
       setDirty(false);
-      setCommitUrl(null);
       refreshDraftIndex();
+      emitWorkspaceChanged();
       if (!opts?.quiet) setNotice(`Saved locally (${fmtRelative(payload.savedAt)}).`);
     },
     [mindmapId, title, nodes, edges, draftKey, pendingDelete, refreshDraftIndex],
@@ -646,158 +643,6 @@ export function StudioMindmapsPage() {
     return () => window.clearTimeout(t);
   }, [dirty, saveLocal, nodes, edges, title, mindmapId]);
 
-  const publish = React.useCallback(async () => {
-    if (!studio.token) return;
-    const id = fitToMindmapId(mindmapId);
-    if (!id) {
-      setNotice("Missing or invalid mindmap id.");
-      return;
-    }
-
-    if (pendingDelete) {
-      setBusy(true);
-      setNotice(null);
-      setCommitUrl(null);
-      try {
-        const viewport = rfRef.current?.getViewport() ?? { x: 0, y: 0, zoom: 1 };
-        const payload: MindmapInput = {
-          id,
-          title: title.trim() || undefined,
-          format: "reactflow",
-          nodes: persistNodes(nodes as MindNodeT[]),
-          edges: persistEdges(edges as MindEdgeT[]),
-          viewport,
-        };
-        const json = JSON.stringify(payload, null, 2) + "\n";
-        const srcRel = `content/mindmaps/${id}.json`;
-        const trashRel = `content/.trash/mindmaps/${id}.json`;
-
-        const subject = `mindmap(trash): ${id}`;
-        const message = `${subject}\n\nid: ${id}`;
-
-        const res = await publisherFetchJson<{ commit: { sha: string; url: string; headSha?: string } }>({
-          path: "/api/admin/commit",
-          method: "POST",
-          token: studio.token,
-          body: {
-            message,
-            expectedHeadSha: studio.me?.repo.headSha ?? undefined,
-            files: [{ path: trashRel, encoding: "utf8", content: json }],
-            deletes: [srcRel],
-          },
-        });
-
-        safeLocalStorageRemove(mindmapDetailCacheKey(id));
-        safeLocalStorageRemove(mindmapDraftKey(id));
-        refreshDraftIndex();
-
-        setNotice(`Trashed: ${id}`);
-        setCommitUrl(res.commit.url);
-        setPendingDelete(false);
-        setDirty(false);
-        setLocalSavedAt(null);
-        setDraftKey(null);
-        setMode("create");
-        setMindmapId("");
-        setTitle("");
-        setNodes([]);
-        setEdges([]);
-        setSelectedNodeId(null);
-
-        void studio.refreshMe();
-        void refreshList();
-      } catch (err: unknown) {
-        const e = formatStudioError(err);
-        setNotice(e.code === "HEAD_MOVED" ? "Conflict: main moved. Sync and retry." : `Publish failed: ${e.message}`);
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
-    try {
-      const viewport = rfRef.current?.getViewport() ?? { x: 0, y: 0, zoom: 1 };
-      const payload: MindmapInput = {
-        id,
-        title: title.trim() || undefined,
-        format: "reactflow",
-        nodes: persistNodes(nodes as MindNodeT[]),
-        edges: persistEdges(edges as MindEdgeT[]),
-        viewport,
-      };
-
-      let remotePath = "";
-      if (mode === "create") {
-        const res = await publisherFetchJson<{
-          mindmap: { id: string; path: string };
-          commit: { sha: string; url: string };
-        }>({ path: "/api/admin/mindmaps", method: "POST", token: studio.token, body: payload });
-        remotePath = res.mindmap.path;
-        setMode("edit");
-        setNotice(`Published: ${res.mindmap.id}`);
-        setCommitUrl(res.commit.url);
-      } else {
-        const res = await publisherFetchJson<{
-          mindmap: { id: string; path: string };
-          commit: { sha: string; url: string };
-        }>({ path: `/api/admin/mindmaps/${encodeURIComponent(id)}`, method: "PATCH", token: studio.token, body: payload });
-        remotePath = res.mindmap.path;
-        setNotice(`Updated: ${res.mindmap.id}`);
-        setCommitUrl(res.commit.url);
-      }
-
-      setDirty(false);
-
-      writeStudioDataCache(mindmapDetailCacheKey(id), {
-        mindmap: { id, path: remotePath, input: payload, json: JSON.stringify(payload, null, 2) },
-      });
-      pruneStudioDataCache(MINDMAP_DETAIL_CACHE_PREFIX, MAX_MINDMAP_DETAIL_CACHE);
-
-      const dk = draftKey ?? mindmapDraftKey(id);
-      safeLocalStorageRemove(dk);
-      setDraftKey(mindmapDraftKey(id));
-      setLocalSavedAt(null);
-      refreshDraftIndex();
-
-      setPendingDelete(false);
-      void studio.refreshMe();
-      void refreshList();
-    } catch (err: unknown) {
-      setNotice(`Publish failed: ${formatStudioError(err).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    studio.token,
-    studio.me?.repo.headSha,
-    studio.refreshMe,
-    pendingDelete,
-    mode,
-    mindmapId,
-    title,
-    nodes,
-    edges,
-    draftKey,
-    refreshDraftIndex,
-    refreshList,
-  ]);
-
-  const canPublish =
-    Boolean(studio.token) && !busy && Boolean(fitToMindmapId(mindmapId)) && (pendingDelete || dirty || Boolean(localSavedAt));
-  const headerPublish = React.useMemo(
-    () => ({
-      label: "Publish",
-      title: "Publish current mindmap to GitHub (commit) (⌘Enter / Ctrl+Enter)",
-      disabled: !canPublish,
-      onClick: () => void publish(),
-    }),
-    [canPublish, publish],
-  );
-  useRegisterStudioHeaderActions({ publish: headerPublish });
-
   const setDeleteStaged = React.useCallback(
     (next: boolean) => {
       const id = fitToMindmapId(mindmapId);
@@ -808,8 +653,7 @@ export function StudioMindmapsPage() {
       }
       setPendingDelete(next);
       saveLocal({ quiet: true, pendingDelete: next });
-      setCommitUrl(null);
-      setNotice(next ? "Delete staged. Click Publish to move the mindmap into content/.trash." : "Delete unstaged.");
+      setNotice(next ? "Delete staged. Publish (top bar) will move it into content/.trash." : "Delete unstaged.");
     },
     [mindmapId, mode, saveLocal],
   );
@@ -861,16 +705,11 @@ export function StudioMindmapsPage() {
       if (key === "s") {
         e.preventDefault();
         saveLocal();
-        return;
-      }
-      if (key === "enter") {
-        e.preventDefault();
-        void publish();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [publish, saveLocal]);
+  }, [saveLocal]);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_360px]">
@@ -924,8 +763,8 @@ export function StudioMindmapsPage() {
                     for (const d of localDrafts) safeLocalStorageRemove(d.key);
                     refreshDraftIndex();
                     setNotice("Cleared local drafts.");
-                    setCommitUrl(null);
                     setLocalSavedAt(null);
+                    emitWorkspaceChanged();
                   }}
                   title="Delete all local drafts"
                 >
@@ -959,7 +798,7 @@ export function StudioMindmapsPage() {
                           if (!ok) return;
                           deleteLocalDraft(d.key);
                           setNotice("Deleted local draft.");
-                          setCommitUrl(null);
+                          emitWorkspaceChanged();
                         }}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -1037,7 +876,9 @@ export function StudioMindmapsPage() {
                 @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
               </div>
             ) : null}
-            <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Local drafts auto-save in your browser. Publish writes a GitHub commit.</div>
+            <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">
+              Local drafts auto-save in your browser. Publish (Changes tab) creates a single GitHub commit.
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1091,16 +932,6 @@ export function StudioMindmapsPage() {
           <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 text-[hsl(var(--muted))]">{notice}</div>
-              {commitUrl ? (
-                <a
-                  href={commitUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-                >
-                  View commit <ExternalLink className="h-3.5 w-3.5 opacity-80" />
-                </a>
-              ) : null}
             </div>
           </div>
         ) : null}

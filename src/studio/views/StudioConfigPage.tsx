@@ -1,10 +1,11 @@
-import { ArrowUpRight, Check, ChevronDown, ChevronUp, ExternalLink, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ExternalLink, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import type { Category } from "../../ui/types";
+import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
 import { formatStudioError } from "../util/errors";
 
@@ -361,6 +362,18 @@ export function StudioConfigPage() {
     }
   }, [studio.token, studio.me?.repo.headSha, studio.refreshMe, active, file.mode, file.contentPath, raw]);
 
+  const canPublish = Boolean(studio.token) && !busy && (dirty || Boolean(localSavedAt));
+  const headerPublish = React.useMemo(
+    () => ({
+      label: "Publish",
+      title: `Publish ${file.label} to GitHub (commit) (⌘Enter / Ctrl+Enter)`,
+      disabled: !canPublish,
+      onClick: () => void publish(),
+    }),
+    [canPublish, file.label, publish],
+  );
+  useRegisterStudioHeaderActions({ publish: headerPublish });
+
   const discardLocal = React.useCallback(() => {
     const fileKey = activeRef.current;
     const ok = window.confirm("Discard local changes for this file?");
@@ -577,33 +590,16 @@ export function StudioConfigPage() {
             </button>
             <button
               type="button"
-              onClick={() => void publish()}
-              disabled={!studio.token || busy || (!dirty && !localSavedAt)}
-              className={[
-                "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
-                !studio.token || busy || (!dirty && !localSavedAt)
-                  ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
-                  : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
-              ].join(" ")}
-              title="Publish (GitHub commit) (⌘Enter / Ctrl+Enter)"
+              onClick={discardLocal}
+              disabled={busy || (!dirty && !localSavedAt)}
+              className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+              title="Discard local changes"
             >
-              <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
-              Publish
+              <X className="h-3.5 w-3.5 opacity-85" />
+              Discard
             </button>
-            {dirty || localSavedAt ? (
-              <button
-                type="button"
-                onClick={discardLocal}
-                disabled={busy}
-                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
-                title="Discard local changes"
-              >
-                <X className="h-3.5 w-3.5 opacity-85" />
-                Discard
-              </button>
-            ) : null}
-	          </div>
-	        </div>
+          </div>
+        </div>
 
         {notice ? (
           <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm">

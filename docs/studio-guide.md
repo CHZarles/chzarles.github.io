@@ -27,9 +27,9 @@ Studio 是写作者的后台（`/studio/*`）：用 GitHub OAuth 登录，拿到
 
 ---
 
-## 2) 顶部栏：Status / Sync / Logout
+## 2) 顶部栏：Publish / Sync / Logout
 
-- `Status`：验证 token + 拉取仓库 `headSha`（用于冲突检测；**不会写入 GitHub**）
+- `Publish`：把**当前页面**的本地草稿一次性写入 GitHub（commit）。Notes / Assets / Roadmaps / Mindmaps / Config 都用这一个按钮。
 - `Sync`：清理 Studio 的本地缓存并从 GitHub 重新拉取（**不会删除本地草稿**）
 - `Logout`：清掉 `sessionStorage` 里的 token
 
@@ -92,8 +92,8 @@ Studio 故意把“写作的频繁保存”与“发布/写入仓库”分开：
 
 如果看到 `Conflict: main moved. Refresh and retry.`：
 
-1. 点顶部 `Status`（或 `Sync`）
-2. 再点一次 `Publish/Update`
+1. 点顶部 `Sync`
+2. 再点一次 `Publish`
 
 这通常意味着你发布期间 `main` 又被其它提交推进了。
 
@@ -166,7 +166,7 @@ Config 页面直接编辑 3 个驱动文件：
 要点：
 
 - `Save local`：只存浏览器（本地草稿 / 自动保存），不产生 commit
-- `Publish`：一次 commit 写入当前文件
+- `Publish`：一次 commit 写入当前文件（统一按钮在顶部栏）
 - `Categories` 支持两种视图：
   - `Form`：结构化编辑（支持 tone、排序、删除）
   - `YAML`：直接编辑原始文件

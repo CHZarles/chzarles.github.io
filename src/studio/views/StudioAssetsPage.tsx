@@ -1,7 +1,8 @@
-import { ArrowUpRight, Check, Copy, ExternalLink, FileText, ImagePlus, RefreshCw, Trash2, X } from "lucide-react";
+import { Check, Copy, ExternalLink, FileText, ImagePlus, RefreshCw, Trash2, X } from "lucide-react";
 import React from "react";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
+import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
 import { pruneStudioDataCache, readStudioDataCache, stableCacheKeySegment, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { formatStudioError } from "../util/errors";
@@ -325,6 +326,18 @@ export function StudioAssetsPage() {
     }
   }, [studio.token, studio.me?.repo.headSha, studio.refreshMe, stagedUploads, stagedDeletes, clearStage, load, q]);
 
+  const canPublish = Boolean(studio.token) && !busy && (stagedUploads.length > 0 || stagedDeletes.length > 0);
+  const headerPublish = React.useMemo(
+    () => ({
+      label: "Publish",
+      title: "Publish staged assets to GitHub (commit)",
+      disabled: !canPublish,
+      onClick: () => void publishStaged(),
+    }),
+    [canPublish, publishStaged],
+  );
+  useRegisterStudioHeaderActions({ publish: headerPublish });
+
   const copyUrl = React.useCallback(async (asset: Asset) => {
     const ok = await copyText(asset.url);
     setNotice(ok ? `Copied URL: ${asset.url}` : "Copy failed.");
@@ -364,21 +377,6 @@ export function StudioAssetsPage() {
               disabled={!studio.token || busy}
             />
           </label>
-          <button
-            type="button"
-            onClick={() => void publishStaged()}
-            disabled={!studio.token || busy || (!stagedUploads.length && !stagedDeletes.length)}
-            className={[
-              "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
-              !studio.token || busy || (!stagedUploads.length && !stagedDeletes.length)
-                ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
-                : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
-            ].join(" ")}
-            title="Publish staged uploads/deletes"
-          >
-            <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
-            Publish
-          </button>
           {(stagedUploads.length || stagedDeletes.length) && (
             <button
               type="button"

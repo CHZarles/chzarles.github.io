@@ -1,15 +1,18 @@
-import { CloudDownload, LogIn, LogOut, RefreshCw } from "lucide-react";
+import { ArrowUpRight, CloudDownload, LogIn, LogOut } from "lucide-react";
 import React from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { AppStateProvider } from "../../ui/state/AppState";
+import { StudioHeaderActionsProvider, useStudioHeaderActions } from "../state/StudioHeaderActions";
 import { StudioStateProvider, useStudioState } from "../state/StudioState";
 
 export function StudioShell() {
   return (
     <AppStateProvider>
       <StudioStateProvider>
-        <StudioLayout />
+        <StudioHeaderActionsProvider>
+          <StudioLayout />
+        </StudioHeaderActionsProvider>
       </StudioStateProvider>
     </AppStateProvider>
   );
@@ -18,6 +21,8 @@ export function StudioShell() {
 function StudioLayout() {
   const studio = useStudioState();
   const location = useLocation();
+  const header = useStudioHeaderActions();
+  const publish = header.actions.publish;
 
   return (
     <div className="flex h-dvh flex-col bg-[hsl(var(--bg))] text-[hsl(var(--fg))]">
@@ -48,15 +53,23 @@ function StudioLayout() {
                   {studio.meError}
                 </div>
               ) : null}
-              <button
-                type="button"
-                onClick={() => void studio.refreshMe()}
-                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                title="Verify token + fetch repo headSha (no writes)"
-              >
-                <RefreshCw className="h-4 w-4 opacity-85" />
-                Status
-              </button>
+              {publish ? (
+                <button
+                  type="button"
+                  onClick={publish.onClick}
+                  disabled={Boolean(publish.disabled)}
+                  className={[
+                    "inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition",
+                    publish.disabled
+                      ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
+                      : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
+                  ].join(" ")}
+                  title={publish.title ?? "Publish (GitHub commit)"}
+                >
+                  <ArrowUpRight className="h-4 w-4 opacity-85" />
+                  {publish.label}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={studio.forceSync}

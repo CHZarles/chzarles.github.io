@@ -1,5 +1,4 @@
 import {
-  ArrowUpRight,
   Check,
   ExternalLink,
   Eye,
@@ -18,6 +17,7 @@ import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import type { Category, MindmapListItem, RoadmapNodeEntry } from "../../ui/types";
+import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
 import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { formatStudioError } from "../util/errors";
@@ -963,6 +963,18 @@ export function StudioNotesPage() {
     refreshDraftIndex,
   ]);
 
+  const canPublish = Boolean(studio.token) && !busy && (editor.mode === "create" || dirty || Boolean(localSavedAt) || stagedUploads.length > 0);
+  const headerPublish = React.useMemo(
+    () => ({
+      label: "Publish",
+      title: "Publish current note to GitHub (commit) (⌘Enter / Ctrl+Enter)",
+      disabled: !canPublish,
+      onClick: () => void publish(),
+    }),
+    [canPublish, publish],
+  );
+  useRegisterStudioHeaderActions({ publish: headerPublish });
+
   const del = React.useCallback(async () => {
     if (!studio.token || !editor.id) return;
     const ok = window.confirm(`Trash note ${editor.id}?`);
@@ -1247,6 +1259,7 @@ export function StudioNotesPage() {
                 @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
               </div>
             ) : null}
+            <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Local drafts auto-save in your browser. Publish (top bar) writes a GitHub commit.</div>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1299,22 +1312,6 @@ export function StudioNotesPage() {
             >
               <Check className="h-3.5 w-3.5 opacity-85" />
               Save local
-            </button>
-
-            <button
-              type="button"
-              onClick={() => void publish()}
-              disabled={!studio.token || busy}
-              className={[
-                "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
-                !studio.token || busy
-                  ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
-                  : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
-              ].join(" ")}
-              title="Publish to GitHub (commit) (⌘Enter / Ctrl+Enter)"
-            >
-              <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
-              {editor.draft ? "Commit draft" : editor.mode === "create" ? "Publish" : "Update"}
             </button>
           </div>
         </div>

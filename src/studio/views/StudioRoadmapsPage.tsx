@@ -1,4 +1,4 @@
-import { ArrowDownUp, ArrowLeftRight, ArrowUpRight, Check, ExternalLink, LayoutList, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowDownUp, ArrowLeftRight, Check, ExternalLink, LayoutList, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import React from "react";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
@@ -6,6 +6,7 @@ import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { RoadmapMap } from "../../ui/roadmap/RoadmapMap";
 import { RoadmapOutline } from "../../ui/roadmap/RoadmapOutline";
 import type { Roadmap } from "../../ui/types";
+import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
 import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { formatStudioError } from "../util/errors";
@@ -497,6 +498,18 @@ export function StudioRoadmapsPage() {
     }
   }, [studio.token, studio.refreshMe, activeId, yamlText, preview, draftKey, refreshDraftIndex, refreshList]);
 
+  const canPublish = Boolean(studio.token) && !busy && Boolean(activeId) && (dirty || Boolean(localSavedAt));
+  const headerPublish = React.useMemo(
+    () => ({
+      label: "Publish",
+      title: "Publish current roadmap to GitHub (commit) (⌘Enter / Ctrl+Enter)",
+      disabled: !canPublish,
+      onClick: () => void publish(),
+    }),
+    [canPublish, publish],
+  );
+  useRegisterStudioHeaderActions({ publish: headerPublish });
+
   const del = React.useCallback(async () => {
     if (!studio.token || !activeId) return;
     const ok = window.confirm(`Trash roadmap ${activeId}?`);
@@ -725,22 +738,6 @@ export function StudioRoadmapsPage() {
             >
               <Check className="h-3.5 w-3.5 opacity-85" />
               Save local
-            </button>
-
-            <button
-              type="button"
-              onClick={() => void publish()}
-              disabled={!studio.token || busy || !activeId}
-              className={[
-                "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
-                !studio.token || busy || !activeId
-                  ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
-                  : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
-              ].join(" ")}
-              title="Publish (⌘Enter / Ctrl+Enter)"
-            >
-              <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
-              Publish
             </button>
           </div>
         </div>

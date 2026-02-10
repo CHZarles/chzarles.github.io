@@ -1,4 +1,4 @@
-import { ArrowUpRight, Check, ExternalLink, Maximize2, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { Check, ExternalLink, Maximize2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import React from "react";
 import ReactFlow, {
   Background,
@@ -19,6 +19,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
+import { useRegisterStudioHeaderActions } from "../state/StudioHeaderActions";
 import { useStudioState } from "../state/StudioState";
 import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { MindNode, type MindNodeData } from "../mindmap/MindNode";
@@ -698,6 +699,19 @@ export function StudioMindmapsPage() {
     }
   }, [studio.token, studio.refreshMe, mode, mindmapId, title, nodes, edges, draftKey, refreshDraftIndex, refreshList]);
 
+  const canPublish =
+    Boolean(studio.token) && !busy && Boolean(fitToMindmapId(mindmapId)) && (dirty || Boolean(localSavedAt));
+  const headerPublish = React.useMemo(
+    () => ({
+      label: "Publish",
+      title: "Publish current mindmap to GitHub (commit) (⌘Enter / Ctrl+Enter)",
+      disabled: !canPublish,
+      onClick: () => void publish(),
+    }),
+    [canPublish, publish],
+  );
+  useRegisterStudioHeaderActions({ publish: headerPublish });
+
   const del = React.useCallback(async () => {
     if (!studio.token) return;
     const id = fitToMindmapId(mindmapId);
@@ -1000,22 +1014,6 @@ export function StudioMindmapsPage() {
             >
               <Check className="h-3.5 w-3.5 opacity-85" />
               Save local
-            </button>
-
-            <button
-              type="button"
-              onClick={() => void publish()}
-              disabled={!studio.token || busy || !mindmapId}
-              className={[
-                "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition",
-                !studio.token || busy || !mindmapId
-                  ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
-                  : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
-              ].join(" ")}
-              title="Publish (⌘Enter / Ctrl+Enter)"
-            >
-              <ArrowUpRight className="h-3.5 w-3.5 opacity-85" />
-              {mode === "create" ? "Publish" : "Update"}
             </button>
           </div>
         </div>

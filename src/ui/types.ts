@@ -26,7 +26,12 @@ export type Profile = {
     textColor?: { light?: string; dark?: string }; // HSL string like "0 0% 100%"
     textScale?: number; // font scale multiplier; clamped (mimo: 0.85..1.6, image: 0.85..1.25)
     patternText?: string;
+    patternOpacity?: number; // 0..1.5 (mimo only) overall visibility multiplier for background pattern
+    patternScale?: number; // 0.7..1.4 (mimo only) scales pattern font sizes
+    patternMotion?: "none" | "drift"; // (mimo only) subtle background drift animation
     spotlightRadiusPx?: number; // px radius for cursor spotlight (mimo only), clamped 120..520
+    spotlightEase?: number; // (mimo only) 0.05..0.5 smoothing factor for spotlight follow
+    spotlightEaseRadius?: number; // (mimo only) 0.05..0.5 smoothing factor for spotlight radius
   };
 };
 

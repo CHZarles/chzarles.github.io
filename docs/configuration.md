@@ -72,7 +72,12 @@
 ```
 
 - `patternText`：字纹里重复的 token（默认会用 `hero.patternText || handle || name || "HYPERBLOG"`）
+- `patternOpacity`：背景字纹强度倍数（默认 `1`；设为 `0` 可隐藏；建议范围 `0..1.5`）
+- `patternScale`：背景字纹字号缩放（默认 `1`；建议范围 `0.7..1.4`）
+- `patternMotion`：背景字纹动画（`"drift"` / `"none"`）
 - `spotlightRadiusPx`：光圈半径（px），仅 MiMo 生效；默认 `240`，并会 clamp 到 `120..520`
+- `spotlightEase`：光圈跟随平滑（默认有轻微缓动；数值越大越“黏”）
+- `spotlightEaseRadius`：光圈半径缓动（默认同上）
 - `textScale`：标题/handle/tagline 的字号整体缩放倍率；MiMo 下 clamp 到 `0.85..1.6`
 
 #### 图片封面（`variant: "image"`）

@@ -159,3 +159,21 @@ body {
   border: 0;
   padding: 0;
 }
+
+@keyframes hb-mimo-drift {
+  from {
+    transform: translate3d(-18px, -10px, 0);
+  }
+  to {
+    transform: translate3d(18px, 10px, 0);
+  }
+}
+
+@keyframes hb-mimo-drift2 {
+  from {
+    transform: translate3d(14px, 8px, 0);
+  }
+  to {
+    transform: translate3d(-14px, -8px, 0);
+  }
+}

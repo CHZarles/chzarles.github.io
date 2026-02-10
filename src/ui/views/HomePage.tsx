@@ -80,7 +80,10 @@ export function HomePage() {
   const heroBackdropRef = React.useRef<HTMLDivElement | null>(null);
   const titleSpotRef = React.useRef<HTMLDivElement | null>(null);
   const spotRadius = clamp(profile?.hero?.spotlightRadiusPx ?? 240, 120, 520);
+  const spotlightEase = clamp(profile?.hero?.spotlightEase ?? 0.34, 0.05, 0.5);
+  const spotlightEaseRadius = clamp(profile?.hero?.spotlightEaseRadius ?? spotlightEase, 0.05, 0.5);
   const rafRef = React.useRef<number | null>(null);
+  const pendingRef = React.useRef(false);
   const lastRef = React.useRef<{ x: number; y: number; tx: number; ty: number; active: boolean }>({
     x: 0,
     y: 0,
@@ -88,27 +91,79 @@ export function HomePage() {
     ty: 0,
     active: false,
   });
+  const animRef = React.useRef<{ x: number; y: number; tx: number; ty: number; r: number }>({
+    x: 0,
+    y: 0,
+    tx: 0,
+    ty: 0,
+    r: 0,
+  });
 
   const flushSpot = React.useCallback(() => {
-    rafRef.current = null;
-    if (heroVariant !== "mimo") return;
+    if (heroVariant !== "mimo") {
+      rafRef.current = null;
+      pendingRef.current = false;
+      return;
+    }
     const backdropEl = heroBackdropRef.current;
-    if (!backdropEl) return;
-    const { x, y, tx, ty, active } = lastRef.current;
-    backdropEl.style.setProperty("--hb-spot-x", `${x}px`);
-    backdropEl.style.setProperty("--hb-spot-y", `${y}px`);
-    backdropEl.style.setProperty("--hb-spot-r", active ? `${spotRadius}px` : "0px");
+    if (!backdropEl) {
+      rafRef.current = null;
+      pendingRef.current = false;
+      return;
+    }
+
+    pendingRef.current = false;
+    const target = lastRef.current;
+    const cur = animRef.current;
+    const targetR = target.active ? spotRadius : 0;
+
+    if (target.active && cur.r < 1) {
+      cur.x = target.x;
+      cur.y = target.y;
+      cur.tx = target.tx;
+      cur.ty = target.ty;
+    }
+
+    const dx = target.x - cur.x;
+    const dy = target.y - cur.y;
+    const dtx = target.tx - cur.tx;
+    const dty = target.ty - cur.ty;
+    const dr = targetR - cur.r;
+
+    cur.x += dx * spotlightEase;
+    cur.y += dy * spotlightEase;
+    cur.tx += dtx * spotlightEase;
+    cur.ty += dty * spotlightEase;
+    cur.r += dr * spotlightEaseRadius;
+
+    backdropEl.style.setProperty("--hb-spot-x", `${cur.x}px`);
+    backdropEl.style.setProperty("--hb-spot-y", `${cur.y}px`);
+    backdropEl.style.setProperty("--hb-spot-r", `${cur.r}px`);
 
     const titleEl = titleSpotRef.current;
     if (titleEl) {
-      titleEl.style.setProperty("--hb-spot-x", `${tx}px`);
-      titleEl.style.setProperty("--hb-spot-y", `${ty}px`);
-      titleEl.style.setProperty("--hb-spot-r", active ? `${spotRadius}px` : "0px");
+      titleEl.style.setProperty("--hb-spot-x", `${cur.tx}px`);
+      titleEl.style.setProperty("--hb-spot-y", `${cur.ty}px`);
+      titleEl.style.setProperty("--hb-spot-r", `${cur.r}px`);
     }
-  }, [heroVariant, spotRadius]);
+
+    const needsMore =
+      target.active ||
+      Math.abs(dx) > 0.5 ||
+      Math.abs(dy) > 0.5 ||
+      Math.abs(dtx) > 0.5 ||
+      Math.abs(dty) > 0.5 ||
+      Math.abs(dr) > 0.5;
+
+    const wantsMore = needsMore || pendingRef.current;
+    rafRef.current = wantsMore ? window.requestAnimationFrame(flushSpot) : null;
+  }, [heroVariant, spotRadius, spotlightEase, spotlightEaseRadius]);
 
   const scheduleFlush = React.useCallback(() => {
-    if (rafRef.current !== null) return;
+    if (rafRef.current !== null) {
+      pendingRef.current = true;
+      return;
+    }
     rafRef.current = window.requestAnimationFrame(flushSpot);
   }, [flushSpot]);
 
@@ -167,13 +222,16 @@ export function HomePage() {
               : "border-[color-mix(in_oklab,hsl(var(--fg))_22%,hsl(var(--border)))] bg-[hsl(var(--card))]",
           ].join(" ")}
         >
-          {heroVariant === "mimo" ? (
-            <HeroMimoBackdrop
-              patternText={profile?.hero?.patternText ?? profile?.handle ?? profile?.hero?.title ?? profile?.name ?? "HYPERBLOG"}
-            />
-          ) : (
-            <HeroBackdrop
-              imageUrl={profile?.hero?.imageUrl}
+	          {heroVariant === "mimo" ? (
+	            <HeroMimoBackdrop
+	              patternText={profile?.hero?.patternText ?? profile?.handle ?? profile?.hero?.title ?? profile?.name ?? "HYPERBLOG"}
+	              patternOpacity={profile?.hero?.patternOpacity}
+	              patternScale={profile?.hero?.patternScale}
+	              patternMotion={profile?.hero?.patternMotion}
+	            />
+	          ) : (
+	            <HeroBackdrop
+	              imageUrl={profile?.hero?.imageUrl}
               preload={profile?.hero?.preload}
               blurPx={profile?.hero?.blurPx}
               opacity={profile?.hero?.opacity}
@@ -204,9 +262,23 @@ export function HomePage() {
                 >
                   {heroTitleText}
                 </h1>
-                <div className="mt-4 font-mono font-medium tracking-[-0.02em] text-[hsl(var(--accent))]" style={{ fontSize: heroHandleSize }}>
-                  {profile?.handle ?? "@you"}
-                </div>
+                {heroVariant === "mimo" ? (
+                  <div
+                    className={[
+                      "mt-6 inline-flex items-center justify-center rounded-full border px-4 py-2",
+                      "border-[color-mix(in_oklab,hsl(var(--accent))_42%,transparent)]",
+                      "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)]",
+                      "font-mono font-semibold tracking-[0.08em] text-[hsl(var(--accent))]",
+                    ].join(" ")}
+                    style={{ fontSize: heroHandleSize }}
+                  >
+                    {profile?.handle ?? "@you"}
+                  </div>
+                ) : (
+                  <div className="mt-4 font-mono font-medium tracking-[-0.02em] text-[hsl(var(--accent))]">
+                    {profile?.handle ?? "@you"}
+                  </div>
+                )}
                 <p
                   className="mt-5 mx-auto max-w-[64ch] leading-relaxed tracking-[-0.01em]"
                   style={{
@@ -232,7 +304,12 @@ export function HomePage() {
                       {heroTitleText}
                     </h1>
                     <div
-                      className="mt-4 font-mono font-medium tracking-[-0.02em] text-[hsl(var(--accent))]"
+                      className={[
+                        "mt-6 inline-flex items-center justify-center rounded-full border px-4 py-2",
+                        "border-[color-mix(in_oklab,hsl(var(--accent))_42%,transparent)]",
+                        "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)]",
+                        "font-mono font-semibold tracking-[0.08em] text-[hsl(var(--accent))]",
+                      ].join(" ")}
                       style={{ fontSize: heroHandleSize }}
                     >
                       {profile?.handle ?? "@you"}

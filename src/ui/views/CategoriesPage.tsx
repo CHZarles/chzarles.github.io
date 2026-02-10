@@ -69,15 +69,7 @@ export function CategoriesPage() {
           icon={<LayoutList className="h-5 w-5 opacity-85" />}
           title="Categories 还没开始"
           desc="把栏目当作章节来维护：长期沉淀、对外叙事与检索都会更清晰。"
-          hint="编辑入口：/studio/config"
-          actions={
-            <Link
-              to="/studio/config"
-              className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,transparent)] px-4 py-2.5 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,transparent)]"
-            >
-              Open Studio <ArrowUpRight className="h-4 w-4 opacity-80" />
-            </Link>
-          }
+          hint="正在编排中。"
         />
       )}
     </div>

@@ -96,15 +96,7 @@ export function MindmapsPage() {
           icon={<Network className="h-5 w-5 opacity-85" />}
           title="Mindmaps 还空着"
           desc="当你需要表达结构与依赖关系时，用 Mindmap 来写：节点 + 连线，比段落更直观。"
-          hint="创建入口：/studio/mindmaps"
-          actions={
-            <Link
-              to="/studio/mindmaps"
-              className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,transparent)] px-4 py-2.5 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,transparent)]"
-            >
-              Open Studio <ArrowUpRight className="h-4 w-4 opacity-80" />
-            </Link>
-          }
+          hint="敬请期待。"
         />
       )}
     </div>

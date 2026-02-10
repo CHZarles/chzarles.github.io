@@ -1,6 +1,5 @@
 import { ArrowUpRight, Code2, ExternalLink, Github } from "lucide-react";
 import React from "react";
-import { Link } from "react-router-dom";
 import { api } from "../api/api";
 import { EmptyStatePanel } from "../components/EmptyStatePanel";
 import { SectionHeader } from "../components/SectionHeader";
@@ -160,15 +159,7 @@ export function ProjectsPage() {
           icon={<Code2 className="h-5 w-5 opacity-85" />}
           title="Projects 还空着"
           desc="把项目当作品展示：Repo、Demo、技术栈与亮点应该一眼可读。"
-          hint="编辑入口：/studio/config"
-          actions={
-            <Link
-              to="/studio/config"
-              className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,transparent)] px-4 py-2.5 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,transparent)]"
-            >
-              Open Studio <ArrowUpRight className="h-4 w-4 opacity-80" />
-            </Link>
-          }
+          hint="正在整理中。"
         />
       )}
     </div>

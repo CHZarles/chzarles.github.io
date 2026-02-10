@@ -96,15 +96,7 @@ export function RoadmapsPage() {
           icon={<Compass className="h-5 w-5 opacity-85" />}
           title="Roadmaps 还空着"
           desc="用一份文件定义路线；站点把它渲染成图，并让每个节点成为文章入口。"
-          hint="创建入口：/studio/roadmaps"
-          actions={
-            <Link
-              to="/studio/roadmaps"
-              className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,transparent)] px-4 py-2.5 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,transparent)]"
-            >
-              Open Studio <ArrowUpRight className="h-4 w-4 opacity-80" />
-            </Link>
-          }
+          hint="敬请期待。"
         />
       )}
     </div>

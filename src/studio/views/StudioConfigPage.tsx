@@ -220,6 +220,7 @@ export function StudioConfigPage() {
 
   const jsonError = React.useMemo(() => {
     if (file.mode !== "json") return null;
+    if (!raw.trim()) return null;
     const parsed = tryParseJson(raw);
     return parsed.ok ? null : parsed.error;
   }, [file.mode, raw]);
@@ -227,7 +228,9 @@ export function StudioConfigPage() {
   const categoriesState = React.useMemo(() => {
     if (active !== "categories") return null;
     try {
-      const parsed = YAML.parse(raw);
+      const trimmed = raw.trim();
+      if (!trimmed) return { ok: true as const, error: null, categories: [] as Array<Category & Record<string, unknown>> };
+      const parsed = YAML.parse(trimmed);
       if (!Array.isArray(parsed)) return { ok: false as const, error: "YAML must be a list of categories.", categories: null };
       const categories = parsed
         .map((it) => {

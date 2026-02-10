@@ -2,10 +2,12 @@ import { ArrowDownUp, ArrowLeftRight, ArrowUpRight, Check, ExternalLink, LayoutL
 import React from "react";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
+import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { RoadmapMap } from "../../ui/roadmap/RoadmapMap";
 import { RoadmapOutline } from "../../ui/roadmap/RoadmapOutline";
 import type { Roadmap } from "../../ui/types";
 import { useStudioState } from "../state/StudioState";
+import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { formatStudioError } from "../util/errors";
 
 type RoadmapsListResponse = {
@@ -22,6 +24,19 @@ type RoadmapsListResponse = {
 type RoadmapGetResponse = {
   roadmap: { id: string; path: string; exists: boolean; yaml: string; json: Record<string, unknown> };
 };
+
+type RoadmapsListCacheV1 = {
+  roadmaps: RoadmapsListResponse["roadmaps"];
+  paging: RoadmapsListResponse["paging"];
+};
+
+const ROADMAPS_LIST_CACHE_KEY = studioDataCacheKey(PUBLISHER_BASE_URL, ["roadmaps", "list"]);
+const ROADMAP_DETAIL_CACHE_PREFIX = `${studioDataCacheKey(PUBLISHER_BASE_URL, ["roadmaps", "detail"])}:`;
+const MAX_ROADMAP_DETAIL_CACHE = 10;
+
+function roadmapDetailCacheKey(roadmapId: string): string {
+  return studioDataCacheKey(PUBLISHER_BASE_URL, ["roadmaps", "detail", roadmapId]);
+}
 
 function emptyRoadmapYaml(id: string) {
   return `id: ${id}\n` + `title: ${id}\n` + `description: \n` + `theme: violet\n` + `layout: horizontal\n` + `nodes:\n` + `  - id: foundations\n` + `    title: Foundations\n` + `    description: \n` + `    children: []\n`;
@@ -157,10 +172,15 @@ function fmtRelative(ts: number): string {
 export function StudioRoadmapsPage() {
   const studio = useStudioState();
 
-  const [roadmaps, setRoadmaps] = React.useState<RoadmapsListResponse["roadmaps"]>([]);
-  const [paging, setPaging] = React.useState<RoadmapsListResponse["paging"]>({ after: null, nextAfter: null });
+  const [roadmaps, setRoadmaps] = React.useState<RoadmapsListResponse["roadmaps"]>(
+    () => readStudioDataCache<RoadmapsListCacheV1>(ROADMAPS_LIST_CACHE_KEY)?.value.roadmaps ?? [],
+  );
+  const [paging, setPaging] = React.useState<RoadmapsListResponse["paging"]>(
+    () => readStudioDataCache<RoadmapsListCacheV1>(ROADMAPS_LIST_CACHE_KEY)?.value.paging ?? { after: null, nextAfter: null },
+  );
   const [filter, setFilter] = React.useState("");
   const [listBusy, setListBusy] = React.useState(false);
+  const [listRefreshing, setListRefreshing] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
 
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -177,6 +197,11 @@ export function StudioRoadmapsPage() {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
 
+  const dirtyRef = React.useRef(dirty);
+  React.useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+
   const refreshDraftIndex = React.useCallback(() => {
     setLocalDrafts(listLocalDraftIndex());
   }, []);
@@ -191,32 +216,50 @@ export function StudioRoadmapsPage() {
     return () => window.removeEventListener("storage", onStorage);
   }, [refreshDraftIndex]);
 
+  const listLoadSeqRef = React.useRef(0);
   const refreshList = React.useCallback(
-    async (opts?: { append?: boolean }) => {
+    async (opts?: { append?: boolean; background?: boolean }) => {
       if (!studio.token) return;
-      setListBusy(true);
-      setListError(null);
+      const seq = (listLoadSeqRef.current += 1);
+      const background = Boolean(opts?.background);
+      if (background) setListRefreshing(true);
+      else setListBusy(true);
+      if (!background) setListError(null);
       try {
         const url = new URL("/api/admin/roadmaps", "http://local");
         url.searchParams.set("include", "meta");
         url.searchParams.set("limit", "50");
         if (opts?.append && paging.nextAfter) url.searchParams.set("after", paging.nextAfter);
         const res = await publisherFetchJson<RoadmapsListResponse>({ path: url.pathname + url.search, token: studio.token });
-        setRoadmaps((prev) => (opts?.append ? [...prev, ...res.roadmaps] : res.roadmaps));
+        if (seq !== listLoadSeqRef.current) return;
+        setRoadmaps((prev) => {
+          const next = opts?.append ? [...prev, ...res.roadmaps] : res.roadmaps;
+          if (!opts?.append) writeStudioDataCache(ROADMAPS_LIST_CACHE_KEY, { roadmaps: next, paging: res.paging });
+          return next;
+        });
         setPaging(res.paging);
       } catch (err: unknown) {
-        setListError(formatStudioError(err).message);
+        if (seq !== listLoadSeqRef.current) return;
+        if (!background) setListError(formatStudioError(err).message);
       } finally {
-        setListBusy(false);
+        if (seq !== listLoadSeqRef.current) return;
+        if (background) setListRefreshing(false);
+        else setListBusy(false);
       }
     },
     [studio.token, paging.nextAfter],
   );
 
   React.useEffect(() => {
-    void refreshList();
+    if (!studio.token) return;
+    const cached = readStudioDataCache<RoadmapsListCacheV1>(ROADMAPS_LIST_CACHE_KEY)?.value ?? null;
+    if (cached) {
+      setRoadmaps(cached.roadmaps ?? []);
+      setPaging(cached.paging ?? { after: null, nextAfter: null });
+    }
+    void refreshList({ background: Boolean(cached) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studio.token]);
+  }, [studio.token, studio.syncNonce]);
 
   const filtered = React.useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -232,42 +275,73 @@ export function StudioRoadmapsPage() {
     if (fromFile === "horizontal" || fromFile === "vertical") setLayout(fromFile);
   }, [preview]);
 
+  const roadmapLoadSeqRef = React.useRef(0);
   const openRoadmap = React.useCallback(
     async (id: string) => {
       if (!studio.token) return;
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
 
+      const seq = (roadmapLoadSeqRef.current += 1);
       const dk = roadmapDraftKey(id);
       setDraftKey(dk);
       const local = readLocalDraft(dk);
       const restore = local ? window.confirm(`Restore local draft saved ${fmtRelative(local.savedAt)} ago?`) : false;
 
-      setBusy(true);
       setNotice(null);
       setCommitUrl(null);
+
+      const cached = readStudioDataCache<RoadmapGetResponse>(roadmapDetailCacheKey(id))?.value ?? null;
+      const cachedYaml = cached?.roadmap?.yaml ?? "";
+
+      if (restore && local) {
+        const nextYaml = local.yaml ?? "";
+        setActiveId(id);
+        setYamlText(nextYaml);
+        setDirty(false);
+        setLocalSavedAt(local.savedAt);
+        setNotice(`Restored local draft (${fmtRelative(local.savedAt)} ago).`);
+
+        const parsed = safeRoadmapFromYaml(nextYaml);
+        setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
+        setOutlineOpen(false);
+        return;
+      }
+
+      if (cachedYaml) {
+        setActiveId(cached?.roadmap?.id ?? id);
+        setYamlText(cachedYaml);
+        setDirty(false);
+        setLocalSavedAt(null);
+        const parsed = safeRoadmapFromYaml(cachedYaml);
+        setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
+        setOutlineOpen(false);
+      }
+
+      const background = Boolean(cachedYaml);
+      if (!background) setBusy(true);
       try {
         const res = await publisherFetchJson<RoadmapGetResponse>({
           path: `/api/admin/roadmaps/${encodeURIComponent(id)}`,
           token: studio.token,
         });
-        setActiveId(res.roadmap.id);
-        const nextYaml = restore && local ? local.yaml ?? "" : (res.roadmap.yaml ?? "");
-        setYamlText(nextYaml);
-        setDirty(false);
-        if (restore && local) {
-          setLocalSavedAt(local.savedAt);
-          setNotice(`Restored local draft (${fmtRelative(local.savedAt)} ago).`);
-        } else {
-          setLocalSavedAt(null);
-        }
+        if (seq !== roadmapLoadSeqRef.current) return;
+        writeStudioDataCache(roadmapDetailCacheKey(id), res);
+        pruneStudioDataCache(ROADMAP_DETAIL_CACHE_PREFIX, MAX_ROADMAP_DETAIL_CACHE);
 
-        const parsed = safeRoadmapFromYaml(nextYaml);
-        setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
-        setOutlineOpen(false);
+        const nextYaml = res.roadmap.yaml ?? "";
+        if (!dirtyRef.current) {
+          setActiveId(res.roadmap.id);
+          setYamlText(nextYaml);
+          setDirty(false);
+          setLocalSavedAt(null);
+          const parsed = safeRoadmapFromYaml(nextYaml);
+          setSelectedNodeId(parsed.ok ? (parsed.roadmap.nodes?.[0]?.id ?? null) : null);
+          setOutlineOpen(false);
+        }
       } catch (err: unknown) {
-        setNotice(`Open failed: ${formatStudioError(err).message}`);
+        if (!background) setNotice(`Open failed: ${formatStudioError(err).message}`);
       } finally {
-        setBusy(false);
+        if (!background) setBusy(false);
       }
     },
     [studio.token, dirty],
@@ -397,6 +471,17 @@ export function StudioRoadmapsPage() {
       setCommitUrl(res.commit.url);
       setDirty(false);
 
+      writeStudioDataCache(roadmapDetailCacheKey(activeId), {
+        roadmap: {
+          id: activeId,
+          path: res.roadmap.path,
+          exists: true,
+          yaml: yamlText,
+          json: preview.roadmap as unknown as Record<string, unknown>,
+        },
+      });
+      pruneStudioDataCache(ROADMAP_DETAIL_CACHE_PREFIX, MAX_ROADMAP_DETAIL_CACHE);
+
       const dk = draftKey ?? roadmapDraftKey(activeId);
       safeLocalStorageRemove(dk);
       setDraftKey(roadmapDraftKey(activeId));
@@ -425,6 +510,7 @@ export function StudioRoadmapsPage() {
         method: "DELETE",
         token: studio.token,
       });
+      safeLocalStorageRemove(roadmapDetailCacheKey(activeId));
       setNotice("Trashed.");
       setCommitUrl(res.commit.url);
       setDirty(false);
@@ -475,7 +561,7 @@ export function StudioRoadmapsPage() {
             <button
               type="button"
               onClick={() => void refreshList()}
-              disabled={listBusy}
+              disabled={listBusy || listRefreshing}
               className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
             >
               <RefreshCw className="h-3.5 w-3.5 opacity-85" />
@@ -585,7 +671,7 @@ export function StudioRoadmapsPage() {
             <button
               type="button"
               onClick={() => void refreshList({ append: true })}
-              disabled={listBusy}
+              disabled={listBusy || listRefreshing}
               className="mt-3 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
             >
               Load more

@@ -18,7 +18,9 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { publisherFetchJson } from "../../ui/publisher/client";
+import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { useStudioState } from "../state/StudioState";
+import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { MindNode, type MindNodeData } from "../mindmap/MindNode";
 import { formatStudioError } from "../util/errors";
 
@@ -46,6 +48,19 @@ type MindmapsListResponse = {
 type MindmapGetResponse = {
   mindmap: { id: string; path: string; input: MindmapInput; json: string };
 };
+
+type MindmapsListCacheV1 = {
+  mindmaps: MindmapsListResponse["mindmaps"];
+  paging: MindmapsListResponse["paging"];
+};
+
+const MINDMAPS_LIST_CACHE_KEY = studioDataCacheKey(PUBLISHER_BASE_URL, ["mindmaps", "list"]);
+const MINDMAP_DETAIL_CACHE_PREFIX = `${studioDataCacheKey(PUBLISHER_BASE_URL, ["mindmaps", "detail"])}:`;
+const MAX_MINDMAP_DETAIL_CACHE = 10;
+
+function mindmapDetailCacheKey(mindmapId: string): string {
+  return studioDataCacheKey(PUBLISHER_BASE_URL, ["mindmaps", "detail", mindmapId]);
+}
 
 type Mode = "create" | "edit";
 
@@ -284,10 +299,15 @@ export function StudioMindmapsPage() {
   const studio = useStudioState();
 
   // list
-  const [mindmaps, setMindmaps] = React.useState<MindmapsListResponse["mindmaps"]>([]);
-  const [paging, setPaging] = React.useState<MindmapsListResponse["paging"]>({ after: null, nextAfter: null });
+  const [mindmaps, setMindmaps] = React.useState<MindmapsListResponse["mindmaps"]>(
+    () => readStudioDataCache<MindmapsListCacheV1>(MINDMAPS_LIST_CACHE_KEY)?.value.mindmaps ?? [],
+  );
+  const [paging, setPaging] = React.useState<MindmapsListResponse["paging"]>(
+    () => readStudioDataCache<MindmapsListCacheV1>(MINDMAPS_LIST_CACHE_KEY)?.value.paging ?? { after: null, nextAfter: null },
+  );
   const [filter, setFilter] = React.useState("");
   const [listBusy, setListBusy] = React.useState(false);
+  const [listRefreshing, setListRefreshing] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
 
   // editor
@@ -307,6 +327,11 @@ export function StudioMindmapsPage() {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
 
+  const dirtyRef = React.useRef(dirty);
+  React.useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+
   const refreshDraftIndex = React.useCallback(() => {
     setLocalDrafts(listLocalDraftIndex());
   }, []);
@@ -324,32 +349,50 @@ export function StudioMindmapsPage() {
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   const rfRef = React.useRef<ReactFlowInstance<MindNodeData> | null>(null);
 
+  const listLoadSeqRef = React.useRef(0);
   const refreshList = React.useCallback(
-    async (opts?: { append?: boolean }) => {
+    async (opts?: { append?: boolean; background?: boolean }) => {
       if (!studio.token) return;
-      setListBusy(true);
-      setListError(null);
+      const seq = (listLoadSeqRef.current += 1);
+      const background = Boolean(opts?.background);
+      if (background) setListRefreshing(true);
+      else setListBusy(true);
+      if (!background) setListError(null);
       try {
         const url = new URL("/api/admin/mindmaps", "http://local");
         url.searchParams.set("include", "meta");
         url.searchParams.set("limit", "50");
         if (opts?.append && paging.nextAfter) url.searchParams.set("after", paging.nextAfter);
         const res = await publisherFetchJson<MindmapsListResponse>({ path: url.pathname + url.search, token: studio.token });
-        setMindmaps((prev) => (opts?.append ? [...prev, ...res.mindmaps] : res.mindmaps));
+        if (seq !== listLoadSeqRef.current) return;
+        setMindmaps((prev) => {
+          const next = opts?.append ? [...prev, ...res.mindmaps] : res.mindmaps;
+          if (!opts?.append) writeStudioDataCache(MINDMAPS_LIST_CACHE_KEY, { mindmaps: next, paging: res.paging });
+          return next;
+        });
         setPaging(res.paging);
       } catch (err: unknown) {
-        setListError(formatStudioError(err).message);
+        if (seq !== listLoadSeqRef.current) return;
+        if (!background) setListError(formatStudioError(err).message);
       } finally {
-        setListBusy(false);
+        if (seq !== listLoadSeqRef.current) return;
+        if (background) setListRefreshing(false);
+        else setListBusy(false);
       }
     },
     [studio.token, paging.nextAfter],
   );
 
   React.useEffect(() => {
-    void refreshList();
+    if (!studio.token) return;
+    const cached = readStudioDataCache<MindmapsListCacheV1>(MINDMAPS_LIST_CACHE_KEY)?.value ?? null;
+    if (cached) {
+      setMindmaps(cached.mindmaps ?? []);
+      setPaging(cached.paging ?? { after: null, nextAfter: null });
+    }
+    void refreshList({ background: Boolean(cached) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studio.token]);
+  }, [studio.token, studio.syncNonce]);
 
   const filtered = React.useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -410,11 +453,13 @@ export function StudioMindmapsPage() {
     requestAnimationFrame(() => setViewport(fresh.viewport));
   }, [dirty, setEdges, setNodes, setViewport]);
 
+  const mindmapLoadSeqRef = React.useRef(0);
   const openMindmap = React.useCallback(
     async (id: string, opts?: { restoreLocal?: boolean }) => {
       if (!studio.token) return;
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
 
+      const seq = (mindmapLoadSeqRef.current += 1);
       const dk = mindmapDraftKey(id);
       setDraftKey(dk);
       const local = readLocalDraft(dk);
@@ -425,33 +470,62 @@ export function StudioMindmapsPage() {
             ? window.confirm(`Restore local draft saved ${fmtRelative(local.savedAt)} ago?`)
             : false;
 
-      setBusy(true);
       setNotice(null);
       setCommitUrl(null);
+
+      const cached = readStudioDataCache<MindmapGetResponse>(mindmapDetailCacheKey(id))?.value ?? null;
+
+      if (restore && local) {
+        const nextNodes = normalizeNodes(local.nodes);
+        const nextEdges = normalizeEdges(local.edges);
+        const nextViewport = normalizeViewport(local.viewport);
+        setMode("edit");
+        setMindmapId(id);
+        setTitle(local.title ?? "");
+        setNodes(nextNodes);
+        setEdges(nextEdges);
+        setSelectedNodeId(nextNodes[0]?.id ?? null);
+        setDirty(false);
+        setLocalSavedAt(local.savedAt);
+        setNotice(`Restored local draft (${fmtRelative(local.savedAt)} ago).`);
+        requestAnimationFrame(() => setViewport(nextViewport));
+        return;
+      }
+
+      if (cached) {
+        const input = cached.mindmap.input;
+        const nextNodes = normalizeNodes(input.nodes);
+        const nextEdges = normalizeEdges(input.edges);
+        const nextViewport = normalizeViewport(input.viewport);
+        setMode("edit");
+        setMindmapId(cached.mindmap.id);
+        setTitle(input.title ?? "");
+        setNodes(nextNodes);
+        setEdges(nextEdges);
+        setSelectedNodeId(nextNodes[0]?.id ?? null);
+        setDirty(false);
+        setLocalSavedAt(null);
+        requestAnimationFrame(() => setViewport(nextViewport));
+      }
+
+      const background = Boolean(cached);
+      if (!background) setBusy(true);
       try {
         const res = await publisherFetchJson<MindmapGetResponse>({
           path: `/api/admin/mindmaps/${encodeURIComponent(id)}`,
           token: studio.token,
         });
+        if (seq !== mindmapLoadSeqRef.current) return;
+        writeStudioDataCache(mindmapDetailCacheKey(id), res);
+        pruneStudioDataCache(MINDMAP_DETAIL_CACHE_PREFIX, MAX_MINDMAP_DETAIL_CACHE);
+
         const input = res.mindmap.input;
-        setMode("edit");
-        setMindmapId(res.mindmap.id);
-        if (restore && local) {
-          const nextNodes = normalizeNodes(local.nodes);
-          const nextEdges = normalizeEdges(local.edges);
-          const nextViewport = normalizeViewport(local.viewport);
-          setTitle(local.title ?? "");
-          setNodes(nextNodes);
-          setEdges(nextEdges);
-          setSelectedNodeId(nextNodes[0]?.id ?? null);
-          setDirty(false);
-          setLocalSavedAt(local.savedAt);
-          setNotice(`Restored local draft (${fmtRelative(local.savedAt)} ago).`);
-          requestAnimationFrame(() => setViewport(nextViewport));
-        } else {
+        if (!dirtyRef.current) {
           const nextNodes = normalizeNodes(input.nodes);
           const nextEdges = normalizeEdges(input.edges);
           const nextViewport = normalizeViewport(input.viewport);
+          setMode("edit");
+          setMindmapId(res.mindmap.id);
           setTitle(input.title ?? "");
           setNodes(nextNodes);
           setEdges(nextEdges);
@@ -461,9 +535,9 @@ export function StudioMindmapsPage() {
           requestAnimationFrame(() => setViewport(nextViewport));
         }
       } catch (err: unknown) {
-        setNotice(`Open failed: ${formatStudioError(err).message}`);
+        if (!background) setNotice(`Open failed: ${formatStudioError(err).message}`);
       } finally {
-        setBusy(false);
+        if (!background) setBusy(false);
       }
     },
     [studio.token, dirty, setEdges, setNodes, setViewport],
@@ -582,11 +656,13 @@ export function StudioMindmapsPage() {
         viewport,
       };
 
+      let remotePath = "";
       if (mode === "create") {
         const res = await publisherFetchJson<{
           mindmap: { id: string; path: string };
           commit: { sha: string; url: string };
         }>({ path: "/api/admin/mindmaps", method: "POST", token: studio.token, body: payload });
+        remotePath = res.mindmap.path;
         setMode("edit");
         setNotice(`Published: ${res.mindmap.id}`);
         setCommitUrl(res.commit.url);
@@ -595,11 +671,17 @@ export function StudioMindmapsPage() {
           mindmap: { id: string; path: string };
           commit: { sha: string; url: string };
         }>({ path: `/api/admin/mindmaps/${encodeURIComponent(id)}`, method: "PATCH", token: studio.token, body: payload });
+        remotePath = res.mindmap.path;
         setNotice(`Updated: ${res.mindmap.id}`);
         setCommitUrl(res.commit.url);
       }
 
       setDirty(false);
+
+      writeStudioDataCache(mindmapDetailCacheKey(id), {
+        mindmap: { id, path: remotePath, input: payload, json: JSON.stringify(payload, null, 2) },
+      });
+      pruneStudioDataCache(MINDMAP_DETAIL_CACHE_PREFIX, MAX_MINDMAP_DETAIL_CACHE);
 
       const dk = draftKey ?? mindmapDraftKey(id);
       safeLocalStorageRemove(dk);
@@ -634,6 +716,7 @@ export function StudioMindmapsPage() {
       });
       setNotice("Trashed.");
       setCommitUrl(res.commit.url);
+      safeLocalStorageRemove(mindmapDetailCacheKey(id));
       safeLocalStorageRemove(mindmapDraftKey(id));
       refreshDraftIndex();
       setDraftKey(null);
@@ -728,7 +811,7 @@ export function StudioMindmapsPage() {
             <button
               type="button"
               onClick={() => void refreshList()}
-              disabled={listBusy}
+              disabled={listBusy || listRefreshing}
               className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
             >
               <RefreshCw className="h-3.5 w-3.5 opacity-85" />
@@ -841,7 +924,7 @@ export function StudioMindmapsPage() {
             <button
               type="button"
               onClick={() => void refreshList({ append: true })}
-              disabled={listBusy}
+              disabled={listBusy || listRefreshing}
               className="mt-3 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
             >
               Load more

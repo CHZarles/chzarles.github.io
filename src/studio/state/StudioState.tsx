@@ -2,6 +2,7 @@ import React from "react";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { publisherToken } from "../../ui/publisher/storage";
+import { clearStudioCaches } from "../util/cache";
 import { formatStudioError } from "../util/errors";
 
 export type StudioMe = {
@@ -13,9 +14,11 @@ type StudioState = {
   token: string | null;
   me: StudioMe | null;
   meError: string | null;
+  syncNonce: number;
   login: (nextPath?: string) => void;
   logout: () => void;
   refreshMe: () => Promise<void>;
+  forceSync: () => void;
 };
 
 const StudioStateContext = React.createContext<StudioState | null>(null);
@@ -38,6 +41,7 @@ export function StudioStateProvider(props: { children: React.ReactNode }) {
   const [token, setToken] = React.useState<string | null>(() => publisherToken.get());
   const [me, setMe] = React.useState<StudioMe | null>(null);
   const [meError, setMeError] = React.useState<string | null>(null);
+  const [syncNonce, setSyncNonce] = React.useState(0);
 
   const refreshMe = React.useCallback(async () => {
     if (!token) {
@@ -81,6 +85,12 @@ export function StudioStateProvider(props: { children: React.ReactNode }) {
     setMeError(null);
   }, []);
 
+  const forceSync = React.useCallback(() => {
+    clearStudioCaches({ publisherBaseUrl: PUBLISHER_BASE_URL });
+    setSyncNonce((n) => n + 1);
+    void refreshMe();
+  }, [refreshMe]);
+
   React.useEffect(() => {
     const onStorage = () => setToken(publisherToken.get());
     window.addEventListener("storage", onStorage);
@@ -88,7 +98,7 @@ export function StudioStateProvider(props: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <StudioStateContext.Provider value={{ token, me, meError, login, logout, refreshMe }}>
+    <StudioStateContext.Provider value={{ token, me, meError, syncNonce, login, logout, refreshMe, forceSync }}>
       {props.children}
     </StudioStateContext.Provider>
   );

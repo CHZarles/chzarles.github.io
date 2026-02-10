@@ -1,7 +1,9 @@
 import { ArrowUpRight, Check, Copy, ExternalLink, FileText, ImagePlus, RefreshCw, Trash2, X } from "lucide-react";
 import React from "react";
 import { publisherFetchJson } from "../../ui/publisher/client";
+import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { useStudioState } from "../state/StudioState";
+import { pruneStudioDataCache, readStudioDataCache, stableCacheKeySegment, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { formatStudioError } from "../util/errors";
 
 type Asset = {
@@ -18,6 +20,19 @@ type AssetsListResponse = {
   paging: { after: string | null; nextAfter: string | null };
   truncated: boolean;
 };
+
+type AssetsListCacheV1 = {
+  assets: Asset[];
+  paging: AssetsListResponse["paging"];
+  truncated: boolean;
+};
+
+const ASSETS_LIST_CACHE_PREFIX = `${studioDataCacheKey(PUBLISHER_BASE_URL, ["assets", "list"])}:`;
+const MAX_ASSETS_LIST_CACHES = 6;
+
+function assetsListCacheKey(query: string): string {
+  return studioDataCacheKey(PUBLISHER_BASE_URL, ["assets", "list", stableCacheKeySegment(query)]);
+}
 
 type CommitResponse = {
   commit: { sha: string; url: string; headSha?: string };
@@ -102,10 +117,15 @@ function buildUploadName(file: File): string {
 export function StudioAssetsPage() {
   const studio = useStudioState();
 
-  const [assets, setAssets] = React.useState<Asset[]>([]);
-  const [paging, setPaging] = React.useState<AssetsListResponse["paging"]>({ after: null, nextAfter: null });
+  const [assets, setAssets] = React.useState<Asset[]>(
+    () => readStudioDataCache<AssetsListCacheV1>(assetsListCacheKey(""))?.value.assets ?? [],
+  );
+  const [paging, setPaging] = React.useState<AssetsListResponse["paging"]>(
+    () => readStudioDataCache<AssetsListCacheV1>(assetsListCacheKey(""))?.value.paging ?? { after: null, nextAfter: null },
+  );
   const [q, setQ] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [commitUrl, setCommitUrl] = React.useState<string | null>(null);
@@ -113,41 +133,78 @@ export function StudioAssetsPage() {
   const [stagedUploads, setStagedUploads] = React.useState<StagedUpload[]>([]);
   const [stagedDeletes, setStagedDeletes] = React.useState<string[]>([]);
 
+  const loadSeqRef = React.useRef(0);
   const load = React.useCallback(
-    async (opts?: { append?: boolean; query?: string }) => {
+    async (opts?: { append?: boolean; query?: string; background?: boolean }) => {
       if (!studio.token) return;
-      setBusy(true);
-      setError(null);
+      const seq = (loadSeqRef.current += 1);
+      const background = Boolean(opts?.background);
+      if (background) setRefreshing(true);
+      else setBusy(true);
+      if (!background) setError(null);
       try {
         const url = new URL("/api/admin/uploads", "http://local");
-        const query = (opts?.query ?? q).trim();
+        const query = (opts?.query ?? "").trim();
         if (query) url.searchParams.set("q", query);
         url.searchParams.set("limit", "80");
         if (opts?.append && paging.nextAfter) url.searchParams.set("after", paging.nextAfter);
         const res = await publisherFetchJson<AssetsListResponse>({ path: url.pathname + url.search, token: studio.token });
-        setAssets((prev) => (opts?.append ? [...prev, ...res.assets] : res.assets));
+        if (seq !== loadSeqRef.current) return;
+        setAssets((prev) => {
+          const next = opts?.append ? [...prev, ...res.assets] : res.assets;
+          if (!opts?.append) {
+            writeStudioDataCache(assetsListCacheKey(query), { assets: next, paging: res.paging, truncated: res.truncated });
+            pruneStudioDataCache(ASSETS_LIST_CACHE_PREFIX, MAX_ASSETS_LIST_CACHES);
+          }
+          return next;
+        });
         setPaging(res.paging);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(msg);
+        if (seq !== loadSeqRef.current) return;
+        if (!background) setError(formatStudioError(err).message);
       } finally {
-        setBusy(false);
+        if (seq !== loadSeqRef.current) return;
+        if (background) setRefreshing(false);
+        else setBusy(false);
       }
     },
-    [studio.token, q, paging.nextAfter],
+    [studio.token, paging.nextAfter],
   );
 
   React.useEffect(() => {
-    void load();
+    if (!studio.token) return;
+    const query = q.trim();
+    const cached = readStudioDataCache<AssetsListCacheV1>(assetsListCacheKey(query))?.value ?? null;
+    if (cached) {
+      setAssets(cached.assets ?? []);
+      setPaging(cached.paging ?? { after: null, nextAfter: null });
+    }
+    void load({ query, append: false, background: Boolean(cached) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studio.token]);
+  }, [studio.token, studio.syncNonce]);
+
+  const didMountRef = React.useRef(false);
+  const loadRef = React.useRef(load);
+  React.useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   React.useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    const query = q.trim();
+    const cached = readStudioDataCache<AssetsListCacheV1>(assetsListCacheKey(query))?.value ?? null;
+    if (cached) {
+      setAssets(cached.assets ?? []);
+      setPaging(cached.paging ?? { after: null, nextAfter: null });
+    }
     const t = window.setTimeout(() => {
-      void load({ query: q, append: false });
+      void loadRef.current({ query, append: false, background: Boolean(cached) });
     }, 260);
     return () => window.clearTimeout(t);
-  }, [q, load]);
+  }, [q]);
 
   const clearStage = React.useCallback(() => {
     setStagedUploads((prev) => {
@@ -259,14 +316,14 @@ export function StudioAssetsPage() {
       setCommitUrl(res.commit.url);
       clearStage();
       await studio.refreshMe();
-      await load({ append: false });
+      await load({ append: false, query: q });
     } catch (err: unknown) {
       const e = formatStudioError(err);
       setNotice(e.code === "HEAD_MOVED" ? "Conflict: main moved. Refresh and retry." : `Commit failed: ${e.message}`);
     } finally {
       setBusy(false);
     }
-  }, [studio.token, studio.me?.repo.headSha, studio.refreshMe, stagedUploads, stagedDeletes, clearStage, load]);
+  }, [studio.token, studio.me?.repo.headSha, studio.refreshMe, stagedUploads, stagedDeletes, clearStage, load, q]);
 
   const copyUrl = React.useCallback(async (asset: Asset) => {
     const ok = await copyText(asset.url);
@@ -342,7 +399,7 @@ export function StudioAssetsPage() {
           )}
           <button
             type="button"
-            onClick={() => void load({ append: false })}
+            onClick={() => void load({ append: false, query: q })}
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
           >
@@ -377,7 +434,7 @@ export function StudioAssetsPage() {
           placeholder="Search by path…"
           className="w-full max-w-xl rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
         />
-        <div className="text-xs text-[hsl(var(--muted))]">{busy ? "Loading…" : `${assets.length} items`}</div>
+        <div className="text-xs text-[hsl(var(--muted))]">{busy || refreshing ? "Loading…" : `${assets.length} items`}</div>
       </div>
 
       {error ? (
@@ -545,7 +602,7 @@ export function StudioAssetsPage() {
         {paging.nextAfter ? (
           <button
             type="button"
-            onClick={() => void load({ append: true })}
+            onClick={() => void load({ append: true, query: q })}
             disabled={busy}
             className="mt-4 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
           >

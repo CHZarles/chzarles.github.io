@@ -1,4 +1,4 @@
-import { LogIn, LogOut, RefreshCw } from "lucide-react";
+import { CloudDownload, LogIn, LogOut, RefreshCw } from "lucide-react";
 import React from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
@@ -55,7 +55,16 @@ function StudioLayout() {
                 title="Refresh session"
               >
                 <RefreshCw className="h-4 w-4 opacity-85" />
-                Refresh
+                Session
+              </button>
+              <button
+                type="button"
+                onClick={studio.forceSync}
+                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                title="Force sync: clear local caches and re-fetch from GitHub"
+              >
+                <CloudDownload className="h-4 w-4 opacity-85" />
+                Sync
               </button>
               <button
                 type="button"

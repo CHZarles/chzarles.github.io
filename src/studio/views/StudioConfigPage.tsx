@@ -181,7 +181,7 @@ export function StudioConfigPage() {
       setDirty(false);
     }
     if (studio.token) void load({ background: Boolean(cached) });
-  }, [active, studio.token, load]);
+  }, [active, studio.token, studio.syncNonce, load]);
 
   const formatJson = React.useCallback(() => {
     const parsed = tryParseJson(raw);

@@ -16,8 +16,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
+import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import type { Category, MindmapListItem, RoadmapNodeEntry } from "../../ui/types";
 import { useStudioState } from "../state/StudioState";
+import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
 import { formatStudioError } from "../util/errors";
 
 type NoteInput = {
@@ -113,6 +115,20 @@ type LocalDraftIndexItem = {
 
 const DRAFT_NOTE_PREFIX = "hyperblog.studio.draft.note:";
 const DRAFT_NEW_PREFIX = "hyperblog.studio.draft.new:";
+
+type NotesListCacheV1 = {
+  notes: NotesListResponse["notes"];
+  paging: NotesListResponse["paging"];
+};
+
+const NOTES_LIST_CACHE_KEY = studioDataCacheKey(PUBLISHER_BASE_URL, ["notes", "list"]);
+const ADMIN_CATEGORIES_CACHE_KEY = studioDataCacheKey(PUBLISHER_BASE_URL, ["categories", "admin"]);
+const NOTE_DETAIL_CACHE_PREFIX = `${studioDataCacheKey(PUBLISHER_BASE_URL, ["notes", "detail"])}:`;
+const MAX_NOTE_DETAIL_CACHE = 12;
+
+function noteDetailCacheKey(noteId: string): string {
+  return studioDataCacheKey(PUBLISHER_BASE_URL, ["notes", "detail", noteId]);
+}
 
 function safeLocalStorageGet(key: string): string | null {
   try {
@@ -408,16 +424,23 @@ export function StudioNotesPage() {
 
   const [viewMode, setViewMode] = React.useState<ViewMode>("split");
 
-  const [allCategories, setAllCategories] = React.useState<Category[]>([]);
+  const [allCategories, setAllCategories] = React.useState<Category[]>(
+    () => readStudioDataCache<Category[]>(ADMIN_CATEGORIES_CACHE_KEY)?.value ?? [],
+  );
   const [nodesIndex, setNodesIndex] = React.useState<RoadmapNodeEntry[]>([]);
   const [mindmapsIndex, setMindmapsIndex] = React.useState<MindmapListItem[]>([]);
 
   const [stagedUploads, setStagedUploads] = React.useState<StagedUpload[]>([]);
 
-  const [notes, setNotes] = React.useState<NotesListResponse["notes"]>([]);
-  const [paging, setPaging] = React.useState<NotesListResponse["paging"]>({ after: null, nextAfter: null });
+  const [notes, setNotes] = React.useState<NotesListResponse["notes"]>(
+    () => readStudioDataCache<NotesListCacheV1>(NOTES_LIST_CACHE_KEY)?.value.notes ?? [],
+  );
+  const [paging, setPaging] = React.useState<NotesListResponse["paging"]>(
+    () => readStudioDataCache<NotesListCacheV1>(NOTES_LIST_CACHE_KEY)?.value.paging ?? { after: null, nextAfter: null },
+  );
   const [filter, setFilter] = React.useState("");
   const [listBusy, setListBusy] = React.useState(false);
+  const [listRefreshing, setListRefreshing] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
 
   const [editor, setEditor] = React.useState<EditorState>(() => emptyEditor());
@@ -433,6 +456,10 @@ export function StudioNotesPage() {
 
   const contentRef = React.useRef<HTMLTextAreaElement | null>(null);
   const retryRef = React.useRef<(() => void) | null>(null);
+  const dirtyRef = React.useRef(dirty);
+  React.useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
 
   const refreshDraftIndex = React.useCallback(() => {
     setLocalDrafts(listLocalDraftIndex());
@@ -448,11 +475,15 @@ export function StudioNotesPage() {
     return () => window.removeEventListener("storage", onStorage);
   }, [refreshDraftIndex]);
 
+  const listLoadSeqRef = React.useRef(0);
   const refreshList = React.useCallback(
-    async (opts?: { append?: boolean }) => {
+    async (opts?: { append?: boolean; background?: boolean }) => {
       if (!studio.token) return;
-      setListBusy(true);
-      setListError(null);
+      const seq = (listLoadSeqRef.current += 1);
+      const background = Boolean(opts?.background);
+      if (background) setListRefreshing(true);
+      else setListBusy(true);
+      if (!background) setListError(null);
       try {
         const url = new URL("/api/admin/notes", "http://local");
         url.searchParams.set("include", "meta");
@@ -460,12 +491,20 @@ export function StudioNotesPage() {
         if (opts?.append && paging.nextAfter) url.searchParams.set("after", paging.nextAfter);
         const path = url.pathname + url.search;
         const res = await publisherFetchJson<NotesListResponse>({ path, token: studio.token });
-        setNotes((prev) => (opts?.append ? [...prev, ...res.notes] : res.notes));
+        if (seq !== listLoadSeqRef.current) return;
+        setNotes((prev) => {
+          const next = opts?.append ? [...prev, ...res.notes] : res.notes;
+          writeStudioDataCache(NOTES_LIST_CACHE_KEY, { notes: next, paging: res.paging });
+          return next;
+        });
         setPaging(res.paging);
       } catch (err: unknown) {
-        setListError(formatStudioError(err).message);
+        if (seq !== listLoadSeqRef.current) return;
+        if (!background) setListError(formatStudioError(err).message);
       } finally {
-        setListBusy(false);
+        if (seq !== listLoadSeqRef.current) return;
+        if (background) setListRefreshing(false);
+        else setListBusy(false);
       }
     },
     [studio.token, paging.nextAfter],
@@ -474,17 +513,23 @@ export function StudioNotesPage() {
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
+      const cachedAdmin = readStudioDataCache<Category[]>(ADMIN_CATEGORIES_CACHE_KEY)?.value ?? null;
+      if (cachedAdmin && !cancelled) setAllCategories(cachedAdmin);
+
       const [catsStatic, nodes, mindmaps] = await Promise.all([
         fetchLocalJson<Category[]>("/api/categories.json").catch(() => [] as Category[]),
         fetchLocalJson<RoadmapNodeEntry[]>("/api/nodes.json").catch(() => [] as RoadmapNodeEntry[]),
         fetchLocalJson<MindmapListItem[]>("/api/mindmaps.json").catch(() => [] as MindmapListItem[]),
       ]);
 
-      let cats = catsStatic;
+      let cats = cachedAdmin ?? catsStatic;
       if (studio.token) {
         try {
           const res = await publisherFetchJson<{ file: { json: unknown } }>({ path: "/api/admin/categories", token: studio.token });
-          if (Array.isArray(res.file.json)) cats = res.file.json as Category[];
+          if (Array.isArray(res.file.json)) {
+            cats = res.file.json as Category[];
+            writeStudioDataCache(ADMIN_CATEGORIES_CACHE_KEY, cats);
+          }
         } catch {
           // ignore (fallback to static)
         }
@@ -498,12 +543,17 @@ export function StudioNotesPage() {
     return () => {
       cancelled = true;
     };
-  }, [studio.token]);
+  }, [studio.token, studio.syncNonce]);
 
   React.useEffect(() => {
-    void refreshList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studio.token]);
+    if (!studio.token) return;
+    const cached = readStudioDataCache<NotesListCacheV1>(NOTES_LIST_CACHE_KEY)?.value ?? null;
+    if (cached) {
+      setNotes(cached.notes ?? []);
+      setPaging(cached.paging ?? { after: null, nextAfter: null });
+    }
+    void refreshList({ background: Boolean(cached) });
+  }, [studio.token, studio.syncNonce, refreshList]);
 
   const clearStagedUploads = React.useCallback(() => {
     setStagedUploads((prev) => {
@@ -527,11 +577,13 @@ export function StudioNotesPage() {
     setTimeout(() => contentRef.current?.focus(), 0);
   }, [clearStagedUploads, dirty]);
 
+  const noteLoadSeqRef = React.useRef(0);
   const openNote = React.useCallback(
     async (id: string, opts?: { restoreLocal?: boolean }) => {
       if (!studio.token) return;
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
 
+      const seq = (noteLoadSeqRef.current += 1);
       const dk = noteDraftKey(id);
       setDraftKey(dk);
       const local = readLocalDraft(dk);
@@ -544,16 +596,89 @@ export function StudioNotesPage() {
 
       retryRef.current = () => void openNote(id, opts);
       clearStagedUploads();
-      setBusy(true);
       setNotice(null);
       setCommitUrl(null);
+
+      const cached = readStudioDataCache<NoteGetResponse>(noteDetailCacheKey(id))?.value ?? null;
+      const cachedEditor: EditorState | null = (() => {
+        if (!cached) return null;
+        const input = cached.note.input;
+        return {
+          mode: "edit",
+          id: cached.note.id,
+          title: input.title ?? cached.note.id,
+          date: input.date ?? todayLocal(),
+          slug: "",
+          excerpt: input.excerpt ?? "",
+          categories: Array.isArray(input.categories) ? input.categories : [],
+          tags: Array.isArray(input.tags) ? input.tags : [],
+          nodes: Array.isArray(input.nodes) ? input.nodes : [],
+          mindmaps: Array.isArray(input.mindmaps) ? input.mindmaps : [],
+          cover: input.cover ?? "",
+          draft: Boolean(input.draft),
+          content: input.content ?? "",
+          baseMarkdown: cached.note.markdown ?? "",
+        };
+      })();
+
+      if (restore && local) {
+        const le = local.editor;
+        const seed: EditorState =
+          cachedEditor ??
+          ({
+            mode: "edit",
+            id,
+            title: id,
+            date: todayLocal(),
+            slug: "",
+            excerpt: "",
+            categories: [],
+            tags: [],
+            nodes: [],
+            mindmaps: [],
+            cover: "",
+            draft: false,
+            content: "",
+            baseMarkdown: "",
+          } satisfies EditorState);
+
+        setEditor({
+          ...seed,
+          title: typeof le.title === "string" ? le.title : seed.title,
+          date: typeof le.date === "string" ? le.date : seed.date,
+          slug: typeof le.slug === "string" ? le.slug : "",
+          excerpt: typeof le.excerpt === "string" ? le.excerpt : "",
+          categories: Array.isArray(le.categories) ? le.categories : [],
+          tags: Array.isArray(le.tags) ? le.tags : [],
+          nodes: Array.isArray(le.nodes) ? le.nodes : [],
+          mindmaps: Array.isArray(le.mindmaps) ? le.mindmaps : [],
+          cover: typeof le.cover === "string" ? le.cover : "",
+          draft: Boolean(le.draft),
+          content: typeof le.content === "string" ? le.content : "",
+        });
+        setLocalSavedAt(local.savedAt);
+        setNotice({ tone: "info", message: `Restored local draft (${fmtRelative(local.savedAt)} ago).` });
+        setDirty(false);
+        setSlugTouched(true);
+      } else if (cachedEditor) {
+        setEditor(cachedEditor);
+        setLocalSavedAt(null);
+        setDirty(false);
+        setSlugTouched(true);
+      }
+
+      const background = Boolean(cachedEditor) || Boolean(restore && local);
+      if (!background) setBusy(true);
       try {
         const res = await publisherFetchJson<NoteGetResponse>({
           path: `/api/admin/notes/${encodeURIComponent(id)}`,
           token: studio.token,
         });
-        const input = res.note.input;
+        if (seq !== noteLoadSeqRef.current) return;
+        writeStudioDataCache(noteDetailCacheKey(id), res);
+        pruneStudioDataCache(NOTE_DETAIL_CACHE_PREFIX, MAX_NOTE_DETAIL_CACHE);
 
+        const input = res.note.input;
         const remoteEditor: EditorState = {
           mode: "edit",
           id: res.note.id,
@@ -572,35 +697,26 @@ export function StudioNotesPage() {
         };
 
         if (restore && local) {
-          const le = local.editor;
-          setEditor({
-            ...remoteEditor,
-            title: typeof le.title === "string" ? le.title : remoteEditor.title,
-            date: typeof le.date === "string" ? le.date : remoteEditor.date,
-            slug: typeof le.slug === "string" ? le.slug : "",
-            excerpt: typeof le.excerpt === "string" ? le.excerpt : "",
-            categories: Array.isArray(le.categories) ? le.categories : [],
-            tags: Array.isArray(le.tags) ? le.tags : [],
-            nodes: Array.isArray(le.nodes) ? le.nodes : [],
-            mindmaps: Array.isArray(le.mindmaps) ? le.mindmaps : [],
-            cover: typeof le.cover === "string" ? le.cover : "",
-            draft: Boolean(le.draft),
-            content: typeof le.content === "string" ? le.content : "",
+          setEditor((prev) => {
+            if (prev.mode !== "edit" || prev.id !== id) return prev;
+            return { ...prev, baseMarkdown: remoteEditor.baseMarkdown };
           });
-          setLocalSavedAt(local.savedAt);
-          setNotice({ tone: "info", message: `Restored local draft (${fmtRelative(local.savedAt)} ago).` });
-        } else {
+        } else if (!dirtyRef.current) {
           setEditor(remoteEditor);
           setLocalSavedAt(null);
+          setDirty(false);
+          setSlugTouched(true);
+        } else {
+          setEditor((prev) => {
+            if (prev.mode !== "edit" || prev.id !== id) return prev;
+            return { ...prev, baseMarkdown: remoteEditor.baseMarkdown };
+          });
         }
-
-        setDirty(false);
-        setSlugTouched(true);
         retryRef.current = null;
       } catch (err: unknown) {
-        setNotice({ tone: "error", message: `Open failed: ${formatStudioError(err).message}` });
+        if (!background) setNotice({ tone: "error", message: `Open failed: ${formatStudioError(err).message}` });
       } finally {
-        setBusy(false);
+        if (!background) setBusy(false);
       }
     },
     [studio.token, clearStagedUploads, dirty],
@@ -794,6 +910,29 @@ export function StudioNotesPage() {
       setLastUploadUrl(uploadFiles.at(-1)?.url ?? null);
       clearStagedUploads();
 
+      writeStudioDataCache(noteDetailCacheKey(noteId), {
+        note: {
+          id: noteId,
+          path: notePath,
+          input: {
+            title: editor.title,
+            content: editor.content,
+            excerpt: editor.excerpt.trim() ? editor.excerpt.trim() : undefined,
+            categories: editor.categories,
+            tags: editor.tags,
+            nodes: editor.nodes,
+            mindmaps: editor.mindmaps,
+            cover: editor.cover.trim() ? editor.cover.trim() : undefined,
+            draft: editor.draft ? true : undefined,
+            slug: editor.slug.trim() ? editor.slug.trim() : undefined,
+            date: editor.date,
+            updated: updatedYmd !== editor.date ? updatedYmd : undefined,
+          },
+          markdown: md,
+        },
+      });
+      pruneStudioDataCache(NOTE_DETAIL_CACHE_PREFIX, MAX_NOTE_DETAIL_CACHE);
+
       if (draftKey) safeLocalStorageRemove(draftKey);
       setDraftKey(noteDraftKey(noteId));
       setLocalSavedAt(null);
@@ -838,6 +977,7 @@ export function StudioNotesPage() {
         method: "DELETE",
         token: studio.token,
       });
+      safeLocalStorageRemove(noteDetailCacheKey(editor.id));
       setNotice({ tone: "success", message: "Trashed." });
       setCommitUrl(res.commit.url);
       setDirty(false);
@@ -960,7 +1100,7 @@ export function StudioNotesPage() {
             <button
               type="button"
               onClick={() => void refreshList()}
-              disabled={listBusy}
+              disabled={listBusy || listRefreshing}
               className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
               title="Refresh list"
             >
@@ -1077,7 +1217,7 @@ export function StudioNotesPage() {
             <button
               type="button"
               onClick={() => void refreshList({ append: true })}
-              disabled={listBusy}
+              disabled={listBusy || listRefreshing}
               className="mt-3 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
             >
               Load more

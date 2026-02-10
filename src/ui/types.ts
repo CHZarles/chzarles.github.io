@@ -7,7 +7,7 @@ export type Profile = {
   avatarUrl?: string;
   links?: Array<{ label: string; href: string }>;
   hero?: {
-    variant?: "image" | "mimo";
+    variant?: "image" | "mimo"; // homepage hero style: image cover vs MiMo-style pattern + spotlight
     imageUrl?: string;
     preload?: boolean; // default true; preloads hero image on homepage
     blurPx?: number;
@@ -18,9 +18,9 @@ export type Profile = {
     saturate?: number; // CSS filter saturate()
     contrast?: number; // CSS filter contrast()
     textColor?: { light?: string; dark?: string }; // HSL string like "0 0% 100%"
-    textScale?: number; // 0.85..1.25
+    textScale?: number; // font scale multiplier; clamped (mimo: 0.85..1.6, image: 0.85..1.25)
     patternText?: string;
-    spotlightRadiusPx?: number;
+    spotlightRadiusPx?: number; // px radius for cursor spotlight (mimo only), clamped 120..520
   };
 };
 

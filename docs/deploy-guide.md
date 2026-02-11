@@ -21,6 +21,19 @@
 corepack enable
 ```
 
+## 0.1 可选：先跑一次 init / doctor（少踩坑）
+
+在仓库根目录：
+
+```bash
+pnpm install
+pnpm run init
+pnpm run doctor
+```
+
+`init` 会帮你把 `content/profile.json`、`publisher/wrangler.toml`、`publisher/.dev.vars.example` 填到可用的默认值；  
+`doctor` 会检查常见漂移/配置坑（Pages workflow、lockfile、ALLOWED_ORIGINS、hero image 路径等）。
+
 ---
 
 ## 1. 准备 GitHub Pages 仓库（公共站点 + 内容仓库）
@@ -242,4 +255,3 @@ pnpm dev:publisher -- --port 8788
 
 - 你对 `CONTENT_REPO` 有 push 权限
 - 仓库没有强制 PR / 分支保护阻止直接 push（或给自己开 bypass）
-

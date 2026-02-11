@@ -1,10 +1,16 @@
+# Local Publisher (wrangler dev) environment variables
+# Copy to publisher/.dev.vars and fill secrets for local dev (never commit .dev.vars)
+
 BASE_URL=http://localhost:8788
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
-# Use a long random string (do not commit)
-TOKEN_SECRET=...
-TOKEN_TTL_SECONDS=43200
-ADMIN_GITHUB_LOGINS=your_github_login
-CONTENT_REPO=your_github_login/your_github_login.github.io
+ADMIN_GITHUB_LOGINS=<your-github-login>
+CONTENT_REPO=<owner>/<repo> # e.g. yourname/yourname.github.io
 CONTENT_BRANCH=main
-ALLOWED_ORIGINS=http://localhost:5173
+CONTENT_ROOT=
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173,https://<user>.github.io
+TOKEN_TTL_SECONDS=43200
+
+# Secrets (required)
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+TOKEN_SECRET=
+

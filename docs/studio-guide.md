@@ -90,14 +90,15 @@ Studio 故意把“写作的频繁保存”与“发布/写入仓库”分开：
 - 点击顶部 `Publish`：才会产生一次 commit，把文件移到 `content/.trash/notes/` 并从 `content/notes/` 删除
 - `Unstage delete`：撤销待删除标记（不会产生 commit）
 
-### 冲突（main moved）
+### 冲突（HEAD_MOVED / main advanced）
 
-如果看到 `Conflict: main moved. Refresh and retry.`：
+如果 Publish 失败并提示 `HEAD_MOVED`（`main` 在你发布期间被推进了）：
 
-1. 点顶部 `Sync`
-2. 再点一次 `Publish`
+1. 顶栏会出现红色提示：`Remote moved · Review diff`（点它会进入 `/studio/changes`）
+2. 在 Changes 页把 DIFF 切到 `Remote`，查看你即将覆盖/写入的内容差异
+3. 点击 `Retry publish`（会先刷新远端 HEAD，再重试一次 Publish）
 
-这通常意味着你发布期间 `main` 又被其它提交推进了。
+如果仍然失败，通常是刚好又有人/CI 推进了 `main`：再重试一次即可。
 
 ---
 

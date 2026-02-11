@@ -1,5 +1,5 @@
 import React from "react";
-import { publisherFetchJson } from "../../ui/publisher/client";
+import { publisherFetchJson, type PublisherError } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import { clearStudioCaches } from "../util/cache";
 import { formatStudioError } from "../util/errors";
@@ -77,14 +77,16 @@ export type WorkspaceChange =
 
 export type WorkspacePublishResult = { commitUrl: string; headSha?: string };
 
+export type WorkspacePublishError = { code?: string; message: string; details?: Record<string, unknown> };
+
 type StudioWorkspaceState = {
   changes: WorkspaceChange[];
   stats: WorkspaceStats;
   publishing: boolean;
   lastCommitUrl: string | null;
-  publishError: string | null;
+  publishError: WorkspacePublishError | null;
   refresh: () => void;
-  publishAll: (opts?: { message?: string; confirm?: boolean }) => Promise<WorkspacePublishResult | null>;
+  publishAll: (opts?: { message?: string; confirm?: boolean; expectedHeadSha?: string }) => Promise<WorkspacePublishResult | null>;
   commitMessage: string;
   setCommitMessage: (next: string) => void;
   clearCommitMessage: () => void;
@@ -401,7 +403,7 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
   const studio = useStudioState();
   const [nonce, setNonce] = React.useState(0);
   const [publishing, setPublishing] = React.useState(false);
-  const [publishError, setPublishError] = React.useState<string | null>(null);
+  const [publishError, setPublishError] = React.useState<WorkspacePublishError | null>(null);
   const [lastCommitUrl, setLastCommitUrl] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -441,7 +443,7 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
   }, []);
 
   const publishAll = React.useCallback(
-    async (opts?: { message?: string; confirm?: boolean }) => {
+    async (opts?: { message?: string; confirm?: boolean; expectedHeadSha?: string }) => {
       if (!studio.token) return null;
 
       const currentChanges = listWorkspaceChanges(PUBLISHER_BASE_URL);
@@ -787,7 +789,7 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
         for (const p of filesByPath.keys()) deletes.delete(p);
 
         if (errors.length) {
-          setPublishError(errors.slice(0, 6).join("\n"));
+          setPublishError({ code: "VALIDATION_FAILED", message: errors.slice(0, 6).join("\n") });
           return null;
         }
 
@@ -795,13 +797,15 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
         const deletesArr = Array.from(deletes);
         if (!files.length && !deletesArr.length) return null;
 
+        const expectedHeadSha = String(opts?.expectedHeadSha ?? studio.me?.repo.headSha ?? "").trim() || undefined;
+
         const res = await publisherFetchJson<{ commit: { url: string; headSha?: string } }>({
           path: "/api/admin/commit",
           method: "POST",
           token: studio.token,
           body: {
             message,
-            expectedHeadSha: studio.me?.repo.headSha ?? undefined,
+            expectedHeadSha,
             files,
             deletes: deletesArr,
           },
@@ -814,14 +818,19 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
         studio.forceSync();
         return { commitUrl: res.commit.url, headSha: (res.commit as any).headSha };
       } catch (err: unknown) {
+        const pub = (err as any)?.publisher as PublisherError | undefined;
         const e = formatStudioError(err);
-        setPublishError(e.message);
+        setPublishError({
+          code: pub && typeof pub.code === "string" ? pub.code : undefined,
+          message: e.message,
+          details: pub && pub.details && typeof pub.details === "object" ? pub.details : undefined,
+        });
         return null;
       } finally {
         setPublishing(false);
       }
     },
-    [studio.token, studio.me?.repo.headSha, studio.refreshMe, commitMessage],
+    [studio.token, studio.me?.repo.headSha, commitMessage],
   );
 
   const value: StudioWorkspaceState = {

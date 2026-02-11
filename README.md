@@ -45,6 +45,13 @@ pnpm dev
 
 - Web（含 Mock API）: `http://localhost:5173`
 
+首次部署/换仓库时（可选，但推荐）：
+
+```bash
+pnpm run init
+pnpm run doctor
+```
+
 生产预览（更接近 GitHub Pages 的效果：先 build 生成 `dist/` + `dist/api/*.json`，再静态预览）：
 
 ```bash

@@ -22,6 +22,12 @@ function StudioLayout() {
   const studio = useStudioState();
   const location = useLocation();
   const ws = useStudioWorkspace();
+  const repo = studio.me?.repo ?? null;
+
+  const headShort = repo?.headSha ? repo.headSha.slice(0, 7) : "—";
+  const draftsCount = ws.stats.total;
+  const opsCount =
+    ws.stats.notes + ws.stats.roadmaps + ws.stats.mindmaps + ws.stats.config + ws.stats.assetsUploads + ws.stats.assetsDeletes;
 
   return (
     <div className="flex h-dvh flex-col bg-[hsl(var(--bg))] text-[hsl(var(--fg))]">
@@ -29,7 +35,22 @@ function StudioLayout() {
         <div className="flex min-w-0 items-center gap-4">
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold tracking-tight">Hyperblog Studio</div>
-            <div className="truncate text-xs text-[hsl(var(--muted))]">{PUBLISHER_BASE_URL} · Local drafts → Publish → GitHub</div>
+            <div className="truncate text-xs text-[hsl(var(--muted))]">
+              {repo ? (
+                <>
+                  <span className="font-medium text-[hsl(var(--fg))]">{repo.fullName}</span> · {repo.branch} · HEAD{" "}
+                  <span className="font-mono">{headShort}</span> · Drafts{" "}
+                  <span className={draftsCount ? "font-semibold text-[hsl(var(--fg))]" : ""}>{draftsCount}</span> · Ops{" "}
+                  <span className={opsCount ? "font-semibold text-[hsl(var(--fg))]" : ""}>{opsCount}</span>
+                </>
+              ) : (
+                <>
+                  Publisher <span className="font-mono">{PUBLISHER_BASE_URL}</span> · Drafts{" "}
+                  <span className={draftsCount ? "font-semibold text-[hsl(var(--fg))]" : ""}>{draftsCount}</span> · Ops{" "}
+                  <span className={opsCount ? "font-semibold text-[hsl(var(--fg))]" : ""}>{opsCount}</span>
+                </>
+              )}
+            </div>
           </div>
 
           <nav className="hidden items-center gap-1 md:flex">
@@ -54,6 +75,25 @@ function StudioLayout() {
                 >
                   {studio.meError}
                 </div>
+              ) : null}
+              {ws.publishError ? (
+                <NavLink
+                  to={ws.publishError.code === "HEAD_MOVED" ? "/studio/changes?compare=remote" : "/studio/changes"}
+                  className="hidden max-w-[520px] truncate rounded-full border border-[color-mix(in_oklab,red_40%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] px-3 py-2 text-xs text-red-700 transition hover:bg-[color-mix(in_oklab,red_10%,hsl(var(--card)))] md:block"
+                  title={ws.publishError.message}
+                >
+                  {ws.publishError.code === "HEAD_MOVED" ? "Remote moved · Review diff" : "Publish failed · View details"}
+                </NavLink>
+              ) : ws.lastCommitUrl ? (
+                <a
+                  href={ws.lastCommitUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden max-w-[520px] truncate rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] md:block"
+                  title="Last publish commit"
+                >
+                  Last publish · View commit
+                </a>
               ) : null}
               <button
                 type="button"

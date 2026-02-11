@@ -17,7 +17,7 @@ type StudioState = {
   syncNonce: number;
   login: (nextPath?: string) => void;
   logout: () => void;
-  refreshMe: () => Promise<void>;
+  refreshMe: () => Promise<StudioMe | null>;
   forceSync: () => void;
 };
 
@@ -46,12 +46,13 @@ export function StudioStateProvider(props: { children: React.ReactNode }) {
   const refreshMe = React.useCallback(async () => {
     if (!token) {
       setMe(null);
-      return;
+      return null;
     }
     try {
       const r = await publisherFetchJson<StudioMe>({ path: "/api/auth/me", token });
       setMe(r);
       setMeError(null);
+      return r;
     } catch (err: unknown) {
       const e = formatStudioError(err);
       if (e.code === "UNAUTHENTICATED") {
@@ -59,10 +60,11 @@ export function StudioStateProvider(props: { children: React.ReactNode }) {
         setToken(null);
         setMe(null);
         setMeError("Session expired. Please login again.");
-        return;
+        return null;
       }
       setMe(null);
       setMeError(e.message);
+      return null;
     }
   }, [token]);
 

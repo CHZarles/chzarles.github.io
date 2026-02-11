@@ -1,0 +1,26 @@
+{
+  "title": "K8s Network Path",
+  "format": "reactflow",
+  "nodes": [
+    { "id": "client", "position": { "x": 0, "y": 0 }, "data": { "label": "Client" } },
+    { "id": "lb", "position": { "x": 240, "y": 0 }, "data": { "label": "Load Balancer" } },
+    { "id": "nodeport", "position": { "x": 480, "y": 0 }, "data": { "label": "NodePort / Ingress" } },
+    { "id": "kube-proxy", "position": { "x": 720, "y": 0 }, "data": { "label": "kube-proxy\n(ipvs/iptables)" } },
+    { "id": "cni", "position": { "x": 960, "y": 0 }, "data": { "label": "CNI\n(Overlay / eBPF)" } },
+    { "id": "pod", "position": { "x": 1200, "y": 0 }, "data": { "label": "Pod" } },
+    { "id": "sidecar", "position": { "x": 1440, "y": 0 }, "data": { "label": "Sidecar\n(optional)" } },
+    { "id": "app", "position": { "x": 1680, "y": 0 }, "data": { "label": "App" } },
+    { "id": "jitter", "position": { "x": 720, "y": 160 }, "data": { "label": "Jitter sources:\nqueue / conntrack / cpu contention" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "client", "target": "lb", "type": "smoothstep" },
+    { "id": "e2", "source": "lb", "target": "nodeport", "type": "smoothstep" },
+    { "id": "e3", "source": "nodeport", "target": "kube-proxy", "type": "smoothstep" },
+    { "id": "e4", "source": "kube-proxy", "target": "cni", "type": "smoothstep" },
+    { "id": "e5", "source": "cni", "target": "pod", "type": "smoothstep" },
+    { "id": "e6", "source": "pod", "target": "sidecar", "type": "smoothstep" },
+    { "id": "e7", "source": "sidecar", "target": "app", "type": "smoothstep" },
+    { "id": "e8", "source": "kube-proxy", "target": "jitter", "type": "smoothstep" }
+  ],
+  "viewport": { "x": -180, "y": -80, "zoom": 0.9 }
+}

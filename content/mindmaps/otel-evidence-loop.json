@@ -1,0 +1,25 @@
+{
+  "title": "OTel Evidence Loop",
+  "format": "reactflow",
+  "nodes": [
+    { "id": "slo", "position": { "x": 0, "y": 0 }, "data": { "label": "User SLO\n(P95 / Error rate)" } },
+    { "id": "root", "position": { "x": 260, "y": 0 }, "data": { "label": "Root span\n(route / tenant / model)" } },
+    { "id": "spans", "position": { "x": 520, "y": 0 }, "data": { "label": "Key spans\n(queue / infer / post)" } },
+    { "id": "attrs", "position": { "x": 780, "y": 0 }, "data": { "label": "Attributes\n(model.version / bucket)" } },
+    { "id": "release", "position": { "x": 1040, "y": 0 }, "data": { "label": "Release\n(commit / config)" } },
+    { "id": "compare", "position": { "x": 1300, "y": 0 }, "data": { "label": "Compare\n(before/after)" } },
+    { "id": "postmortem", "position": { "x": 780, "y": 170 }, "data": { "label": "Postmortem\n(action items)" } },
+    { "id": "fix", "position": { "x": 1040, "y": 170 }, "data": { "label": "Fix\n(prove it)" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "slo", "target": "root", "type": "smoothstep" },
+    { "id": "e2", "source": "root", "target": "spans", "type": "smoothstep" },
+    { "id": "e3", "source": "spans", "target": "attrs", "type": "smoothstep" },
+    { "id": "e4", "source": "attrs", "target": "release", "type": "smoothstep" },
+    { "id": "e5", "source": "release", "target": "compare", "type": "smoothstep" },
+    { "id": "e6", "source": "compare", "target": "postmortem", "type": "smoothstep" },
+    { "id": "e7", "source": "postmortem", "target": "fix", "type": "smoothstep" },
+    { "id": "e8", "source": "fix", "target": "release", "type": "smoothstep" }
+  ],
+  "viewport": { "x": -140, "y": -60, "zoom": 1 }
+}

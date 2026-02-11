@@ -1,0 +1,205 @@
+id: ai-infra-complex
+title: AI Infra (Complex)
+description: 一个更接近 roadmap.sh 复杂度的示例：从 Compute → Cluster → Serving → Observability → Data → Reliability。
+theme: violet
+nodes:
+  - id: compute
+    title: Compute & Accelerators
+    description: GPU/CPU 资源、驱动与性能边界。
+    children:
+      - id: gpu-basics
+        title: GPU Basics
+        description: SM/warp、HBM、PCIe/NVLink、吞吐 vs 延迟。
+      - id: cuda-runtime
+        title: CUDA Runtime
+        description: kernels、streams、memory model。
+        edges: [gpu-basics]
+      - id: cuda-profiling
+        title: Profiling & Debug
+        description: Nsight、torch profiler、算子热点归因。
+        edges: [cuda-runtime]
+      - id: gpu-virtualization
+        title: GPU Virtualization
+        description: MIG、vGPU、隔离与多租户。
+        edges: [gpu-basics]
+
+  - id: cluster
+    title: Cluster & Orchestration
+    description: 把算力变成可调度的“平台”。
+    children:
+      - id: linux-kernel
+        title: Linux Internals
+        children:
+          - id: cgroups
+            title: cgroups / namespaces
+            description: 资源隔离的基础。
+          - id: io-path
+            title: IO & Filesystems
+            description: NVMe、page cache、direct IO。
+          - id: numa
+            title: NUMA & Memory
+            description: locality、huge pages、allocator。
+      - id: networking
+        title: Networking
+        children:
+          - id: tcp-ip
+            title: TCP/IP & Congestion
+          - id: dns-sd
+            title: DNS & Service Discovery
+          - id: mtls
+            title: TLS / mTLS
+      - id: containers
+        title: Containers
+        children:
+          - id: oci
+            title: OCI Images
+          - id: container-runtime
+            title: containerd / runc
+            edges: [cgroups]
+          - id: supply-chain
+            title: Supply Chain
+            description: SBOM、签名、镜像扫描。
+            edges: [oci]
+      - id: kubernetes
+        title: Kubernetes
+        description: 把工作负载、网络与权限编排起来。
+        edges: [containers, networking]
+        children:
+          - id: k8s-core
+            title: Core Objects
+            description: pod/deploy/service/configmap/secret。
+          - id: k8s-net
+            title: Networking (CNI)
+            edges: [tcp-ip]
+          - id: k8s-storage
+            title: Storage (CSI)
+            edges: [io-path]
+          - id: k8s-rbac
+            title: RBAC & Policy
+          - id: k8s-autoscaling
+            title: Autoscaling
+            description: HPA/VPA/cluster autoscaler。
+      - id: gpu-scheduling
+        title: GPU Scheduling
+        description: device plugin、配额、抢占与碎片化。
+        edges: [kubernetes, gpu-virtualization]
+      - id: service-mesh
+        title: Service Mesh
+        description: traffic policy、mTLS、observability hooks。
+        edges: [kubernetes, mtls]
+
+  - id: serving
+    title: Model Serving
+    description: 推理链路的吞吐与可靠性。
+    children:
+      - id: request-shaping
+        title: Request Shaping
+        description: batching、rate limit、queue、priority。
+        edges: [gpu-scheduling]
+      - id: kv-cache
+        title: KV Cache Strategies
+        description: paging、prefix cache、eviction。
+      - id: serving-engine
+        title: Serving Engine (vLLM/TGI)
+        description: prefill/decode、tensor parallel、continuous batching。
+        edges: [request-shaping, kv-cache]
+      - id: model-routing
+        title: Model Routing
+        description: A/B、fallback、shadow、multi-model。
+        edges: [request-shaping]
+      - id: inference-optimization
+        title: Inference Optimization
+        description: quantization、speculative decoding、kernels。
+        edges: [cuda-profiling]
+      - id: canary-release
+        title: Canary & Rollback
+        description: safe deploy + fast revert。
+        edges: [model-routing]
+
+  - id: observability
+    title: Observability
+    description: 证据链：metrics/logs/traces/profiles。
+    children:
+      - id: telemetry-design
+        title: Telemetry Design
+        description: SLO、RED/USE、采样策略。
+      - id: metrics
+        title: Metrics
+        description: time series、cardinality、dashboards。
+        edges: [telemetry-design]
+      - id: logging
+        title: Logging
+        description: structure log、retention、成本。
+        edges: [telemetry-design]
+      - id: tracing
+        title: Tracing
+        description: spans、context、sampling。
+        edges: [telemetry-design]
+      - id: otel
+        title: OpenTelemetry
+        description: semantic conv、collector、pipelines。
+        edges: [metrics, logging, tracing]
+      - id: profiling
+        title: Profiling (CPU/GPU)
+        description: eBPF、flamegraph、kernel/user。
+        edges: [linux-kernel, cuda-profiling]
+      - id: incident-review
+        title: Incident Review
+        description: postmortem、blameless、action items。
+        edges: [otel]
+
+  - id: data
+    title: Data & Storage
+    description: 数据是模型的“燃料”。
+    children:
+      - id: object-storage
+        title: Object Storage
+        description: S3 API、throughput、consistency。
+      - id: lakehouse
+        title: Lakehouse
+        description: parquet/iceberg/delta。
+        edges: [object-storage]
+      - id: streaming
+        title: Streaming
+        description: Kafka/Pulsar、exactly-once tradeoffs。
+      - id: feature-store
+        title: Feature Store
+        description: offline/online、回放、版本。
+        edges: [streaming, lakehouse]
+      - id: vector-search
+        title: Vector Search
+        description: ANN、indexing、更新策略。
+        edges: [lakehouse]
+      - id: data-quality
+        title: Data Quality
+        description: tests、lineage、contracts。
+        edges: [lakehouse]
+
+  - id: reliability
+    title: Reliability & Security
+    description: 把“能跑”变成“可控地跑”。
+    children:
+      - id: slo
+        title: SLO & Error Budget
+        edges: [telemetry-design]
+      - id: load-testing
+        title: Load & Chaos Testing
+        edges: [slo]
+      - id: cicd
+        title: CI/CD
+        edges: [containers]
+      - id: secrets
+        title: Secrets Management
+        edges: [mtls]
+      - id: policy
+        title: Policy as Code
+        description: OPA/Gatekeeper、admission。
+        edges: [k8s-rbac]
+      - id: cost
+        title: Cost & FinOps
+        description: right-sizing、GPU utilization。
+        edges: [gpu-scheduling, metrics]
+      - id: governance
+        title: Governance
+        description: access review、audit trail。
+        edges: [policy, secrets]

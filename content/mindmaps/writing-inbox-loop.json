@@ -1,0 +1,21 @@
+{
+  "title": "Writing Inbox Loop",
+  "format": "reactflow",
+  "nodes": [
+    { "id": "capture", "position": { "x": 0, "y": 0 }, "data": { "label": "Capture\n(quick notes)" } },
+    { "id": "inbox", "position": { "x": 260, "y": 0 }, "data": { "label": "Inbox\n(no classification)" } },
+    { "id": "index", "position": { "x": 520, "y": 0 }, "data": { "label": "Index\n(Category + Roadmap)" } },
+    { "id": "reuse", "position": { "x": 780, "y": 0 }, "data": { "label": "Reuse\n(snippets → drafts)" } },
+    { "id": "publish", "position": { "x": 1040, "y": 0 }, "data": { "label": "Publish\n(shareable)" } },
+    { "id": "feedback", "position": { "x": 780, "y": 180 }, "data": { "label": "Feedback\n(readers / self-review)" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "capture", "target": "inbox", "type": "smoothstep" },
+    { "id": "e2", "source": "inbox", "target": "index", "type": "smoothstep" },
+    { "id": "e3", "source": "index", "target": "reuse", "type": "smoothstep" },
+    { "id": "e4", "source": "reuse", "target": "publish", "type": "smoothstep" },
+    { "id": "e5", "source": "publish", "target": "feedback", "type": "smoothstep" },
+    { "id": "e6", "source": "feedback", "target": "capture", "type": "smoothstep" }
+  ],
+  "viewport": { "x": -140, "y": -60, "zoom": 1 }
+}

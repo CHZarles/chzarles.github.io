@@ -189,6 +189,12 @@ body {
   border-bottom-color: hsl(var(--accent));
 }
 
+/* Tailwind typography adds backticks around inline code via ::before/::after. */
+.prose code::before,
+.prose code::after {
+  content: "" !important;
+}
+
 .prose code:not(.hb-inline-code) {
   background: hsl(var(--card2));
   border: 1px solid hsl(var(--border));

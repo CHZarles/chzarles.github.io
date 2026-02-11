@@ -4,6 +4,7 @@ import ReactFlow, {
   Background,
   BackgroundVariant,
   Controls,
+  MarkerType,
   MiniMap,
   addEdge,
   useEdgesState,
@@ -69,6 +70,7 @@ type MindNodeT = Node<MindNodeData>;
 type MindEdgeT = Edge;
 
 const NODE_TYPE = "mind";
+const DEFAULT_EDGE_OPTIONS = { markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 } } as const;
 
 function uid(prefix: string): string {
   const anyCrypto = globalThis.crypto as unknown as { randomUUID?: () => string } | undefined;
@@ -941,6 +943,7 @@ export function StudioMindmapsPage() {
             nodes={nodes}
             edges={edges}
             nodeTypes={{ [NODE_TYPE]: MindNode }}
+            defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
             onInit={(rf) => {
               rfRef.current = rf;
             }}

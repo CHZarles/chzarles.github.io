@@ -123,21 +123,21 @@ function CodeBlockCard(props: {
 
   return (
     <div className="not-prose my-7 overflow-hidden rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border-soft)] px-4 py-2">
-        <div className="min-w-0 truncate text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] uppercase text-[hsl(var(--muted))]">
+      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-3 py-1.5">
+        <div className="min-w-0 truncate font-mono text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] uppercase text-[hsl(var(--muted))]">
           {lang ? lang : "CODE"}
         </div>
         <button
           type="button"
           onClick={onCopy}
-          className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-2.5 py-1 text-[var(--text-xs)] font-medium text-[color-mix(in_oklab,hsl(var(--fg))_78%,hsl(var(--muted)))] transition hover:bg-[hsl(var(--card))] hover:text-[hsl(var(--fg))]"
+          className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[hsl(var(--card))] px-2 py-1 text-[var(--text-xs)] font-medium text-[color-mix(in_oklab,hsl(var(--fg))_78%,hsl(var(--muted)))] transition hover:border-[color:var(--border-hover)] hover:text-[hsl(var(--fg))]"
           aria-label="Copy code"
         >
-          <Copy className="h-3.5 w-3.5 opacity-70" />
+          <Copy className="h-3 w-3 opacity-70" />
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="m-0 overflow-x-auto p-4 text-[var(--text-sm)] leading-relaxed">
+      <pre className="m-0 overflow-x-auto p-3.5 text-[var(--text-sm)] leading-relaxed">
         <code className={["font-mono hljs", codeClassName].filter(Boolean).join(" ")}>
           {props.children ?? code}
         </code>

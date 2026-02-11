@@ -1,10 +1,10 @@
-# Hyperblog · Publisher Backend Contract v0 (Mode B / Token Auth)
+# Hyperblog · Publisher Backend Contract v0 (Mode B / GitHub OAuth + Bearer Token)
 
 目标：在**公开 GitHub 仓库**里直接写 `main` 分支（Notes / Mindmaps / Uploads），站点侧通过 CI/CD 自动构建发布；Publisher 后端只负责**鉴权 + 写入 + 原子提交**。
 
 本文件定义 v0 的后端契约：路由、请求/响应、文件路径、鉴权/CSRF、Git 提交流程、错误码，以及按当前 repo 的推荐模块拆分。
 
-> 你当前选择：**GitHub Pages 根域**（仓库为 `<user>.github.io`）作为公共站点；Publisher API 是独立域名（例如 Cloudflare Workers），因此 Admin 写入必须是**跨域**调用，本 v0 改为 **Bearer Token 鉴权**（不使用跨域 Cookie Session）。
+> 本方案：公开站点是 **GitHub Pages 根域**（仓库为 `<user>.github.io`）；Publisher API 是独立域名（例如 Cloudflare Workers）。因此 Admin 写入是**跨域**调用：登录用 GitHub OAuth，后续请求用 **Bearer Token 鉴权**（不使用跨域 Cookie Session）。
 
 ---
 
@@ -115,7 +115,7 @@ nodes:
 ### 3.1 GitHub OAuth（Authorization Code）
 
 GitHub OAuth App 设置：
-- Homepage URL：Publisher 的域名
+- Homepage URL：你的站点 URL（推荐 `https://<user>.github.io`；主要是展示用途）
 - Authorization callback URL：`{BASE_URL}/api/auth/github/callback`
 
 环境变量（v0）

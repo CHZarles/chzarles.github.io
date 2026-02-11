@@ -1,6 +1,15 @@
-# 配置文档 v0
+# 配置指南 v0（Profile / Hero）
 
 本项目是 **文件驱动**：`content/*` 是内容与配置的源（Source of Truth），开发时由 mock API 读取，构建时会被打包成 `dist/api/*.json` 给公开站点静态访问。
+
+如果你是第一次部署，建议先跑一次：
+
+```bash
+pnpm run init
+pnpm run doctor
+```
+
+它会帮你把 `content/profile.json` 与 `publisher/wrangler.toml` 填到可用默认值，并检查常见配置坑。
 
 ## `content/profile.json`
 
@@ -23,11 +32,25 @@
   - `label`：显示名（同时用于选择图标）
   - `href`：跳转链接
 
+### 最小示例（可直接起站）
+
+```json
+{
+  "name": "Your Name",
+  "handle": "@you",
+  "tagline": "AI Infra / Observability / Notes",
+  "accent": "270 85% 45%",
+  "nav": { "title": "BLOG" },
+  "hero": { "variant": "mimo", "spotlightRadiusPx": 220, "textScale": 1.1 },
+  "links": [{ "label": "GitHub", "href": "https://github.com/you" }]
+}
+```
+
 ### `hero`（首页封面）
 
 `hero` 只影响首页 `/` 的大封面区域（Hero）。
 
-字段总览见类型：`src/ui/types.ts:9`
+字段总览见：`src/ui/types.ts`
 
 基础文案（可选覆盖）：
 
@@ -50,7 +73,7 @@
 - `"mimo"`：MiMo 风格（纸感底 + 字纹背景 + 跟随鼠标的光圈反相）
 - `"image"`：图片封面（可调 blur/opacity/tint/wash 等）
 
-判定规则（代码：`src/ui/views/HomePage.tsx:51`）：
+判定规则（代码：`src/ui/views/HomePage.tsx`）：
 
 1. `variant === "mimo"` → 强制 MiMo
 2. 否则若 `imageUrl` 存在 → 图片封面

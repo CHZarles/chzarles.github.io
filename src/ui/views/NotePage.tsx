@@ -1,4 +1,4 @@
-import { Copy, Link2, X } from "lucide-react";
+import { Check, Copy, Link2, X } from "lucide-react";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import { Link, useParams } from "react-router-dom";
@@ -123,20 +123,18 @@ function CodeBlockCard(props: {
 
   return (
     <div className="not-prose my-7 overflow-hidden rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border-soft)] px-3 py-1.5">
-        <div className="min-w-0">
-          <div className="inline-flex min-w-0 items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-2 py-0.5 font-mono text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] uppercase text-[color-mix(in_oklab,hsl(var(--fg))_52%,hsl(var(--muted)))]">
-            {lang ? lang : "CODE"}
-          </div>
+      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-3 py-1.5">
+        <div className="min-w-0 truncate font-mono text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] uppercase text-[hsl(var(--muted))]">
+          {lang ? lang : "CODE"}
         </div>
         <button
           type="button"
           onClick={onCopy}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--border-soft)] bg-transparent px-2 py-0.5 font-mono text-[var(--text-kicker)] font-semibold tracking-[0.14em] uppercase text-[color-mix(in_oklab,hsl(var(--fg))_52%,hsl(var(--muted)))] transition hover:border-[color:var(--border-hover)] hover:bg-[var(--surface-glass)] hover:text-[hsl(var(--fg))]"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[hsl(var(--muted))] transition hover:bg-[var(--surface-muted-weak)] hover:text-[hsl(var(--fg))]"
           aria-label="Copy code"
+          title={copied ? "Copied" : "Copy"}
         >
-          <Copy className="h-3 w-3 opacity-70" />
-          {copied ? "Copied" : "Copy"}
+          {copied ? <Check className="h-3.5 w-3.5 opacity-85" /> : <Copy className="h-3.5 w-3.5 opacity-70" />}
         </button>
       </div>
       <pre className="m-0 overflow-x-auto p-3.5 text-[var(--text-sm)] leading-relaxed">

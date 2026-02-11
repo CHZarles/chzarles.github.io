@@ -1,5 +1,14 @@
 [
   {
+    "id": "hyperblog",
+    "name": "Hyperblog",
+    "description": "Roadmap-as-File + Studio 发布链路：公开站纯静态（GitHub Pages），写作台通过 Cloudflare Workers commit 回 GitHub main。",
+    "repoUrl": "https://github.com/chzarles/chzarles.github.io",
+    "homepage": "https://chzarles.github.io",
+    "stack": ["Vite", "React", "Tailwind", "Cloudflare Workers"],
+    "highlights": ["Roadmap-as-File (YAML)", "Studio 本地草稿 + 一键 Publish", "构建期生成静态 API（dist/api/*.json）"]
+  },
+  {
     "id": "algo-problem",
     "name": "AlgoWorkSpace",
     "description": "收集题面、笔记与题解沉淀、题集计划、间隔复习、统计热力图。",

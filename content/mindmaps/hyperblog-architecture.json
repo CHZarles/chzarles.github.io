@@ -1,0 +1,35 @@
+{
+  "title": "Hyperblog Architecture",
+  "format": "reactflow",
+  "nodes": [
+    { "id": "content", "position": { "x": 0, "y": 0 }, "data": { "label": "content/*\n(notes / roadmaps / mindmaps / profile)" } },
+    { "id": "mock", "position": { "x": 320, "y": -120 }, "data": { "label": "Mock API\n(/api/*)" } },
+    { "id": "public-dev", "position": { "x": 650, "y": -120 }, "data": { "label": "Public Site (dev)\nVite + HMR" } },
+    { "id": "build", "position": { "x": 320, "y": 120 }, "data": { "label": "Build\nvite build + postbuild.ts" } },
+    { "id": "dist-api", "position": { "x": 650, "y": 120 }, "data": { "label": "dist/api/*.json\n(static API)" } },
+    { "id": "pages", "position": { "x": 980, "y": 120 }, "data": { "label": "GitHub Pages\n(static hosting)" } },
+
+    { "id": "studio", "position": { "x": 0, "y": 320 }, "data": { "label": "Studio\n(/studio/*)" } },
+    { "id": "publisher", "position": { "x": 320, "y": 320 }, "data": { "label": "Publisher API\nCloudflare Workers + Hono" } },
+    { "id": "github", "position": { "x": 650, "y": 320 }, "data": { "label": "GitHub Repo\n(main)" } },
+    { "id": "actions", "position": { "x": 980, "y": 320 }, "data": { "label": "GitHub Actions\nbuild + deploy Pages" } },
+    { "id": "uploads", "position": { "x": 650, "y": 500 }, "data": { "label": "public/uploads\n(assets)" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "content", "target": "mock", "type": "smoothstep" },
+    { "id": "e2", "source": "mock", "target": "public-dev", "type": "smoothstep" },
+
+    { "id": "e3", "source": "content", "target": "build", "type": "smoothstep" },
+    { "id": "e4", "source": "build", "target": "dist-api", "type": "smoothstep" },
+    { "id": "e5", "source": "dist-api", "target": "pages", "type": "smoothstep" },
+
+    { "id": "e6", "source": "studio", "target": "publisher", "type": "smoothstep" },
+    { "id": "e7", "source": "publisher", "target": "github", "type": "smoothstep" },
+    { "id": "e8", "source": "github", "target": "actions", "type": "smoothstep" },
+    { "id": "e9", "source": "actions", "target": "pages", "type": "smoothstep" },
+
+    { "id": "e10", "source": "github", "target": "uploads", "type": "smoothstep" },
+    { "id": "e11", "source": "uploads", "target": "pages", "type": "smoothstep" }
+  ],
+  "viewport": { "x": -120, "y": -120, "zoom": 0.95 }
+}

@@ -64,7 +64,7 @@ export function TopNav() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="group inline-flex items-center rounded-xl px-2 py-1 text-left transition hover:bg-[hsl(var(--card2))]"
+            className="group inline-flex items-center rounded-xl px-2 py-1 text-left transition"
           >
             <span className="text-sm font-sans font-bold leading-none tracking-[0.02em]">{navTitle}</span>
           </button>

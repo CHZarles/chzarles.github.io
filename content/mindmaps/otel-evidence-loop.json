@@ -1,25 +1,170 @@
 {
+  "id": "otel-evidence-loop",
   "title": "OTel Evidence Loop",
+  "updated": "2026-02-11T04:27:23.078Z",
   "format": "reactflow",
   "nodes": [
-    { "id": "slo", "position": { "x": 0, "y": 0 }, "data": { "label": "User SLO\n(P95 / Error rate)" } },
-    { "id": "root", "position": { "x": 260, "y": 0 }, "data": { "label": "Root span\n(route / tenant / model)" } },
-    { "id": "spans", "position": { "x": 520, "y": 0 }, "data": { "label": "Key spans\n(queue / infer / post)" } },
-    { "id": "attrs", "position": { "x": 780, "y": 0 }, "data": { "label": "Attributes\n(model.version / bucket)" } },
-    { "id": "release", "position": { "x": 1040, "y": 0 }, "data": { "label": "Release\n(commit / config)" } },
-    { "id": "compare", "position": { "x": 1300, "y": 0 }, "data": { "label": "Compare\n(before/after)" } },
-    { "id": "postmortem", "position": { "x": 780, "y": 170 }, "data": { "label": "Postmortem\n(action items)" } },
-    { "id": "fix", "position": { "x": 1040, "y": 170 }, "data": { "label": "Fix\n(prove it)" } }
+    {
+      "id": "slo",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "User SLO\n(P95 / Error rate)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "root",
+      "position": {
+        "x": 260,
+        "y": 0
+      },
+      "data": {
+        "label": "Root span\n(route / tenant / model)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "spans",
+      "position": {
+        "x": 520,
+        "y": 0
+      },
+      "data": {
+        "label": "Key spans\n(queue / infer / post)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "attrs",
+      "position": {
+        "x": 780,
+        "y": 0
+      },
+      "data": {
+        "label": "Attributes\n(model.version / bucket)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "release",
+      "position": {
+        "x": 1040,
+        "y": 0
+      },
+      "data": {
+        "label": "Release\n(commit / config)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "compare",
+      "position": {
+        "x": 1300,
+        "y": 0
+      },
+      "data": {
+        "label": "Compare\n(before/after)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "postmortem",
+      "position": {
+        "x": 780,
+        "y": 170
+      },
+      "data": {
+        "label": "Postmortem\n(action items)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "fix",
+      "position": {
+        "x": 1040,
+        "y": 170
+      },
+      "data": {
+        "label": "Fix\n(prove it)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "n-bc5179e8-0585-4e81-8f22-90cf3e72875e",
+      "type": "mind",
+      "position": {
+        "x": 308,
+        "y": 210
+      },
+      "data": {
+        "label": "test"
+      }
+    }
   ],
   "edges": [
-    { "id": "e1", "source": "slo", "target": "root", "type": "smoothstep" },
-    { "id": "e2", "source": "root", "target": "spans", "type": "smoothstep" },
-    { "id": "e3", "source": "spans", "target": "attrs", "type": "smoothstep" },
-    { "id": "e4", "source": "attrs", "target": "release", "type": "smoothstep" },
-    { "id": "e5", "source": "release", "target": "compare", "type": "smoothstep" },
-    { "id": "e6", "source": "compare", "target": "postmortem", "type": "smoothstep" },
-    { "id": "e7", "source": "postmortem", "target": "fix", "type": "smoothstep" },
-    { "id": "e8", "source": "fix", "target": "release", "type": "smoothstep" }
+    {
+      "id": "e1",
+      "source": "slo",
+      "target": "root",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e2",
+      "source": "root",
+      "target": "spans",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e3",
+      "source": "spans",
+      "target": "attrs",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e4",
+      "source": "attrs",
+      "target": "release",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e5",
+      "source": "release",
+      "target": "compare",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e6",
+      "source": "compare",
+      "target": "postmortem",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e7",
+      "source": "postmortem",
+      "target": "fix",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e8",
+      "source": "fix",
+      "target": "release",
+      "type": "smoothstep"
+    },
+    {
+      "source": "n-bc5179e8-0585-4e81-8f22-90cf3e72875e",
+      "sourceHandle": null,
+      "target": "postmortem",
+      "targetHandle": null,
+      "type": "smoothstep",
+      "id": "reactflow__edge-n-bc5179e8-0585-4e81-8f22-90cf3e72875e-postmortem"
+    }
   ],
-  "viewport": { "x": -140, "y": -60, "zoom": 1 }
+  "viewport": {
+    "x": 574.2669418211713,
+    "y": 381.82170563179625,
+    "zoom": 1.148698354997035
+  }
 }

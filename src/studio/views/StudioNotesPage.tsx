@@ -18,6 +18,7 @@ import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import type { Category, MindmapListItem, RoadmapNodeEntry } from "../../ui/types";
+import { normalizeMathDelimiters } from "../../ui/markdown/normalizeMathDelimiters";
 import { useStudioState } from "../state/StudioState";
 import { emitWorkspaceChanged } from "../state/StudioWorkspace";
 import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
@@ -1216,8 +1217,11 @@ export function StudioNotesPage() {
           {viewMode !== "edit" ? (
             <div className="min-h-0 overflow-auto bg-[hsl(var(--card))] px-4 py-4">
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {editor.content || ""}
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
+                >
+                  {normalizeMathDelimiters(editor.content || "")}
                 </ReactMarkdown>
               </div>
             </div>

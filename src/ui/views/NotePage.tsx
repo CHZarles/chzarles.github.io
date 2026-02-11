@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { api } from "../api/api";
 import { Chip } from "../components/Chip";
+import { normalizeMathDelimiters } from "../markdown/normalizeMathDelimiters";
 import { useAppState } from "../state/AppState";
 import type { Note, NoteListItem } from "../types";
 
@@ -448,6 +449,8 @@ export function NotePage() {
     );
   }
 
+  const markdown = normalizeMathDelimiters(note.content);
+
   return (
     <article className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-12">
       {lightbox ? <Lightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} /> : null}
@@ -515,7 +518,7 @@ export function NotePage() {
               rehypePlugins={[rehypeKatex, [rehypeHighlight, { detect: false }]]}
               components={markdownComponents}
             >
-              {note.content}
+              {markdown}
             </ReactMarkdown>
           </div>
 

@@ -613,20 +613,28 @@ export function NotePage() {
       {toc.items.length ? (
         <aside className="hidden lg:block">
           <div className="sticky top-24">
-            <div className="rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] p-5">
-              <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">ON THIS PAGE</div>
-              <nav className="mt-3 border-l border-[color:var(--border-soft)] pl-3">
+            <div className="rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-glass)] p-4 shadow-[0_18px_50px_rgba(0,0,0,.06)]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
+                  CONTENTS
+                </div>
+                <div className="font-mono text-[var(--text-kicker)] text-[hsl(var(--muted))]">
+                  {toc.items.length}
+                </div>
+              </div>
+              <nav className="relative mt-3 max-h-[calc(100vh-170px)] overflow-auto pl-5 pr-1 [-webkit-overflow-scrolling:touch] before:pointer-events-none before:absolute before:inset-y-2 before:left-2.5 before:w-px before:bg-[linear-gradient(180deg,transparent,color-mix(in_oklab,hsl(var(--border))_75%,transparent),transparent)]">
                 {toc.items.map((t) => (
                   <a
                     key={t.id}
                     href={`#${t.id}`}
                     className={[
-                      "block rounded-lg px-2 py-1.5 text-sm transition",
+                      "relative block rounded-lg py-1.5 pl-3 pr-2 text-[13px] leading-snug transition",
+                      "before:absolute before:left-[0.5px] before:top-[0.85em] before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full before:border before:border-[color:var(--border-soft)] before:bg-[var(--surface-glass)]",
                       activeHeadingId === t.id
-                        ? "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)] text-[hsl(var(--fg))]"
-                        : "text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]",
+                        ? "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)] text-[hsl(var(--fg))] before:border-[hsl(var(--accent))] before:bg-[hsl(var(--accent))]"
+                        : "text-[hsl(var(--muted))] hover:bg-[var(--surface-muted-weak)] hover:text-[hsl(var(--fg))] hover:before:border-[color:var(--border-hover)]",
                     ].join(" ")}
-                    style={{ marginLeft: `${Math.max(0, t.depth - toc.baseDepth) * 10}px` }}
+                    style={{ marginLeft: `${Math.max(0, t.depth - toc.baseDepth) * 8}px` }}
                   >
                     {t.text}
                   </a>

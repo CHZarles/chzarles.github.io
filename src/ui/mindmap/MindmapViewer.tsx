@@ -1,5 +1,15 @@
 import React from "react";
-import ReactFlow, { Background, BackgroundVariant, Controls, MiniMap, type Edge, type Node, type ReactFlowInstance, type Viewport } from "reactflow";
+import ReactFlow, {
+  Background,
+  BackgroundVariant,
+  Controls,
+  MarkerType,
+  MiniMap,
+  type Edge,
+  type Node,
+  type ReactFlowInstance,
+  type Viewport,
+} from "reactflow";
 import "reactflow/dist/style.css";
 import { MindNode, type MindNodeData } from "../../studio/mindmap/MindNode";
 import type { Mindmap } from "../types";
@@ -8,6 +18,9 @@ type MindNodeT = Node<MindNodeData>;
 type MindEdgeT = Edge;
 
 const NODE_TYPE = "mind";
+const DEFAULT_EDGE_COLOR = "color-mix(in oklab, hsl(var(--border)) 45%, hsl(var(--muted)))";
+const DEFAULT_EDGE_STYLE = { stroke: DEFAULT_EDGE_COLOR, strokeWidth: 1.25 } as const;
+const DEFAULT_MARKER_END = { type: MarkerType.ArrowClosed, width: 14, height: 14 } as const;
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
@@ -57,12 +70,28 @@ function normalizeEdges(raw: unknown[] | undefined): MindEdgeT[] {
     const source = typeof r.source === "string" && r.source.trim() ? r.source : null;
     const target = typeof r.target === "string" && r.target.trim() ? r.target : null;
     if (!id || !source || !target) continue;
+
+    const markerEndRaw = (r as any).markerEnd as unknown;
+    const markerEnd =
+      markerEndRaw === null
+        ? undefined
+        : typeof markerEndRaw === "string" && (markerEndRaw === "arrow" || markerEndRaw === "arrowclosed")
+          ? ({ type: markerEndRaw as MarkerType } as const)
+          : asRecord(markerEndRaw)
+            ? (markerEndRaw as any)
+            : DEFAULT_MARKER_END;
+
+    const styleRaw = asRecord((r as any).style);
+    const style = styleRaw ? ({ ...DEFAULT_EDGE_STYLE, ...(styleRaw as any) } as any) : (DEFAULT_EDGE_STYLE as any);
+
     out.push({
       ...(r as any),
       id,
       source,
       target,
       type: typeof r.type === "string" ? (r.type as any) : "smoothstep",
+      style,
+      markerEnd,
     } as MindEdgeT);
   }
   return out;
@@ -95,6 +124,7 @@ export function MindmapViewer(props: { mindmap: Mindmap }) {
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
+        defaultMarkerColor={DEFAULT_EDGE_COLOR}
         zoomOnDoubleClick={false}
         fitView
         defaultViewport={viewport}
@@ -111,7 +141,10 @@ export function MindmapViewer(props: { mindmap: Mindmap }) {
           nodeColor={() => "hsl(var(--card2))"}
           maskColor="rgba(0,0,0,0.08)"
         />
-        <Controls className="!m-3 !rounded-2xl !border !border-[hsl(var(--border))] !bg-[hsl(var(--card))]" />
+        <Controls
+          showInteractive={false}
+          className="!m-3 !rounded-2xl !border !border-[hsl(var(--border))] !bg-[hsl(var(--card))]"
+        />
       </ReactFlow>
     </div>
   );

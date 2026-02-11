@@ -614,12 +614,9 @@ export function NotePage() {
         <aside className="hidden lg:block">
           <div className="sticky top-24">
             <div className="rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-glass)] p-4 shadow-[0_18px_50px_rgba(0,0,0,.06)]">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
                 <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
                   CONTENTS
-                </div>
-                <div className="font-mono text-[var(--text-kicker)] text-[hsl(var(--muted))]">
-                  {toc.items.length}
                 </div>
               </div>
               <nav className="relative mt-3 max-h-[calc(100vh-170px)] overflow-auto pl-5 pr-1 [-webkit-overflow-scrolling:touch] before:pointer-events-none before:absolute before:inset-y-2 before:left-2.5 before:w-px before:bg-[linear-gradient(180deg,transparent,color-mix(in_oklab,hsl(var(--border))_75%,transparent),transparent)]">

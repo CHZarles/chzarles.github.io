@@ -19,7 +19,7 @@
   - （已移除）`nav.tagline`：旧版左上角第二行文案；当前不会渲染，建议删除
 - `accent`：强调色（HSL 三段字符串，如 `"270 85% 45%"`），用于 UI 的 `--accent`
 - `publisherBaseUrl`：Publisher API Base URL（例如 `https://<worker>.workers.dev`）
-- `links[]`：社交/外链按钮（显示在顶部导航右侧；会自动图标化 GitHub/X）
+- `links[]`：社交/外链按钮（显示在顶部导航右侧；会自动图标化 GitHub，其它站点使用通用链接图标）
   - `label`：显示名（同时用于选择图标）
   - `href`：跳转链接
 

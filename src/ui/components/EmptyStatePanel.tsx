@@ -8,11 +8,11 @@ export function EmptyStatePanel(props: {
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_75%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card))_35%,transparent)] p-6 md:p-7">
+    <div className="rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] p-6 md:p-7">
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card))_60%,transparent)] text-[hsl(var(--fg))]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-glass)] text-[hsl(var(--fg))]">
               {props.icon}
             </span>
             <div className="min-w-0">

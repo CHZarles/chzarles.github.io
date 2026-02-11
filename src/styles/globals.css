@@ -4,6 +4,24 @@
 
 :root {
   color-scheme: light;
+  /* Type system */
+  --font-sans: "MiSans", "MiSans VF", "HarmonyOS Sans SC", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
+    "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: "Noto Serif SC", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun",
+    ui-serif, Georgia, Cambria, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --text-base: 15px;
+  --text-sm: 13px;
+  --text-xs: 11px;
+  --text-kicker: 10px;
+  --leading-base: 1.75;
+  --leading-tight: 1.12;
+  --tracking-tight: -0.02em;
+  --tracking-wide: 0.18em;
+  --tracking-kicker: 0.22em;
+
   /* Editorial / paper theme */
   --bg: 42 33% 98%;
   --fg: 240 12% 10%;
@@ -13,25 +31,56 @@
   --border: 240 8% 88%;
   --accent: 270 85% 45%;
 
+  --radius-card: 16px;
+  --radius-control: 999px;
+  --border-soft: color-mix(in oklab, hsl(var(--border)) 72%, transparent);
+  --border-hover: color-mix(in oklab, hsl(var(--accent)) 22%, hsl(var(--border)));
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.38) inset, 0 18px 50px rgba(0, 0, 0, 0.06);
+  --shadow-float: 0 26px 90px rgba(0, 0, 0, 0.24);
+  --bg-grad-to: color-mix(in oklab, hsl(var(--bg)) 92%, white);
+  --surface-glass: color-mix(in oklab, hsl(var(--card)) 72%, transparent);
+  --surface-muted: color-mix(in oklab, hsl(var(--card2)) 60%, transparent);
+  --surface-muted-strong: color-mix(in oklab, hsl(var(--card2)) 76%, transparent);
+  --surface-muted-weak: color-mix(in oklab, hsl(var(--card2)) 55%, transparent);
+
   /* Hero cover (requested: light -> white text, dark -> black text) */
   --hero-fg: 0 0% 100%;
   --hero-muted: 0 0% 100%;
   --hero-shadow: rgba(0, 0, 0, 0.32);
+
+  /* Syntax highlight (rehype-highlight / highlight.js classes) */
+  --code-fg: color-mix(in oklab, hsl(var(--fg)) 92%, hsl(var(--muted)));
+  --code-muted: color-mix(in oklab, hsl(var(--muted)) 82%, hsl(var(--fg)) 18%);
+  --code-keyword: color-mix(in oklab, hsl(var(--accent)) 72%, hsl(var(--fg)));
+  --code-string: color-mix(in oklab, hsl(var(--accent)) 40%, hsl(var(--fg)));
+  --code-number: color-mix(in oklab, hsl(var(--accent)) 54%, hsl(var(--fg)));
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: 240 10% 6%;
+  --bg: 240 10% 7%;
   --fg: 0 0% 98%;
-  --muted: 240 5% 65%;
-  --card: 240 7% 10%;
-  --card2: 240 7% 12%;
-  --border: 240 8% 18%;
+  --muted: 240 6% 67%;
+  --card: 240 7% 11%;
+  --card2: 240 7% 13%;
+  --border: 240 8% 22%;
   --accent: 270 95% 65%;
 
   --hero-fg: 240 12% 10%;
   --hero-muted: 240 8% 22%;
   --hero-shadow: rgba(0, 0, 0, 0.14);
+
+  --border-soft: color-mix(in oklab, hsl(var(--border)) 72%, transparent);
+  --border-hover: color-mix(in oklab, hsl(var(--accent)) 22%, hsl(var(--border)));
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 22px 70px rgba(0, 0, 0, 0.22);
+  --shadow-float: 0 40px 120px rgba(0, 0, 0, 0.46);
+  --bg-grad-to: color-mix(in oklab, hsl(var(--bg)) 92%, black);
+
+  --code-fg: color-mix(in oklab, hsl(var(--fg)) 92%, hsl(var(--muted)));
+  --code-muted: color-mix(in oklab, hsl(var(--muted)) 78%, hsl(var(--fg)) 22%);
+  --code-keyword: color-mix(in oklab, hsl(var(--accent)) 64%, hsl(var(--fg)));
+  --code-string: color-mix(in oklab, hsl(var(--accent)) 34%, hsl(var(--fg)));
+  --code-number: color-mix(in oklab, hsl(var(--accent)) 46%, hsl(var(--fg)));
 }
 
 html,
@@ -49,18 +98,10 @@ body {
 
 body {
   margin: 0;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    "PingFang SC",
-    "Hiragino Sans GB",
-    "Noto Sans CJK SC",
-    "Microsoft YaHei",
-    sans-serif;
-  background: linear-gradient(180deg, hsl(var(--bg)), color-mix(in oklab, hsl(var(--bg)) 92%, white));
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  background: linear-gradient(180deg, hsl(var(--bg)), var(--bg-grad-to));
   color: hsl(var(--fg));
 }
 
@@ -93,16 +134,17 @@ body {
 
 .card {
   background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .card:hover {
-  border-color: color-mix(in oklab, hsl(var(--accent)) 22%, hsl(var(--border)));
+  border-color: var(--border-hover);
 }
 
 .hairline {
-  border-top: 1px solid hsl(var(--border));
+  border-top: 1px solid var(--border-soft);
 }
 
 .hero-ink {
@@ -158,6 +200,46 @@ body {
   background: transparent;
   border: 0;
   padding: 0;
+}
+
+.hljs {
+  color: var(--code-fg);
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--code-muted);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-built_in,
+.hljs-type {
+  color: var(--code-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-symbol {
+  color: var(--code-string);
+}
+
+.hljs-number,
+.hljs-bullet {
+  color: var(--code-number);
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-function,
+.hljs-attr,
+.hljs-attribute,
+.hljs-property,
+.hljs-tag,
+.hljs-name {
+  color: color-mix(in oklab, var(--code-fg) 88%, hsl(var(--muted)));
 }
 
 @keyframes hb-mimo-drift {

@@ -89,7 +89,7 @@ export function ProjectsPage() {
                 target={href ? "_blank" : undefined}
                 rel={href ? "noreferrer" : undefined}
                 className={[
-                  "group block overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] transition",
+                  "group card block overflow-hidden transition",
                   href ? "hover:bg-[hsl(var(--card2))]" : "cursor-not-allowed opacity-60",
                 ].join(" ")}
                 aria-disabled={!href}
@@ -98,7 +98,7 @@ export function ProjectsPage() {
                   e.preventDefault();
                 }}
               >
-                <div className="flex items-center justify-between gap-3 border-b border-[hsl(var(--border))] bg-[color-mix(in_oklab,hsl(var(--card2))_70%,transparent)] px-5 py-3">
+                <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border-soft)] bg-[var(--surface-muted)] px-5 py-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex items-center gap-1">
                       <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,red_55%,transparent)]" aria-hidden="true" />

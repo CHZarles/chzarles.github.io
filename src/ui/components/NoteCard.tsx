@@ -25,11 +25,11 @@ export function NoteCard(props: { note: NoteListItem }) {
   return (
     <Link
       to={`/notes/${n.id}`}
-      className="group block rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 transition-colors hover:bg-[hsl(var(--card2))]"
+      className="group card block p-5 transition-colors hover:bg-[hsl(var(--card2))]"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 text-xs text-[hsl(var(--muted))]">
-          <span className="tracking-[0.18em] uppercase">Updated</span>
+          <span className="tracking-[var(--tracking-wide)] uppercase">Updated</span>
           <span className="ml-2">{fmtDate(n.updated)}</span>
         </div>
         <ArrowUpRight className="h-4 w-4 shrink-0 opacity-35 transition group-hover:opacity-70" />

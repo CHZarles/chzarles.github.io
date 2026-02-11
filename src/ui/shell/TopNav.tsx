@@ -1,4 +1,4 @@
-import { Github, Link2, Search, X } from "lucide-react";
+import { Github, Link2, Search } from "lucide-react";
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { api } from "../api/api";
@@ -43,7 +43,6 @@ export function TopNav() {
     const label = link.label.trim().toLowerCase();
     const href = link.href.trim().toLowerCase();
     if (label.includes("github") || href.includes("github.com")) return Github;
-    if (label === "x" || label.includes("twitter") || href.includes("x.com") || href.includes("twitter.com")) return X;
     return Link2;
   }
 

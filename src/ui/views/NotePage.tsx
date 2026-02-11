@@ -2,6 +2,7 @@ import { Copy, Link2, X } from "lucide-react";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import { Link, useParams } from "react-router-dom";
+import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { api } from "../api/api";
 import { Chip } from "../components/Chip";
@@ -100,9 +101,15 @@ async function tryCopy(text: string): Promise<boolean> {
   }
 }
 
-function CodeBlockCard(props: { code: string; lang?: string | null }) {
+function CodeBlockCard(props: {
+  code: string;
+  lang?: string | null;
+  codeClassName?: string;
+  children?: React.ReactNode;
+}) {
   const code = props.code.replace(/\n$/, "");
   const lang = (props.lang ?? "").trim();
+  const codeClassName = String(props.codeClassName ?? "").trim();
   const [copied, setCopied] = React.useState(false);
 
   const onCopy = React.useCallback(() => {
@@ -115,23 +122,25 @@ function CodeBlockCard(props: { code: string; lang?: string | null }) {
   }, [code]);
 
   return (
-    <div className="not-prose my-7 overflow-hidden rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_75%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_70%,transparent)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[color-mix(in_oklab,hsl(var(--border))_75%,transparent)] px-4 py-2.5">
-        <div className="min-w-0 truncate text-[10px] font-semibold tracking-[0.22em] uppercase text-[hsl(var(--muted))]">
+    <div className="not-prose my-7 overflow-hidden rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border-soft)] px-4 py-2.5">
+        <div className="min-w-0 truncate text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] uppercase text-[hsl(var(--muted))]">
           {lang ? lang : "CODE"}
         </div>
         <button
           type="button"
           onClick={onCopy}
-          className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--border))_75%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card))_70%,transparent)] px-3 py-1.5 text-[11px] font-medium text-[color-mix(in_oklab,hsl(var(--fg))_78%,hsl(var(--muted)))] transition hover:bg-[hsl(var(--card))] hover:text-[hsl(var(--fg))]"
+          className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-3 py-1.5 text-[var(--text-xs)] font-medium text-[color-mix(in_oklab,hsl(var(--fg))_78%,hsl(var(--muted)))] transition hover:bg-[hsl(var(--card))] hover:text-[hsl(var(--fg))]"
           aria-label="Copy code"
         >
           <Copy className="h-3.5 w-3.5 opacity-70" />
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="m-0 overflow-x-auto p-4 text-[13px] leading-relaxed text-[hsl(var(--fg))]">
-        <code className="font-mono">{code}</code>
+      <pre className="m-0 overflow-x-auto p-4 text-[var(--text-sm)] leading-relaxed">
+        <code className={["font-mono hljs", codeClassName].filter(Boolean).join(" ")}>
+          {props.children ?? code}
+        </code>
       </pre>
     </div>
   );
@@ -166,13 +175,13 @@ function Lightbox(props: { src: string; alt?: string; onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color-mix(in_oklab,hsl(var(--border))_65%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card))_72%,transparent)] text-[hsl(var(--fg))] shadow-[0_18px_50px_rgba(0,0,0,.16)] transition hover:bg-[hsl(var(--card))]"
+          className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] text-[hsl(var(--fg))] shadow-[0_18px_50px_rgba(0,0,0,.16)] transition hover:bg-[hsl(var(--card))]"
           aria-label="Close"
         >
           <X className="h-5 w-5 opacity-85" />
         </button>
 
-        <div className="overflow-hidden rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_65%,transparent)] bg-[hsl(var(--bg))] shadow-[0_26px_90px_rgba(0,0,0,.24)]">
+        <div className="overflow-hidden rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[hsl(var(--bg))] shadow-[var(--shadow-float)]">
           <img
             src={src}
             alt={alt ?? ""}
@@ -322,14 +331,19 @@ export function NotePage() {
         const nodes = Array.isArray(children) ? children : [children];
         const codeEl = nodes.find((n) => React.isValidElement(n)) as React.ReactElement | undefined;
         const className = (codeEl?.props as { className?: string } | undefined)?.className ?? "";
-        const raw = codeEl ? extractText((codeEl.props as { children?: React.ReactNode }).children) : extractText(children);
+        const codeChildren = codeEl ? (codeEl.props as { children?: React.ReactNode }).children : children;
+        const raw = extractText(codeChildren);
         const lang = String(className).match(/language-([a-z0-9_-]+)/i)?.[1]?.toUpperCase() ?? null;
-        return <CodeBlockCard code={raw} lang={lang} />;
+        return (
+          <CodeBlockCard code={raw} lang={lang} codeClassName={className}>
+            {codeChildren}
+          </CodeBlockCard>
+        );
       },
       code: function CodeRenderer(props: { inline?: boolean; className?: string; children?: React.ReactNode }) {
         if (props.inline) {
           return (
-            <code className="hb-inline-code rounded-md border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_70%,transparent)] px-1.5 py-0.5 font-mono text-[0.92em]">
+            <code className="hb-inline-code rounded-md border border-[color:var(--border-soft)] bg-[var(--surface-muted)] px-1.5 py-0.5 font-mono text-[0.92em]">
               {props.children}
             </code>
           );
@@ -345,7 +359,7 @@ export function NotePage() {
             <button
               type="button"
               onClick={() => setLightbox({ src, alt })}
-              className="group block w-full overflow-hidden rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_60%,transparent)] p-0 text-left transition hover:border-[color-mix(in_oklab,hsl(var(--fg))_18%,hsl(var(--border)))]"
+              className="group block w-full overflow-hidden rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] p-0 text-left transition hover:border-[color:var(--border-hover)] hover:bg-[var(--surface-muted-strong)]"
             >
               <img
                 src={src}
@@ -438,10 +452,10 @@ export function NotePage() {
       <div className="min-w-0">
         <header className="mx-auto mt-6 max-w-[92ch]">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <div className="text-xs uppercase tracking-[0.22em] text-[hsl(var(--muted))]">Note</div>
+            <div className="text-[var(--text-kicker)] uppercase tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">Note</div>
             <div className="text-xs text-[hsl(var(--muted))]">Updated · {fmtDate(note.updated)}</div>
           </div>
-          <h1 className="mt-3 font-serif text-4xl font-semibold leading-[1.07] tracking-tight md:text-5xl">
+          <h1 className="mt-3 font-serif text-4xl font-semibold leading-[1.07] tracking-[var(--tracking-tight)] md:text-5xl">
             {note.title}
           </h1>
           {note.excerpt ? <p className="mt-4 text-base leading-relaxed text-[hsl(var(--muted))] md:text-lg">{note.excerpt}</p> : null}
@@ -471,7 +485,7 @@ export function NotePage() {
               <summary className="cursor-pointer text-xs font-medium tracking-wide text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]">
                 On this page
               </summary>
-              <nav className="mt-3 border-l border-[hsl(var(--border))] pl-3">
+              <nav className="mt-3 border-l border-[color:var(--border-soft)] pl-3">
                 {toc.items.map((t) => (
                   <a
                     key={t.id}
@@ -492,22 +506,22 @@ export function NotePage() {
           ) : null}
         </header>
 
-        <div ref={contentRef} className="mx-auto mt-10 max-w-[92ch] border-t border-[hsl(var(--border))] pt-8">
+        <div ref={contentRef} className="mx-auto mt-10 max-w-[92ch]">
           <div className="prose prose-lg max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-h1:text-2xl md:prose-h1:text-3xl prose-h2:text-xl md:prose-h2:text-2xl prose-h3:text-lg md:prose-h3:text-xl prose-p:leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeHighlight, { detect: false }]]} components={markdownComponents}>
               {note.content}
             </ReactMarkdown>
           </div>
 
           {note.mindmaps.length ? (
-            <section className="mt-12 border-t border-[hsl(var(--border))] pt-8">
-              <div className="text-xs font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">MINDMAPS</div>
+            <section className="mt-12 hairline pt-8">
+              <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">MINDMAPS</div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {note.mindmaps.map((m) => (
                   <Link
                     key={m.id}
                     to={`/mindmaps/${m.id}`}
-                    className="group rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_55%,transparent)] p-5 transition hover:border-[color-mix(in_oklab,hsl(var(--accent))_22%,hsl(var(--border)))] hover:bg-[color-mix(in_oklab,hsl(var(--card2))_75%,transparent)]"
+                    className="group rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] p-5 transition hover:border-[color:var(--border-hover)] hover:bg-[var(--surface-muted-strong)]"
                   >
                     <div className="text-xs text-[hsl(var(--muted))]">Mindmap</div>
                     <div className="mt-1 text-base font-semibold tracking-tight text-[hsl(var(--fg))]">{m.title}</div>
@@ -518,12 +532,12 @@ export function NotePage() {
             </section>
           ) : null}
 
-          <div className="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-[hsl(var(--border))] pt-7">
+          <div className="mt-12 flex flex-wrap items-center justify-between gap-3 hairline pt-7">
             <div className="text-xs font-medium tracking-wide text-[hsl(var(--muted))]">Permalink</div>
             <button
               type="button"
               onClick={() => navigator.clipboard?.writeText?.(window.location.href)}
-              className="inline-flex items-center gap-2 rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_55%,transparent)] px-4 py-2 text-sm transition hover:border-[color-mix(in_oklab,hsl(var(--accent))_35%,hsl(var(--border)))]"
+              className="inline-flex items-center gap-2 rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] px-4 py-2 text-sm transition hover:border-[color:var(--border-hover)]"
             >
               <Link2 className="h-4 w-4 opacity-80" />
               Copy link
@@ -535,9 +549,9 @@ export function NotePage() {
               {nav.newer ? (
                 <Link
                   to={`/notes/${nav.newer.id}`}
-                  className="group rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_55%,transparent)] p-5 transition hover:border-[color-mix(in_oklab,hsl(var(--accent))_22%,hsl(var(--border)))] hover:bg-[color-mix(in_oklab,hsl(var(--card2))_75%,transparent)]"
+                  className="group rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] p-5 transition hover:border-[color:var(--border-hover)] hover:bg-[var(--surface-muted-strong)]"
                 >
-                  <div className="text-xs font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">NEWER</div>
+                  <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">NEWER</div>
                   <div className="mt-2 font-serif text-lg font-semibold tracking-tight text-[hsl(var(--fg))]">
                     {nav.newer.title}
                   </div>
@@ -549,9 +563,9 @@ export function NotePage() {
               {nav.older ? (
                 <Link
                   to={`/notes/${nav.older.id}`}
-                  className="group rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_55%,transparent)] p-5 transition hover:border-[color-mix(in_oklab,hsl(var(--accent))_22%,hsl(var(--border)))] hover:bg-[color-mix(in_oklab,hsl(var(--card2))_75%,transparent)]"
+                  className="group rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] p-5 transition hover:border-[color:var(--border-hover)] hover:bg-[var(--surface-muted-strong)]"
                 >
-                  <div className="text-xs font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">OLDER</div>
+                  <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">OLDER</div>
                   <div className="mt-2 font-serif text-lg font-semibold tracking-tight text-[hsl(var(--fg))]">
                     {nav.older.title}
                   </div>
@@ -564,14 +578,14 @@ export function NotePage() {
           ) : null}
 
           {related.length ? (
-            <section className="mt-10 border-t border-[hsl(var(--border))] pt-8">
-              <div className="text-xs font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">CONTINUE</div>
+            <section className="mt-10 hairline pt-8">
+              <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">CONTINUE</div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {related.map((n) => (
                   <Link
                     key={n.id}
                     to={`/notes/${n.id}`}
-                    className="group rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card))_65%,transparent)] p-5 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_70%,transparent)]"
+                    className="group rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-glass)] p-5 transition hover:bg-[var(--surface-muted)]"
                   >
                     <div className="text-xs text-[hsl(var(--muted))]">Updated · {fmtDate(n.updated)}</div>
                     <div className="mt-2 font-serif text-lg font-semibold tracking-tight text-[hsl(var(--fg))]">{n.title}</div>
@@ -599,9 +613,9 @@ export function NotePage() {
       {toc.items.length ? (
         <aside className="hidden lg:block">
           <div className="sticky top-24">
-            <div className="rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_55%,transparent)] p-5">
-              <div className="text-xs font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">ON THIS PAGE</div>
-              <nav className="mt-3 border-l border-[hsl(var(--border))] pl-3">
+            <div className="rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] p-5">
+              <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">ON THIS PAGE</div>
+              <nav className="mt-3 border-l border-[color:var(--border-soft)] pl-3">
                 {toc.items.map((t) => (
                   <a
                     key={t.id}

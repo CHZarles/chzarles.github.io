@@ -58,7 +58,7 @@ export function RoadmapsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="grid h-9 w-9 place-items-center rounded-2xl border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_70%,transparent)]">
+                    <span className="grid h-9 w-9 place-items-center rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted)]">
                       <Compass className="h-4 w-4 opacity-80" />
                     </span>
                     <div>
@@ -77,7 +77,7 @@ export function RoadmapsPage() {
                       {r.progress.done}/{r.progress.total}
                     </span>
                   </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full border border-[color-mix(in_oklab,hsl(var(--border))_70%,transparent)] bg-[color-mix(in_oklab,hsl(var(--card2))_65%,transparent)]">
+                  <div className="mt-2 h-2 overflow-hidden rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)]">
                     <div
                       className="h-full bg-[color-mix(in_oklab,hsl(var(--accent))_65%,transparent)]"
                       style={{

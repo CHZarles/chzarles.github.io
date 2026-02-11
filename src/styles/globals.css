@@ -209,6 +209,13 @@ body {
   padding: 0;
 }
 
+/* KaTeX (remark-math + rehype-katex) */
+.prose .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
 .hljs {
   color: var(--code-fg);
 }

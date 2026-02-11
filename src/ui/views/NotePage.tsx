@@ -3,7 +3,9 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import { Link, useParams } from "react-router-dom";
 import rehypeHighlight from "rehype-highlight";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { api } from "../api/api";
 import { Chip } from "../components/Chip";
 import { useAppState } from "../state/AppState";
@@ -508,7 +510,11 @@ export function NotePage() {
 
         <div ref={contentRef} className="mx-auto mt-10 max-w-[92ch]">
           <div className="prose prose-lg max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-h1:text-2xl md:prose-h1:text-3xl prose-h2:text-xl md:prose-h2:text-2xl prose-h3:text-lg md:prose-h3:text-xl prose-p:leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeHighlight, { detect: false }]]} components={markdownComponents}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex, [rehypeHighlight, { detect: false }]]}
+              components={markdownComponents}
+            >
               {note.content}
             </ReactMarkdown>
           </div>

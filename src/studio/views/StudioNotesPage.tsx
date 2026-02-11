@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
@@ -1214,7 +1216,9 @@ export function StudioNotesPage() {
           {viewMode !== "edit" ? (
             <div className="min-h-0 overflow-auto bg-[hsl(var(--card))] px-4 py-4">
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{editor.content || ""}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                  {editor.content || ""}
+                </ReactMarkdown>
               </div>
             </div>
           ) : null}

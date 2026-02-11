@@ -256,47 +256,10 @@ function readBaseline(c: WorkspaceChange): Baseline | null {
   return null;
 }
 
-async function readRemoteBaseline(args: { change: WorkspaceChange; token: string }): Promise<Baseline | null> {
-  const c = args.change;
+function buildBaselineWithOldText(c: WorkspaceChange, oldText: string): Baseline | null {
   if (c.kind === "assets") return null;
 
-  const readConfig = async (fileKey: "profile" | "categories" | "projects") => {
-    const res = await publisherFetchJson<{ file: { raw: string } }>({
-      path: fileKey === "profile" ? "/api/admin/config/profile" : fileKey === "projects" ? "/api/admin/config/projects" : "/api/admin/config/categories",
-      token: args.token,
-    });
-    return typeof res.file?.raw === "string" ? res.file.raw : "";
-  };
-
-  const readNote = async (noteId: string) => {
-    try {
-      const res = await publisherFetchJson<{ note: { markdown: string } }>({ path: `/api/admin/notes/${noteId}`, token: args.token });
-      return typeof res.note?.markdown === "string" ? res.note.markdown : "";
-    } catch (err: unknown) {
-      const pub = (err as any)?.publisher as { code?: string } | undefined;
-      if (pub?.code === "NOT_FOUND") return "";
-      throw err;
-    }
-  };
-
-  const readRoadmap = async (roadmapId: string) => {
-    const res = await publisherFetchJson<{ roadmap: { yaml: string } }>({ path: `/api/admin/roadmaps/${roadmapId}`, token: args.token });
-    return typeof res.roadmap?.yaml === "string" ? res.roadmap.yaml : "";
-  };
-
-  const readMindmap = async (mindmapId: string) => {
-    try {
-      const res = await publisherFetchJson<{ mindmap: { json: string } }>({ path: `/api/admin/mindmaps/${mindmapId}`, token: args.token });
-      return typeof res.mindmap?.json === "string" ? res.mindmap.json : "";
-    } catch (err: unknown) {
-      const pub = (err as any)?.publisher as { code?: string } | undefined;
-      if (pub?.code === "NOT_FOUND") return "";
-      throw err;
-    }
-  };
-
   if (c.kind === "config") {
-    const oldText = await readConfig(c.fileKey);
     const normalize = () => {
       if (c.fileKey === "categories") return c.raw.trimEnd() + "\n";
       const parsed = JSON.parse(c.raw);
@@ -316,7 +279,6 @@ async function readRemoteBaseline(args: { change: WorkspaceChange; token: string
       ? { ok: true as const, noteId: c.noteId }
       : buildNoteId({ title: c.editor.title, date: c.editor.date, slug: c.editor.slug });
     const noteId = resolved.ok ? resolved.noteId : null;
-    const oldText = noteId ? await readNote(noteId) : "";
     if (c.pendingDelete) return { name: subtitleForChange(c), oldText, newText: "" };
     const base = c.baseMarkdown ?? oldText;
     let newText = "";
@@ -329,13 +291,11 @@ async function readRemoteBaseline(args: { change: WorkspaceChange; token: string
   }
 
   if (c.kind === "roadmap") {
-    const oldText = await readRoadmap(c.roadmapId);
     if (c.pendingDelete) return { name: subtitleForChange(c), oldText, newText: "" };
     return { name: subtitleForChange(c), oldText, newText: c.yaml.trimEnd() + "\n" };
   }
 
   if (c.kind === "mindmap") {
-    const oldText = await readMindmap(c.mindmapId);
     if (c.pendingDelete) return { name: subtitleForChange(c), oldText, newText: "" };
     const newText =
       JSON.stringify(
@@ -354,6 +314,58 @@ async function readRemoteBaseline(args: { change: WorkspaceChange; token: string
   }
 
   return null;
+}
+
+async function readRemoteOldText(args: { change: WorkspaceChange; token: string }): Promise<string | null> {
+  const c = args.change;
+  if (c.kind === "assets") return null;
+
+  if (c.kind === "config") {
+    const res = await publisherFetchJson<{ file: { raw: string } }>({
+      path:
+        c.fileKey === "profile"
+          ? "/api/admin/config/profile"
+          : c.fileKey === "projects"
+            ? "/api/admin/config/projects"
+            : "/api/admin/config/categories",
+      token: args.token,
+    });
+    return typeof res.file?.raw === "string" ? res.file.raw : "";
+  }
+
+  if (c.kind === "note") {
+    const resolved = c.noteId
+      ? { ok: true as const, noteId: c.noteId }
+      : buildNoteId({ title: c.editor.title, date: c.editor.date, slug: c.editor.slug });
+    const noteId = resolved.ok ? resolved.noteId : null;
+    if (!noteId) return "";
+    try {
+      const res = await publisherFetchJson<{ note: { markdown: string } }>({ path: `/api/admin/notes/${noteId}`, token: args.token });
+      return typeof res.note?.markdown === "string" ? res.note.markdown : "";
+    } catch (err: unknown) {
+      const pub = (err as any)?.publisher as { code?: string } | undefined;
+      if (pub?.code === "NOT_FOUND") return "";
+      throw err;
+    }
+  }
+
+  if (c.kind === "roadmap") {
+    const res = await publisherFetchJson<{ roadmap: { yaml: string } }>({ path: `/api/admin/roadmaps/${c.roadmapId}`, token: args.token });
+    return typeof res.roadmap?.yaml === "string" ? res.roadmap.yaml : "";
+  }
+
+  if (c.kind === "mindmap") {
+    try {
+      const res = await publisherFetchJson<{ mindmap: { json: string } }>({ path: `/api/admin/mindmaps/${c.mindmapId}`, token: args.token });
+      return typeof res.mindmap?.json === "string" ? res.mindmap.json : "";
+    } catch (err: unknown) {
+      const pub = (err as any)?.publisher as { code?: string } | undefined;
+      if (pub?.code === "NOT_FOUND") return "";
+      throw err;
+    }
+  }
+
+  return "";
 }
 
 async function createUnifiedDiff(args: { name: string; oldText: string; newText: string }): Promise<string> {
@@ -415,7 +427,8 @@ export function StudioChangesPage() {
 
   const cachedBaseline = React.useMemo(() => (selected ? readBaseline(selected) : null), [selected]);
 
-  const [remoteBaseline, setRemoteBaseline] = React.useState<Baseline | null>(null);
+  const [remoteOldText, setRemoteOldText] = React.useState<string>("");
+  const [remoteLoaded, setRemoteLoaded] = React.useState(false);
   const [remoteBaselineError, setRemoteBaselineError] = React.useState<string | null>(null);
   const [remoteBusy, setRemoteBusy] = React.useState(false);
   const [remoteNonce, setRemoteNonce] = React.useState(0);
@@ -429,26 +442,31 @@ export function StudioChangesPage() {
     let cancelled = false;
     (async () => {
       if (compareMode !== "remote" || !selected) {
-        setRemoteBaseline(null);
+        setRemoteLoaded(false);
+        setRemoteOldText("");
         setRemoteBaselineError(null);
         setRemoteBusy(false);
         return;
       }
       if (!studio.token) {
-        setRemoteBaseline(null);
+        setRemoteLoaded(false);
+        setRemoteOldText("");
         setRemoteBaselineError("Not authenticated.");
         setRemoteBusy(false);
         return;
       }
       setRemoteBusy(true);
+      setRemoteLoaded(false);
       try {
-        const b = await readRemoteBaseline({ change: selected, token: studio.token });
+        const oldText = await readRemoteOldText({ change: selected, token: studio.token });
         if (cancelled) return;
-        setRemoteBaseline(b);
+        setRemoteOldText(oldText ?? "");
+        setRemoteLoaded(true);
         setRemoteBaselineError(null);
       } catch (err: unknown) {
         if (cancelled) return;
-        setRemoteBaseline(null);
+        setRemoteOldText("");
+        setRemoteLoaded(false);
         setRemoteBaselineError(formatStudioError(err).message);
       } finally {
         if (!cancelled) setRemoteBusy(false);
@@ -458,6 +476,11 @@ export function StudioChangesPage() {
       cancelled = true;
     };
   }, [compareMode, selected?.key, studio.token, remoteNonce]);
+
+  const remoteBaseline = React.useMemo(() => {
+    if (compareMode !== "remote" || !selected || !remoteLoaded) return null;
+    return buildBaselineWithOldText(selected, remoteOldText);
+  }, [compareMode, selected, remoteLoaded, remoteOldText]);
 
   const baseline = compareMode === "remote" ? remoteBaseline : cachedBaseline;
 

@@ -196,9 +196,10 @@ body {
   border-radius: 10px;
 }
 
-.prose pre code {
+.prose pre code:not(.hb-inline-code) {
   background: transparent;
   border: 0;
+  border-radius: 0;
   padding: 0;
 }
 

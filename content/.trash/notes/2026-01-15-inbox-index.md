@@ -4,6 +4,7 @@ date: 2026-01-15
 categories: [writing]
 tags: [inbox, workflow]
 nodes: [writing-system/inbox, writing-system/capture]
+mindmaps: [writing-inbox-loop]
 excerpt: "最重要的是降低记录摩擦：分类是第二步。"
 ---
 
@@ -21,3 +22,6 @@ Inbox 的价值是：**让记录像呼吸一样自然**。
 
 同一篇内容，多处引用，但内容只有一份。
 
+## Mindmap
+
+从 Capture → Inbox → Index → Publish 的循环：[/mindmaps/writing-inbox-loop](/mindmaps/writing-inbox-loop)

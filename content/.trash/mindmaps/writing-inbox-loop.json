@@ -1,0 +1,117 @@
+{
+  "id": "writing-inbox-loop",
+  "title": "Writing Inbox Loop",
+  "updated": "2026-02-14T14:13:47.303Z",
+  "format": "reactflow",
+  "nodes": [
+    {
+      "id": "capture",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "Capture\n(quick notes)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "inbox",
+      "position": {
+        "x": 260,
+        "y": 0
+      },
+      "data": {
+        "label": "Inbox\n(no classification)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "index",
+      "position": {
+        "x": 520,
+        "y": 0
+      },
+      "data": {
+        "label": "Index\n(Category + Roadmap)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "reuse",
+      "position": {
+        "x": 780,
+        "y": 0
+      },
+      "data": {
+        "label": "Reuse\n(snippets → drafts)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "publish",
+      "position": {
+        "x": 1040,
+        "y": 0
+      },
+      "data": {
+        "label": "Publish\n(shareable)"
+      },
+      "type": "mind"
+    },
+    {
+      "id": "feedback",
+      "position": {
+        "x": 780,
+        "y": 180
+      },
+      "data": {
+        "label": "Feedback\n(readers / self-review)"
+      },
+      "type": "mind"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "capture",
+      "target": "inbox",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e2",
+      "source": "inbox",
+      "target": "index",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e3",
+      "source": "index",
+      "target": "reuse",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e4",
+      "source": "reuse",
+      "target": "publish",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e5",
+      "source": "publish",
+      "target": "feedback",
+      "type": "smoothstep"
+    },
+    {
+      "id": "e6",
+      "source": "feedback",
+      "target": "capture",
+      "type": "smoothstep"
+    }
+  ],
+  "viewport": {
+    "x": -140,
+    "y": -60,
+    "zoom": 1
+  }
+}

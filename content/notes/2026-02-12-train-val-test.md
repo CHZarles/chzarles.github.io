@@ -2,6 +2,9 @@
 title: 训练集Train,验证集Val,测试集Test
 date: 2026-02-12
 excerpt: 课后习题，模拟考，高考
+updated: 2026-02-14
+categories:
+  - slice
 ---
 
 ### 1. 三个盒子的核心逻辑

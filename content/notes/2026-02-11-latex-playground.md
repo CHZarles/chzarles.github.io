@@ -1,10 +1,15 @@
 ---
 title: LaTeX 渲染测试（KaTeX）
 date: 2026-02-11
-categories: [writing, product]
-tags: [latex, katex, math]
-nodes: [writing-system/typography]
-excerpt: "用一篇 Note 覆盖 inline / display / aligned / matrix / cases 等常见公式，顺手确认 Markdown 与数学混排不会炸。"
+tags:
+  - latex
+  - katex
+  - math
+nodes:
+  - writing-system/typography
+excerpt: 用一篇 Note 覆盖 inline / display / aligned / matrix / cases 等常见公式，顺手确认
+  Markdown 与数学混排不会炸。
+updated: 2026-02-14
 ---
 
 这篇是 **LaTeX / KaTeX 渲染能力的“样例册”**。如果你在改渲染逻辑或样式，拿它当回归测试即可。
@@ -119,4 +124,3 @@ $$ this is not a formula block $$
 ## 9) 需要转义的美元符号
 
 如果你想写“价格是 \$5”，请写成：`\\$5`（也就是 `\$5`）。
-

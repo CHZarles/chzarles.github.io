@@ -1,12 +1,22 @@
 ---
 title: Hyperblog：把博客做成“可探索的个人技术空间”（以及怎么部署）
 date: 2026-02-11
-categories: [writing, product]
-tags: [hyperblog, roadmap-as-file, studio, github-pages, cloudflare-workers]
-nodes: [writing-system/roadmap-file, writing-system/publish]
-mindmaps: [hyperblog-architecture]
+categories:
+  - slice
+tags:
+  - hyperblog
+  - roadmap-as-file
+  - studio
+  - github-pages
+  - cloudflare-workers
+nodes:
+  - writing-system/roadmap-file
+  - writing-system/publish
+mindmaps:
+  - hyperblog-architecture
 cover: /uploads/hyperblog-home.webp
-excerpt: "内容、目录、路线图、思维导图全部落成文件：公开站静态托管；写作台用 Cloudflare Workers 把改动 commit 回 GitHub main。"
+excerpt: 内容、目录、路线图、思维导图全部落成文件：公开站静态托管；写作台用 Cloudflare Workers 把改动 commit 回 GitHub main。
+updated: 2026-02-14
 ---
 
 这是一套面向个人用户的博客系统，但我不想把它做成“文章列表 + 标签云”的老样子。  

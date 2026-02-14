@@ -4,6 +4,7 @@ date: 2026-02-05
 categories: [observability, ai-infra]
 tags: [otel, tracing, latency]
 nodes: [ai-infra/otel, ai-infra/observability]
+mindmaps: [otel-evidence-loop]
 excerpt: "目标不是“埋点”，而是建立一条从用户请求 → 关键 span → 资源/代码变更的证据链。"
 ---
 
@@ -33,3 +34,6 @@ span.setAttribute("experiment.bucket", bucketId);
 把 tracing 和 release 绑定：每一次发布，都能对比“变快/变慢”的证据。  
 这才是 infra 的味道。
 
+## Mindmap
+
+这张图对应“证据链”的最小闭环：[/mindmaps/otel-evidence-loop](/mindmaps/otel-evidence-loop)

@@ -1,29 +1,4 @@
-- id: ai-infra
-  title: AI Infra
-  description: Serving / GPU / K8s / 成本与可靠性（偏工程）。
-  tone: violet
-
-- id: observability
-  title: Observability
-  description: 证据链：Metrics / Logs / Traces / Profiles → SLO。
-  tone: cyan
-
-- id: systems
-  title: Systems
-  description: 分布式系统与性能边界：延迟、故障域、背压与一致性。
+- id: slice
+  title: 碎片
+  description: 想记就记
   tone: amber
-
-- id: writing
-  title: Writing System
-  description: 捕获→索引→复用→发布，让写作变成长期复利。
-  tone: lime
-
-- id: product
-  title: Product
-  description: 信息架构、交互与可证明的作品集表达。
-  tone: rose
-
-- id: llm-apply
-  title: LLM 应用
-  description: 从调用/编排的角度理解模型能力：工具、结构化输出、评估与落地。
-  tone: neutral

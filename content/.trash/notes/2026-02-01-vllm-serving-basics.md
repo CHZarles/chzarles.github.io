@@ -18,4 +18,3 @@ excerpt: "prefill/decode 分阶段、KV cache 的命中、batching 策略，决�
 把实验参数写进 note 和指标里，别靠记忆。
 
 > “可复现”也是一种审美。
-

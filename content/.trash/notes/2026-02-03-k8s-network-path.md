@@ -4,6 +4,7 @@ date: 2026-02-03
 categories: [ai-infra, systems]
 tags: [k8s, networking, latency]
 nodes: [ai-infra/k8s, ai-infra/linux-net]
+mindmaps: [k8s-network-path]
 excerpt: "当你发现 p99 抖动，不要先怀疑模型：先把网络路径画出来。"
 ---
 
@@ -23,3 +24,6 @@ excerpt: "当你发现 p99 抖动，不要先怀疑模型：先把网络路径�
 先做一张“路径图”，再决定要观测什么。  
 路径一旦画出来，你就知道 **tracing 应该在哪些边界点打证据**。
 
+## Mindmap
+
+查看这张路径图：[/mindmaps/k8s-network-path](/mindmaps/k8s-network-path)

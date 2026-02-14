@@ -1,5 +1,5 @@
 ---
-title: Hyperblog：把博客做成“可探索的个人技术空间”（以及怎么部署）
+title: Hyperblog：把博客做成“可探索的个人技术空间”
 date: 2026-02-11
 categories:
   - slice

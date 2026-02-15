@@ -2,3 +2,7 @@
   title: 碎片
   description: 想记就记
   tone: amber
+- id: python
+  title: Python
+  description: "nunpy "
+  tone: lime

@@ -8,7 +8,6 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { api } from "../api/api";
 import { Reveal } from "../components/Reveal";
-import { AccentPicker } from "../widgets/AccentPicker";
 import { ThemeToggle } from "../widgets/ThemeToggle";
 import { useCommandPalette } from "../widgets/CommandPalette";
 import { normalizeMathDelimiters } from "../markdown/normalizeMathDelimiters";
@@ -900,7 +899,6 @@ export function NotePage() {
               {copiedPermalink ? <Check className="h-4 w-4 opacity-85" /> : <Link2 className="h-4 w-4 opacity-85" />}
             </button>
             <ThemeToggle />
-            <AccentPicker />
           </div>
 
           {toc.items.length ? (

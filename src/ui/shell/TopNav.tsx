@@ -3,7 +3,6 @@ import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { api } from "../api/api";
 import { useAppState } from "../state/AppState";
-import { AccentPicker } from "../widgets/AccentPicker";
 import { ThemeToggle } from "../widgets/ThemeToggle";
 import { useCommandPalette } from "../widgets/CommandPalette";
 
@@ -112,7 +111,6 @@ export function TopNav() {
             >
               <Search className="h-4 w-4 opacity-85" />
             </button>
-            <AccentPicker />
             <ThemeToggle />
           </div>
         </div>

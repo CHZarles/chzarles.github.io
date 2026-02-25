@@ -344,44 +344,89 @@ export function HomePage() {
             </Link>
           }
         />
-        <div className="card overflow-hidden">
-          <div className="grid gap-px bg-[color:var(--border-soft)] md:grid-cols-2">
-            {notes.map((n) => {
-              const cat = n.categories[0] ? `#${categoryTitleById(n.categories[0])}` : null;
-              const node = n.nodes[0] ? `${n.nodes[0].roadmapTitle} / ${n.nodes[0].title}` : null;
-              const meta = [cat, node].filter(Boolean).join(" · ");
-
-              return (
-                <Link
-                  key={n.id}
-                  to={`/notes/${n.id}`}
-                  className="group bg-[hsl(var(--card))] px-4 py-3 transition hover:bg-[hsl(var(--card2))]"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
-                        UPDATED · <span className="font-mono tabular-nums">{fmtYmd(n.updated)}</span>
-                      </div>
-                      <div className="mt-1 line-clamp-2 font-serif text-base font-semibold leading-snug tracking-tight">
-                        {n.title}
-                      </div>
-                    </div>
-                    <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 opacity-0 transition group-hover:opacity-60" />
+        {notes.length ? (
+          <div className="card overflow-hidden">
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_420px]">
+              <Link
+                to={`/notes/${notes[0]!.id}`}
+                className="group bg-[hsl(var(--card))] p-6 transition hover:bg-[hsl(var(--card2))] md:p-7"
+              >
+                <div className="flex items-baseline justify-between gap-4">
+                  <div className="text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
+                    LATEST
                   </div>
-
-                  <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-[hsl(var(--muted))] md:line-clamp-1">
-                    {n.excerpt}
+                  <div className="font-mono text-xs tabular-nums text-[hsl(var(--muted))]">
+                    {fmtYmd(notes[0]!.updated)}
                   </div>
-                  {meta ? (
-                    <div className="mt-2 line-clamp-1 text-xs text-[color-mix(in_oklab,hsl(var(--fg))_55%,hsl(var(--muted)))]">
+                </div>
+
+                <h3 className="mt-3 font-serif text-2xl font-semibold leading-[1.12] tracking-tight md:text-3xl">
+                  {notes[0]!.title}
+                </h3>
+                <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-[hsl(var(--muted))] md:text-base">
+                  {notes[0]!.excerpt}
+                </p>
+
+                {(() => {
+                  const n = notes[0]!;
+                  const cat = n.categories[0] ? `#${categoryTitleById(n.categories[0])}` : null;
+                  const node = n.nodes[0] ? `${n.nodes[0].roadmapTitle} / ${n.nodes[0].title}` : null;
+                  const meta = [cat, node].filter(Boolean).join(" · ");
+                  if (!meta) return null;
+                  return (
+                    <div className="mt-4 line-clamp-2 text-xs leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_58%,hsl(var(--muted)))]">
                       {meta}
                     </div>
-                  ) : null}
-                </Link>
-              );
-            })}
+                  );
+                })()}
+
+                <div className="mt-6 inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--muted))] transition group-hover:text-[hsl(var(--fg))]">
+                  Read <ArrowUpRight className="h-3.5 w-3.5 opacity-70" />
+                </div>
+              </Link>
+
+              <div className="bg-[hsl(var(--card))]">
+                <div className="h-full border-t border-[color:var(--border-soft)] lg:border-l lg:border-t-0">
+                  <div className="divide-y divide-[color:var(--border-soft)]">
+                    {notes.slice(1, 6).map((n) => {
+                      const cat = n.categories[0] ? `#${categoryTitleById(n.categories[0])}` : null;
+                      const node = n.nodes[0] ? `${n.nodes[0].roadmapTitle} / ${n.nodes[0].title}` : null;
+                      const meta = [cat, node].filter(Boolean).join(" · ");
+                      const mmdd = fmtYmd(n.updated).slice(5);
+
+                      return (
+                        <Link
+                          key={n.id}
+                          to={`/notes/${n.id}`}
+                          className="group block px-5 py-4 transition hover:bg-[hsl(var(--card2))]"
+                        >
+                          <div className="flex items-baseline justify-between gap-4">
+                            <div className="min-w-0 truncate font-serif text-sm font-semibold tracking-tight md:text-base">
+                              {n.title}
+                            </div>
+                            <div className="shrink-0 font-mono text-xs tabular-nums text-[hsl(var(--muted))]">
+                              {mmdd}
+                            </div>
+                          </div>
+                          <div className="mt-1 line-clamp-1 text-xs leading-relaxed text-[hsl(var(--muted))]">
+                            {n.excerpt}
+                          </div>
+                          {meta ? (
+                            <div className="mt-1 line-clamp-1 text-[11px] text-[color-mix(in_oklab,hsl(var(--fg))_52%,hsl(var(--muted)))]">
+                              {meta}
+                            </div>
+                          ) : null}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="card p-7 text-sm text-[hsl(var(--muted))]">暂无 Notes。</div>
+        )}
       </section>
 
       <section className="grid gap-4">
@@ -394,13 +439,13 @@ export function HomePage() {
             </Link>
           }
         />
-        <div className="card overflow-hidden">
-          <div className="grid gap-px bg-[color:var(--border-soft)] sm:grid-cols-2 lg:grid-cols-3">
+        <div className="card p-5 md:p-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {categories.slice(0, 6).map((c) => (
               <Link
                 key={c.id}
                 to={`/categories/${c.id}`}
-                className="group bg-[hsl(var(--card))] px-4 py-3 transition hover:bg-[hsl(var(--card2))]"
+                className="group rounded-xl border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] px-4 py-3 transition hover:border-[color:var(--border-hover)] hover:bg-[var(--surface-muted)]"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -413,7 +458,7 @@ export function HomePage() {
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="font-mono text-xs font-semibold tabular-nums text-[hsl(var(--muted))]">{c.noteCount ?? 0}</div>
+                    <div className="font-mono text-sm font-semibold tabular-nums text-[hsl(var(--fg))]">{c.noteCount ?? 0}</div>
                     <div className="mt-0.5 text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">NOTES</div>
                   </div>
                 </div>

@@ -208,6 +208,71 @@ function CodeBlockCard(props: {
   );
 }
 
+function NoteLoadingSkeleton() {
+  return (
+    <div className="grid gap-10">
+      <div aria-hidden="true" className="fixed inset-x-0 top-0 z-50 h-[2px] hb-skel hb-skel-sheen" />
+      <div className="min-w-0">
+        <header className="mx-auto max-w-[85ch] pt-10">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))] xl:hidden"
+          >
+            <span aria-hidden="true">↩</span>
+            <span>Index</span>
+          </Link>
+
+          <div className="mt-8 grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <div className="grid gap-3">
+              <div className="hb-skel hb-skel-sheen h-10 w-[min(32rem,92%)] rounded-2xl" />
+              <div className="hb-skel h-10 w-[min(24rem,78%)] rounded-2xl" />
+            </div>
+            <div className="flex flex-col gap-2 md:items-end md:pb-1">
+              <div className="hb-skel h-3 w-44 rounded-full" />
+              <div className="hb-skel h-3 w-52 rounded-full opacity-80" />
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-2">
+            <div className="hb-skel h-4 w-[min(46rem,92%)] rounded-xl" />
+            <div className="hb-skel h-4 w-[min(40rem,84%)] rounded-xl" />
+          </div>
+
+          <div className="mt-10 flex justify-center" aria-hidden="true">
+            <div className="h-px w-64 bg-[var(--border-soft)]" />
+          </div>
+        </header>
+
+        <div className="mx-auto mt-10 max-w-[85ch]">
+          <div className="grid gap-4">
+            {Array.from({ length: 10 }).map((_, idx) => (
+              <div
+                // eslint-disable-next-line react/no-array-index-key
+                key={idx}
+                className={[
+                  "hb-skel h-4 rounded-xl",
+                  idx % 4 === 0 ? "w-[92%]" : idx % 4 === 1 ? "w-[86%]" : idx % 4 === 2 ? "w-[95%]" : "w-[78%]",
+                ].join(" ")}
+              />
+            ))}
+            <div className="hb-skel hb-skel-sheen mt-2 h-28 rounded-[var(--radius-card)]" />
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                // eslint-disable-next-line react/no-array-index-key
+                key={`p2-${idx}`}
+                className={[
+                  "hb-skel h-4 rounded-xl",
+                  idx % 3 === 0 ? "w-[90%]" : idx % 3 === 1 ? "w-[96%]" : "w-[84%]",
+                ].join(" ")}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Lightbox(props: { src: string; alt?: string; onClose: () => void }) {
   const { src, alt, onClose } = props;
   React.useEffect(() => {
@@ -605,11 +670,7 @@ export function NotePage() {
   }
 
   if (!note) {
-    return (
-      <div className="card p-8 text-sm text-[hsl(var(--muted))]">
-        加载中…
-      </div>
-    );
+    return <NoteLoadingSkeleton />;
   }
 
   const markdown = normalizeMathDelimiters(note.content);

@@ -330,7 +330,7 @@ export function NotePage() {
         }
         if (!id) id = slugifyHeading(text);
 
-        const className = [props.className, "scroll-mt-24 group"].filter(Boolean).join(" ");
+        const className = [props.className, "scroll-mt-16 group"].filter(Boolean).join(" ");
         const Tag = `h${level}` as keyof JSX.IntrinsicElements;
         return (
           <Tag id={id} className={className}>
@@ -490,6 +490,13 @@ export function NotePage() {
       <Reveal key={note.id} yPx={8} className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_260px] xl:gap-12">
         <div className="min-w-0">
           <header className="mx-auto max-w-[85ch] pt-10">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+            >
+              <span aria-hidden="true">↩</span>
+              <span>Index</span>
+            </Link>
             <div className="font-mono text-[11px] tabular-nums tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
               {metaLine}
             </div>
@@ -685,7 +692,7 @@ export function NotePage() {
 
         {toc.items.length ? (
           <aside className="hidden xl:block">
-            <div className="sticky top-24">
+            <div className="sticky top-12">
               <div className="border-l border-[color:var(--border-soft)] pl-4">
                 <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
                   ON THIS PAGE

@@ -35,7 +35,9 @@ export function Reveal(props: {
           obs.disconnect();
         }
       },
-      { rootMargin: "0px 0px -10% 0px", threshold: 0.15 },
+      // Use a 0 threshold to avoid the "giant content never reaches ratio threshold" trap.
+      // (e.g. long notes where viewport/elementHeight < 0.15)
+      { rootMargin: "0px 0px -10% 0px", threshold: 0 },
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -66,4 +68,3 @@ export function Reveal(props: {
     </div>
   );
 }
-

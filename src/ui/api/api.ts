@@ -15,9 +15,37 @@ import type {
 
 const DEFAULT_TIMEOUT_MS = 12_000;
 
+type ApiWindow = Window & { __HB_BUILD__?: unknown; __HB_PROFILE__?: unknown };
+
+function basePath(): string {
+  const base = import.meta.env.BASE_URL || "/";
+  if (!base) return "/";
+  return base.endsWith("/") ? base.slice(0, -1) || "/" : base;
+}
+
+let hbBuildId: string | null | undefined = undefined;
+function getBuildId(): string | null {
+  if (hbBuildId !== undefined) return hbBuildId;
+  if (typeof window === "undefined") return (hbBuildId = null);
+  const w = window as ApiWindow;
+  const raw = w.__HB_BUILD__;
+  hbBuildId = typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  return hbBuildId;
+}
+
+function apiUrl(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const base = basePath();
+  const buildId = getBuildId();
+  const url = base === "/" ? p : `${base}${p}`;
+  if (!buildId) return url;
+  const join = url.includes("?") ? "&" : "?";
+  return `${url}${join}v=${encodeURIComponent(buildId)}`;
+}
+
 function readEmbeddedProfile(): Profile | null {
   if (typeof window === "undefined") return null;
-  const w = window as unknown as { __HB_PROFILE__?: unknown };
+  const w = window as ApiWindow;
   if (w.__HB_PROFILE__ && typeof w.__HB_PROFILE__ === "object") return w.__HB_PROFILE__ as Profile;
 
   const el = document.getElementById("hb-profile");
@@ -36,10 +64,14 @@ async function apiFetch<T>(input: string, opts?: { timeoutMs?: number }): Promis
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  const cacheMode: RequestCache | undefined =
+    !import.meta.env.DEV && getBuildId() && input.includes("/api/") && input.includes(".json") ? "force-cache" : undefined;
+
   try {
     const res = await fetch(input, {
       credentials: "omit",
       headers: { Accept: "application/json" },
+      cache: cacheMode,
       signal: controller.signal,
     });
     if (!res.ok) {
@@ -77,7 +109,7 @@ function dateMs(iso: string): number {
 let notesIndexPromise: Promise<NoteListItem[]> | null = null;
 function getNotesIndex(): Promise<NoteListItem[]> {
   if (!notesIndexPromise) {
-    notesIndexPromise = apiFetchCached<NoteListItem[]>("/api/notes.json")
+    notesIndexPromise = apiFetchCached<NoteListItem[]>(apiUrl("/api/notes.json"))
       .then((all) => {
         const list = all.filter((n) => !n.draft);
         list.sort((a, b) => dateMs(b.updated) - dateMs(a.updated));
@@ -106,7 +138,7 @@ function prefetchNote(id: string) {
   const key = safeId(id);
   if (!key) return;
   if (noteMemo.has(key)) return;
-  void apiFetchCached<Note>(`/api/notes/${key}.json`)
+  void apiFetchCached<Note>(apiUrl(`/api/notes/${key}.json`))
     .then((n) => {
       if (!n.draft) noteMemo.set(key, n);
     })
@@ -116,7 +148,7 @@ function prefetchNote(id: string) {
 let nodesIndexPromise: Promise<RoadmapNodeEntry[]> | null = null;
 function getNodesIndex(): Promise<RoadmapNodeEntry[]> {
   if (!nodesIndexPromise) {
-    nodesIndexPromise = apiFetchCached<RoadmapNodeEntry[]>("/api/nodes.json").catch((err) => {
+    nodesIndexPromise = apiFetchCached<RoadmapNodeEntry[]>(apiUrl("/api/nodes.json")).catch((err) => {
       nodesIndexPromise = null;
       throw err;
     });
@@ -127,7 +159,7 @@ function getNodesIndex(): Promise<RoadmapNodeEntry[]> {
 let mindmapsIndexPromise: Promise<MindmapListItem[]> | null = null;
 function getMindmapsIndex(): Promise<MindmapListItem[]> {
   if (!mindmapsIndexPromise) {
-    mindmapsIndexPromise = apiFetchCached<MindmapListItem[]>("/api/mindmaps.json").catch((err) => {
+    mindmapsIndexPromise = apiFetchCached<MindmapListItem[]>(apiUrl("/api/mindmaps.json")).catch((err) => {
       mindmapsIndexPromise = null;
       throw err;
     });
@@ -177,11 +209,11 @@ export const api = {
   profile: () => {
     const embedded = readEmbeddedProfile();
     if (embedded) return Promise.resolve(embedded);
-    return apiFetchCached<Profile>("/api/profile.json");
+    return apiFetchCached<Profile>(apiUrl("/api/profile.json"));
   },
   prefetchNote,
   peekNote,
-  categories: () => apiFetchCached<Category[]>("/api/categories.json"),
+  categories: () => apiFetchCached<Category[]>(apiUrl("/api/categories.json")),
   notes: async (params?: { q?: string; category?: string; roadmap?: string; node?: string }) => {
     const all = await getNotesIndex();
     return filterNotes(all, params);
@@ -192,20 +224,20 @@ export const api = {
     const cached = noteMemo.get(key);
     if (cached) return cached;
 
-    const n = await apiFetchCached<Note>(`/api/notes/${key}.json`);
+    const n = await apiFetchCached<Note>(apiUrl(`/api/notes/${key}.json`));
     if (n.draft) throw new Error("note_not_found");
     noteMemo.set(key, n);
     return n;
   },
-  projects: () => apiFetchCached<Project[]>("/api/projects.json"),
+  projects: () => apiFetchCached<Project[]>(apiUrl("/api/projects.json")),
   project: async (id: string) => {
-    const list = await apiFetchCached<Project[]>("/api/projects.json");
+    const list = await apiFetchCached<Project[]>(apiUrl("/api/projects.json"));
     const p = list.find((x) => x.id === id);
     if (!p) throw new Error("project_not_found");
     return p;
   },
-  roadmaps: () => apiFetchCached<RoadmapListItem[]>("/api/roadmaps.json"),
-  roadmap: (id: string) => apiFetchCached<Roadmap>(`/api/roadmaps/${id}.json`),
+  roadmaps: () => apiFetchCached<RoadmapListItem[]>(apiUrl("/api/roadmaps.json")),
+  roadmap: (id: string) => apiFetchCached<Roadmap>(apiUrl(`/api/roadmaps/${id}.json`)),
   node: async (roadmapId: string, nodeId: string) => {
     const [nodes, notes] = await Promise.all([getNodesIndex(), getNotesIndex()]);
     const node = nodes.find((n) => n.roadmapId === roadmapId && n.nodeId === nodeId);
@@ -214,15 +246,15 @@ export const api = {
     return { node, notes: inNode } satisfies RoadmapNodeDetail;
   },
   mindmaps: () => getMindmapsIndex(),
-  mindmap: (id: string) => apiFetchCached<Mindmap>(`/api/mindmaps/${id}.json`),
+  mindmap: (id: string) => apiFetchCached<Mindmap>(apiUrl(`/api/mindmaps/${id}.json`)),
   search: async (q: string) => {
     const query = normalize(q);
     const [notes, categories, roadmaps, nodes, projects, mindmaps] = await Promise.all([
       getNotesIndex(),
-      apiFetchCached<Category[]>("/api/categories.json"),
-      apiFetchCached<RoadmapListItem[]>("/api/roadmaps.json"),
+      apiFetchCached<Category[]>(apiUrl("/api/categories.json")),
+      apiFetchCached<RoadmapListItem[]>(apiUrl("/api/roadmaps.json")),
       getNodesIndex(),
-      apiFetchCached<Project[]>("/api/projects.json"),
+      apiFetchCached<Project[]>(apiUrl("/api/projects.json")),
       getMindmapsIndex(),
     ]);
 

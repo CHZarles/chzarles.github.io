@@ -16,11 +16,27 @@ function escapeJsonForHtmlScript(raw: string): string {
   return raw.replace(/</g, "\\u003c");
 }
 
+function resolveBuildId(): string {
+  const env = process.env;
+  const sha =
+    env.GITHUB_SHA ||
+    env.CF_PAGES_COMMIT_SHA ||
+    env.VERCEL_GIT_COMMIT_SHA ||
+    env.COMMIT_SHA ||
+    env.SOURCE_VERSION ||
+    "";
+  if (sha) return sha.slice(0, 12);
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
 function injectProfileIntoIndexHtml(indexHtml: string, profile: unknown): string {
   if (indexHtml.includes('id="hb-profile"')) return indexHtml;
   if (!indexHtml.includes("</head>")) return indexHtml;
 
   const profileJson = escapeJsonForHtmlScript(JSON.stringify(profile));
+  const buildId = escapeJsonForHtmlScript(JSON.stringify(resolveBuildId()));
 
   const snippet =
     `\n    <script id="hb-profile" type="application/json">${profileJson}</script>\n` +
@@ -50,7 +66,12 @@ function injectProfileIntoIndexHtml(indexHtml: string, profile: unknown): string
     `      })();\n` +
     `    </script>\n`;
 
-  return indexHtml.replace("</head>", `${snippet}  </head>`);
+  const buildSnippet =
+    `\n    <script>\n` +
+    `      try { window.__HB_BUILD__ = ${buildId}; } catch {}\n` +
+    `    </script>\n`;
+
+  return indexHtml.replace("</head>", `${snippet}${buildSnippet}  </head>`);
 }
 
 async function main() {

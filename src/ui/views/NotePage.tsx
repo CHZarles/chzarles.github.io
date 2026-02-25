@@ -212,7 +212,7 @@ export function NotePage() {
   const { categories } = useAppState();
   const titleById = React.useMemo(() => {
     const m = new Map(categories.map((c) => [c.id, c.title] as const));
-    return (id: string) => m.get(id) ?? id;
+    return (id: string) => m.get(id) ?? null;
   }, [categories]);
 
   React.useEffect(() => {
@@ -466,9 +466,11 @@ export function NotePage() {
           {note.excerpt ? <p className="mt-4 text-base leading-relaxed text-[hsl(var(--muted))] md:text-lg">{note.excerpt}</p> : null}
 
           <div className="mt-6 flex flex-wrap items-center gap-2">
-            {note.categories.map((c) => (
-              <Chip key={c} label={`#${titleById(c)}`} to={`/categories/${c}`} tone="glass" />
-            ))}
+            {note.categories.map((c) => {
+              const title = titleById(c);
+              if (!title) return null;
+              return <Chip key={c} label={`#${title}`} to={`/categories/${c}`} tone="glass" />;
+            })}
             {note.nodes.map((r) => (
               <Chip
                 key={r.ref}
@@ -600,9 +602,11 @@ export function NotePage() {
                     <div className="mt-2 font-serif text-lg font-semibold tracking-tight text-[hsl(var(--fg))]">{n.title}</div>
                     <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-[hsl(var(--muted))]">{n.excerpt}</div>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      {n.categories.slice(0, 2).map((c) => (
-                        <Chip key={c} label={`#${titleById(c)}`} tone="glass" />
-                      ))}
+                      {n.categories.slice(0, 2).map((c) => {
+                        const title = titleById(c);
+                        if (!title) return null;
+                        return <Chip key={c} label={`#${title}`} tone="glass" />;
+                      })}
                       {n.nodes.slice(0, 1).map((r) => (
                         <Chip
                           key={r.ref}

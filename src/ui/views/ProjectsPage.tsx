@@ -32,6 +32,15 @@ function repoSlugFromUrl(url: string): string | null {
   }
 }
 
+function hostFromUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 function primaryProjectUrl(p: Project): string | null {
   return normalizeUrl(p.repoUrl) ?? normalizeUrl(p.homepage);
 }
@@ -79,18 +88,21 @@ export function ProjectsPage() {
       ) : projects.length ? (
         <div className="grid gap-3 md:grid-cols-2">
           {projects.map((p) => {
-          const href = primaryProjectUrl(p);
-          const repoSlug = href ? repoSlugFromUrl(href) : null;
-          const isGithub = Boolean(href && href.toLowerCase().includes("github.com"));
-          return (
-            <a
-              key={p.id}
-              href={href ?? undefined}
+            const href = primaryProjectUrl(p);
+            const repoSlug = href ? repoSlugFromUrl(href) : null;
+            const host = href ? hostFromUrl(href) : null;
+            const isGithub = Boolean(href && href.toLowerCase().includes("github.com"));
+            const codeHint = repoSlug ?? host ?? p.id;
+
+            return (
+              <a
+                key={p.id}
+                href={href ?? undefined}
                 target={href ? "_blank" : undefined}
                 rel={href ? "noreferrer" : undefined}
                 className={[
-                  "group card block overflow-hidden transition",
-                  href ? "hover:bg-[hsl(var(--card2))]" : "cursor-not-allowed opacity-60",
+                  "group card block overflow-hidden transition-colors",
+                  href ? "hover:bg-[var(--surface-muted-weak)]" : "cursor-not-allowed opacity-60",
                 ].join(" ")}
                 aria-disabled={!href}
                 onClick={(e) => {
@@ -98,31 +110,33 @@ export function ProjectsPage() {
                   e.preventDefault();
                 }}
               >
-                <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border-soft)] bg-[var(--surface-muted)] px-5 py-3">
+                <div className="flex items-center justify-between gap-2.5 border-b border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] px-5 py-2.5">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex items-center gap-1">
-                      <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,red_55%,transparent)]" aria-hidden="true" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,orange_55%,transparent)]" aria-hidden="true" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,green_55%,transparent)]" aria-hidden="true" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,red_40%,transparent)]" aria-hidden="true" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,orange_40%,transparent)]" aria-hidden="true" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,green_40%,transparent)]" aria-hidden="true" />
                     </div>
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      {isGithub ? (
-                        <Github className="h-3.5 w-3.5 shrink-0 opacity-80" />
-                      ) : (
-                        <Code2 className="h-3.5 w-3.5 shrink-0 opacity-80" />
-                      )}
-                      <div className="min-w-0 truncate font-mono text-xs text-[hsl(var(--muted))]">{repoSlug ?? p.id}</div>
-                      {p.homepage ? (
-                        <span className="shrink-0 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-0.5 text-[10px] font-mono text-[hsl(var(--muted))]">
-                          live
-                        </span>
-                      ) : null}
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        {isGithub ? (
+                          <Github className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                        ) : (
+                          <Code2 className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                        )}
+                        <div className="min-w-0 truncate font-mono text-xs text-[color-mix(in_oklab,hsl(var(--fg))_70%,hsl(var(--muted)))]">
+                          {codeHint}
+                        </div>
+                        {p.homepage ? (
+                          <span className="shrink-0 rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-2 py-0.5 text-[10px] font-mono text-[hsl(var(--muted))]">
+                            live
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <span className="inline-flex items-center gap-1 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-1 text-[11px] text-[hsl(var(--muted))]">
-                  Open <ExternalLink className="h-3.5 w-3.5 opacity-75" />
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-2.5 py-1 text-[11px] text-[hsl(var(--muted))]">
+                    Open <ExternalLink className="h-3.5 w-3.5 opacity-75" />
                   </span>
                 </div>
 
@@ -130,9 +144,11 @@ export function ProjectsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-base font-semibold tracking-tight">{p.name}</div>
-                      <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-[hsl(var(--muted))]">{p.description}</div>
+                      <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_70%,hsl(var(--muted)))]">
+                        {p.description}
+                      </div>
                     </div>
-                    <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 opacity-35 transition group-hover:opacity-70" />
+                    <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-[hsl(var(--muted))] opacity-70 transition group-hover:text-[hsl(var(--fg))]" />
                   </div>
 
                   {(p.stack ?? []).length ? (
@@ -140,7 +156,7 @@ export function ProjectsPage() {
                       {(p.stack ?? []).slice(0, 6).map((s) => (
                         <span
                           key={s}
-                          className="inline-flex items-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-1 text-[11px] font-mono text-[color-mix(in_oklab,hsl(var(--fg))_78%,hsl(var(--muted)))]"
+                          className="inline-flex items-center rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-2.5 py-1 text-[11px] font-mono text-[color-mix(in_oklab,hsl(var(--fg))_78%,hsl(var(--muted)))]"
                         >
                           {s}
                         </span>

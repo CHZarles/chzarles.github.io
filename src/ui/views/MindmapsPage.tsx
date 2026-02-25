@@ -67,21 +67,23 @@ export function MindmapsPage() {
             <Link
               key={m.id}
               to={`/mindmaps/${m.id}`}
-              className="group card p-6 transition-colors hover:bg-[hsl(var(--card2))]"
+              className="group card p-6 transition-colors hover:bg-[var(--surface-muted-weak)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="grid h-9 w-9 place-items-center rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted)]">
+                    <span className="grid h-9 w-9 place-items-center rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)]">
                       <Network className="h-4 w-4 opacity-80" />
                     </span>
                     <div className="min-w-0">
                       <div className="truncate text-base font-semibold tracking-tight">{m.title}</div>
-                      <div className="mt-1 truncate text-sm text-[hsl(var(--muted))]">Updated · {fmtDate(m.updated)}</div>
+                      <div className="mt-1 truncate text-sm text-[color-mix(in_oklab,hsl(var(--fg))_70%,hsl(var(--muted)))]">
+                        Updated · {fmtDate(m.updated)}
+                      </div>
                     </div>
                   </div>
                 </div>
-                <ArrowUpRight className="mt-1 h-4 w-4 opacity-50 transition group-hover:opacity-80" />
+                <ArrowUpRight className="mt-1 h-4 w-4 text-[hsl(var(--muted))] opacity-70 transition group-hover:text-[hsl(var(--fg))]" />
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 <Chip label={`/${m.id}`} tone="muted" />

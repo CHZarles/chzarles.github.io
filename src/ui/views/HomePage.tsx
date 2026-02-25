@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/api";
 import { HeroBackdrop } from "../components/HeroBackdrop";
 import { HeroMimoBackdrop } from "../components/HeroMimoBackdrop";
-import { SectionHeader } from "../components/SectionHeader";
+import { Reveal } from "../components/Reveal";
 import { useAppState } from "../state/AppState";
 import type { NoteListItem } from "../types";
 
@@ -41,7 +41,7 @@ export function HomePage() {
 
   const categoryTitleById = React.useMemo(() => {
     const m = new Map(categories.map((c) => [c.id, c.title] as const));
-    return (id: string) => m.get(id) ?? id;
+    return (id: string) => m.get(id) ?? null;
   }, [categories]);
 
   React.useEffect(() => {
@@ -50,7 +50,7 @@ export function HomePage() {
       .notes()
       .then((n) => {
         if (cancelled) return;
-        setNotes(n.slice(0, 6));
+        setNotes(n.slice(0, 10));
       })
       .catch(() => {});
     return () => {
@@ -103,6 +103,10 @@ export function HomePage() {
   const spotRadius = clamp(profile?.hero?.spotlightRadiusPx ?? 240, 120, 520);
   const spotlightEase = clamp(profile?.hero?.spotlightEase ?? 0.34, 0.05, 0.5);
   const spotlightEaseRadius = clamp(profile?.hero?.spotlightEaseRadius ?? spotlightEase, 0.05, 0.5);
+  const heroVariantRef = React.useRef(heroVariant);
+  const spotRadiusRef = React.useRef(spotRadius);
+  const spotlightEaseRef = React.useRef(spotlightEase);
+  const spotlightEaseRadiusRef = React.useRef(spotlightEaseRadius);
   const rafRef = React.useRef<number | null>(null);
   const pendingRef = React.useRef(false);
   const lastRef = React.useRef<{ x: number; y: number; tx: number; ty: number; active: boolean }>({
@@ -120,8 +124,15 @@ export function HomePage() {
     r: 0,
   });
 
+  React.useEffect(() => {
+    heroVariantRef.current = heroVariant;
+    spotRadiusRef.current = spotRadius;
+    spotlightEaseRef.current = spotlightEase;
+    spotlightEaseRadiusRef.current = spotlightEaseRadius;
+  }, [heroVariant, spotRadius, spotlightEase, spotlightEaseRadius]);
+
   const flushSpot = React.useCallback(() => {
-    if (heroVariant !== "mimo") {
+    if (heroVariantRef.current !== "mimo") {
       rafRef.current = null;
       pendingRef.current = false;
       return;
@@ -136,7 +147,7 @@ export function HomePage() {
     pendingRef.current = false;
     const target = lastRef.current;
     const cur = animRef.current;
-    const targetR = target.active ? spotRadius : 0;
+    const targetR = target.active ? spotRadiusRef.current : 0;
 
     if (target.active && cur.r < 1) {
       cur.x = target.x;
@@ -151,11 +162,13 @@ export function HomePage() {
     const dty = target.ty - cur.ty;
     const dr = targetR - cur.r;
 
-    cur.x += dx * spotlightEase;
-    cur.y += dy * spotlightEase;
-    cur.tx += dtx * spotlightEase;
-    cur.ty += dty * spotlightEase;
-    cur.r += dr * spotlightEaseRadius;
+    const ease = spotlightEaseRef.current;
+    const easeR = spotlightEaseRadiusRef.current;
+    cur.x += dx * ease;
+    cur.y += dy * ease;
+    cur.tx += dtx * ease;
+    cur.ty += dty * ease;
+    cur.r += dr * easeR;
 
     backdropEl.style.setProperty("--hb-spot-x", `${cur.x}px`);
     backdropEl.style.setProperty("--hb-spot-y", `${cur.y}px`);
@@ -169,7 +182,6 @@ export function HomePage() {
     }
 
     const needsMore =
-      target.active ||
       Math.abs(dx) > 0.5 ||
       Math.abs(dy) > 0.5 ||
       Math.abs(dtx) > 0.5 ||
@@ -178,7 +190,7 @@ export function HomePage() {
 
     const wantsMore = needsMore || pendingRef.current;
     rafRef.current = wantsMore ? window.requestAnimationFrame(flushSpot) : null;
-  }, [heroVariant, spotRadius, spotlightEase, spotlightEaseRadius]);
+  }, []);
 
   const scheduleFlush = React.useCallback(() => {
     if (rafRef.current !== null) {
@@ -187,6 +199,12 @@ export function HomePage() {
     }
     rafRef.current = window.requestAnimationFrame(flushSpot);
   }, [flushSpot]);
+
+  React.useEffect(() => {
+    if (heroVariant !== "mimo") return;
+    if (!lastRef.current.active) return;
+    scheduleFlush();
+  }, [heroVariant, spotRadius, spotlightEase, spotlightEaseRadius, scheduleFlush]);
 
   const onPointerMove = React.useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
@@ -334,138 +352,149 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="grid gap-4">
-        <SectionHeader
-          title="Latest Notes"
-          desc="不区分长短文：同一个 Note，既能挂到 Category，也能挂到 Roadmap 节点。"
-          right={
-            <Link to="/notes" className="text-sm text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]">
-              浏览全部 →
-            </Link>
-          }
+      <section className="relative">
+        <div
+          aria-hidden="true"
+          className="absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 border-y border-[color-mix(in_oklab,hsl(var(--fg))_18%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--bg))_72%,transparent)]"
         />
-        {notes.length ? (
-          <div className="card overflow-hidden">
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_420px]">
-              <Link
-                to={`/notes/${notes[0]!.id}`}
-                className="group bg-[hsl(var(--card))] p-6 transition hover:bg-[hsl(var(--card2))] md:p-7"
-              >
-                <div className="flex items-baseline justify-between gap-4">
+        <Reveal className="relative z-10 py-10" yPx={12}>
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-0 lg:divide-x lg:divide-[color:var(--border-soft)]">
+            <div className="min-w-0 lg:pr-10">
+              <div className="flex items-end justify-between gap-4">
+                <div>
                   <div className="text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
                     LATEST
                   </div>
-                  <div className="font-mono text-xs tabular-nums text-[hsl(var(--muted))]">
-                    {fmtYmd(notes[0]!.updated)}
-                  </div>
+                  <div className="mt-1 font-serif text-xl font-semibold tracking-tight">Notes</div>
                 </div>
+                <Link
+                  to="/notes"
+                  className="font-mono text-xs font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
+                >
+                  ALL →
+                </Link>
+              </div>
 
-                <h3 className="mt-3 font-serif text-2xl font-semibold leading-[1.12] tracking-tight md:text-3xl">
-                  {notes[0]!.title}
-                </h3>
-                <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-[hsl(var(--muted))] md:text-base">
-                  {notes[0]!.excerpt}
-                </p>
-
-                {(() => {
-                  const n = notes[0]!;
-                  const cat = n.categories[0] ? `#${categoryTitleById(n.categories[0])}` : null;
-                  const node = n.nodes[0] ? `${n.nodes[0].roadmapTitle} / ${n.nodes[0].title}` : null;
-                  const meta = [cat, node].filter(Boolean).join(" · ");
-                  if (!meta) return null;
-                  return (
-                    <div className="mt-4 line-clamp-2 text-xs leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_58%,hsl(var(--muted)))]">
-                      {meta}
+              {notes.length ? (
+                <div className="mt-5">
+                  <Link
+                    to={`/notes/${notes[0]!.id}`}
+                    className="group block rounded-2xl px-1 py-2 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
+                  >
+                    <div className="flex items-baseline justify-between gap-4">
+                      <div className="font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
+                        {fmtYmd(notes[0]!.updated).slice(0, 10)}
+                      </div>
+                      <ArrowUpRight className="h-4 w-4 shrink-0 opacity-40 transition group-hover:opacity-70" />
                     </div>
-                  );
-                })()}
+                    <div className="mt-3 font-serif text-2xl font-semibold leading-[1.12] tracking-tight md:text-3xl">
+                      {notes[0]!.title}
+                    </div>
+                    <div className="mt-3 line-clamp-3 text-sm leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_72%,hsl(var(--muted)))] md:text-base">
+                      {notes[0]!.excerpt}
+                    </div>
+                  </Link>
 
-                <div className="mt-6 inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--muted))] transition group-hover:text-[hsl(var(--fg))]">
-                  Read <ArrowUpRight className="h-3.5 w-3.5 opacity-70" />
-                </div>
-              </Link>
+                  <div className="mt-6 hairline" />
 
-              <div className="bg-[hsl(var(--card))]">
-                <div className="h-full border-t border-[color:var(--border-soft)] lg:border-l lg:border-t-0">
                   <div className="divide-y divide-[color:var(--border-soft)]">
-                    {notes.slice(1, 6).map((n) => {
-                      const cat = n.categories[0] ? `#${categoryTitleById(n.categories[0])}` : null;
+                    {notes.slice(1, 9).map((n, idx) => {
+                      const index = String(idx + 2).padStart(2, "0");
+                      const md = fmtYmd(n.updated).slice(5);
+                      const date = md.length === 5 ? md.replace("-", ".") : md;
+                      const catTitle = n.categories[0] ? categoryTitleById(n.categories[0]) : null;
+                      const cat = catTitle ? `#${catTitle}` : null;
                       const node = n.nodes[0] ? `${n.nodes[0].roadmapTitle} / ${n.nodes[0].title}` : null;
                       const meta = [cat, node].filter(Boolean).join(" · ");
-                      const mmdd = fmtYmd(n.updated).slice(5);
 
                       return (
                         <Link
                           key={n.id}
                           to={`/notes/${n.id}`}
-                          className="group block px-5 py-4 transition hover:bg-[hsl(var(--card2))]"
+                          className="group relative -mx-1 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] gap-4 rounded-xl px-1 py-3.5 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
                         >
-                          <div className="flex items-baseline justify-between gap-4">
-                            <div className="min-w-0 truncate font-serif text-sm font-semibold tracking-tight md:text-base">
-                              {n.title}
-                            </div>
-                            <div className="shrink-0 font-mono text-xs tabular-nums text-[hsl(var(--muted))]">
-                              {mmdd}
-                            </div>
+                          <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-[hsl(var(--accent))] opacity-0 transition group-hover:opacity-45" />
+                          <div className="pt-0.5 font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
+                            {index}
                           </div>
-                          <div className="mt-1 line-clamp-1 text-xs leading-relaxed text-[hsl(var(--muted))]">
-                            {n.excerpt}
-                          </div>
-                          {meta ? (
-                            <div className="mt-1 line-clamp-1 text-[11px] text-[color-mix(in_oklab,hsl(var(--fg))_52%,hsl(var(--muted)))]">
-                              {meta}
+                          <div className="min-w-0">
+                            <div className="flex items-baseline justify-between gap-3">
+                              <div className="min-w-0 truncate font-serif text-sm font-semibold tracking-tight md:text-base">
+                                {n.title}
+                              </div>
+                              <ArrowUpRight className="h-4 w-4 shrink-0 translate-y-px opacity-0 transition group-hover:opacity-60" />
                             </div>
-                          ) : null}
+                            {meta ? (
+                              <div className="mt-1 hidden line-clamp-1 text-[11px] text-[color-mix(in_oklab,hsl(var(--fg))_60%,hsl(var(--muted)))] md:block">
+                                {meta}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="pt-0.5 font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
+                            {date}
+                          </div>
                         </Link>
                       );
                     })}
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mt-5 text-sm text-[hsl(var(--muted))]">暂无 Notes。</div>
+              )}
             </div>
-          </div>
-        ) : (
-          <div className="card p-7 text-sm text-[hsl(var(--muted))]">暂无 Notes。</div>
-        )}
-      </section>
 
-      <section className="grid gap-4">
-        <SectionHeader
-          title="Categories"
-          desc="传统目录入口：适合对外叙述与长期沉淀。"
-          right={
-            <Link to="/categories" className="text-sm text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]">
-              查看全部 →
-            </Link>
-          }
-        />
-        <div className="card p-5 md:p-6">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.slice(0, 6).map((c) => (
-              <Link
-                key={c.id}
-                to={`/categories/${c.id}`}
-                className="group rounded-xl border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] px-4 py-3 transition hover:border-[color:var(--border-hover)] hover:bg-[var(--surface-muted)]"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <div className="font-serif text-base font-semibold tracking-tight">{c.title}</div>
-                      <div className="font-mono text-xs text-[hsl(var(--muted))]">/{c.id}</div>
-                    </div>
-                    <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-[hsl(var(--muted))]">
-                      {c.description ?? "传统目录入口：像写书一样维护栏目结构与叙事。"}
-                    </div>
+            <div className="min-w-0 lg:pl-10">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <div className="text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
+                    INDEX
                   </div>
-                  <div className="shrink-0 text-right">
-                    <div className="font-mono text-sm font-semibold tabular-nums text-[hsl(var(--fg))]">{c.noteCount ?? 0}</div>
-                    <div className="mt-0.5 text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">NOTES</div>
+                  <div className="mt-1 font-serif text-xl font-semibold tracking-tight">Categories</div>
+                </div>
+                <Link
+                  to="/categories"
+                  className="font-mono text-xs font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
+                >
+                  ALL →
+                </Link>
+              </div>
+
+              {categories.length ? (
+                <div className="mt-5">
+                  <div className="hairline" />
+                  <div className="divide-y divide-[color:var(--border-soft)]">
+                    {categories.slice(0, 10).map((c) => (
+                      <Link
+                        key={c.id}
+                        to={`/categories/${c.id}`}
+                        className="group relative -mx-1 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 rounded-xl px-1 py-3.5 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
+                      >
+                        <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-[hsl(var(--accent))] opacity-0 transition group-hover:opacity-35" />
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-baseline gap-2">
+                            <div className="truncate font-serif text-sm font-semibold tracking-tight md:text-base">
+                              {c.title}
+                            </div>
+                          </div>
+                          {c.description ? (
+                            <div className="mt-1 hidden line-clamp-1 text-[11px] text-[hsl(var(--muted))] md:block">
+                              {c.description}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
+                          {(c.noteCount ?? 0).toString().padStart(2, "0")}
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 </div>
-              </Link>
-            ))}
+              ) : (
+                <div className="mt-5 text-sm text-[hsl(var(--muted))]">暂无 Categories。</div>
+              )}
+            </div>
           </div>
-        </div>
+        </Reveal>
       </section>
     </div>
   );

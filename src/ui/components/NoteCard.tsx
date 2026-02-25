@@ -20,7 +20,7 @@ export function NoteCard(props: { note: NoteListItem }) {
   const { categories } = useAppState();
   const titleById = React.useMemo(() => {
     const m = new Map(categories.map((c) => [c.id, c.title] as const));
-    return (id: string) => m.get(id) ?? id;
+    return (id: string) => m.get(id) ?? null;
   }, [categories]);
   return (
     <Link
@@ -37,9 +37,11 @@ export function NoteCard(props: { note: NoteListItem }) {
       <h3 className="mt-3 font-serif text-lg font-semibold tracking-tight">{n.title}</h3>
       <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[hsl(var(--muted))]">{n.excerpt}</p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {n.categories.slice(0, 2).map((c) => (
-          <Chip key={c} label={titleById(c)} to={`/categories/${c}`} tone="glass" />
-        ))}
+        {n.categories.slice(0, 2).map((c) => {
+          const title = titleById(c);
+          if (!title) return null;
+          return <Chip key={c} label={title} to={`/categories/${c}`} tone="glass" />;
+        })}
         {n.nodes.slice(0, 2).map((r) => (
           <Chip
             key={r.ref}

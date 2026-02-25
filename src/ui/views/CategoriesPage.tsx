@@ -50,13 +50,21 @@ export function CategoriesPage() {
       ) : categories.length ? (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {categories.map((c) => (
-            <Link key={c.id} to={`/categories/${c.id}`} className="group card p-5 transition-colors hover:bg-[hsl(var(--card2))]">
+            <Link
+              key={c.id}
+              to={`/categories/${c.id}`}
+              className="group card p-5 transition-colors hover:bg-[var(--surface-muted-weak)]"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-base font-semibold tracking-tight">{c.title}</div>
-                  <div className="mt-2 text-sm text-[hsl(var(--muted))]">{c.description ?? `/${c.id}`}</div>
+                  {c.description ? (
+                    <div className="mt-2 text-sm leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_70%,hsl(var(--muted)))]">
+                      {c.description}
+                    </div>
+                  ) : null}
                 </div>
-                <ArrowUpRight className="mt-1 h-4 w-4 opacity-50 transition group-hover:opacity-80" />
+                <ArrowUpRight className="mt-1 h-4 w-4 text-[hsl(var(--muted))] opacity-70 transition group-hover:text-[hsl(var(--fg))]" />
               </div>
               <div className="mt-4 flex items-center gap-2">
                 <Chip label={`${c.noteCount ?? 0} notes`} tone="glass" />

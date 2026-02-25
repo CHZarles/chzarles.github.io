@@ -44,7 +44,7 @@ export function CategoryPage() {
         <span className="kbd">{notes.length} notes</span>
       </div>
 
-      <SectionHeader title={category.title} desc={category.description ?? `/${category.id}`} />
+      <SectionHeader title={category.title} desc={category.description ?? undefined} />
 
       <div className="grid gap-3 md:grid-cols-2">
         {notes.map((n) => (
@@ -54,4 +54,3 @@ export function CategoryPage() {
     </div>
   );
 }
-

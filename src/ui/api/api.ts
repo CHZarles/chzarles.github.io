@@ -69,11 +69,20 @@ function apiFetchCached<T>(input: string): Promise<T> {
   return p;
 }
 
+function dateMs(iso: string): number {
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : 0;
+}
+
 let notesIndexPromise: Promise<NoteListItem[]> | null = null;
 function getNotesIndex(): Promise<NoteListItem[]> {
   if (!notesIndexPromise) {
     notesIndexPromise = apiFetchCached<NoteListItem[]>("/api/notes.json")
-      .then((all) => all.filter((n) => !n.draft))
+      .then((all) => {
+        const list = all.filter((n) => !n.draft);
+        list.sort((a, b) => dateMs(b.updated) - dateMs(a.updated));
+        return list;
+      })
       .catch((err) => {
       notesIndexPromise = null;
       throw err;

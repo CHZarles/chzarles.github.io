@@ -2,16 +2,22 @@ import { ArrowUpRight } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/api";
-import { Chip } from "../components/Chip";
 import { HeroBackdrop } from "../components/HeroBackdrop";
 import { HeroMimoBackdrop } from "../components/HeroMimoBackdrop";
-import { NoteCard } from "../components/NoteCard";
 import { SectionHeader } from "../components/SectionHeader";
 import { useAppState } from "../state/AppState";
 import type { NoteListItem } from "../types";
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
+}
+
+function fmtYmd(iso: string): string {
+  try {
+    return new Date(iso).toISOString().slice(0, 10);
+  } catch {
+    return iso;
+  }
 }
 
 function cssColor(raw: string) {
@@ -32,6 +38,11 @@ function cssColor(raw: string) {
 export function HomePage() {
   const { profile, theme, categories } = useAppState();
   const [notes, setNotes] = React.useState<NoteListItem[]>([]);
+
+  const categoryTitleById = React.useMemo(() => {
+    const m = new Map(categories.map((c) => [c.id, c.title] as const));
+    return (id: string) => m.get(id) ?? id;
+  }, [categories]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -333,10 +344,43 @@ export function HomePage() {
             </Link>
           }
         />
-        <div className="grid gap-3 md:grid-cols-2">
-          {notes.map((n) => (
-            <NoteCard key={n.id} note={n} />
-          ))}
+        <div className="card overflow-hidden">
+          <div className="grid gap-px bg-[color:var(--border-soft)] md:grid-cols-2">
+            {notes.map((n) => {
+              const cat = n.categories[0] ? `#${categoryTitleById(n.categories[0])}` : null;
+              const node = n.nodes[0] ? `${n.nodes[0].roadmapTitle} / ${n.nodes[0].title}` : null;
+              const meta = [cat, node].filter(Boolean).join(" · ");
+
+              return (
+                <Link
+                  key={n.id}
+                  to={`/notes/${n.id}`}
+                  className="group bg-[hsl(var(--card))] px-4 py-3 transition hover:bg-[hsl(var(--card2))]"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
+                        UPDATED · <span className="font-mono tabular-nums">{fmtYmd(n.updated)}</span>
+                      </div>
+                      <div className="mt-1 line-clamp-2 font-serif text-base font-semibold leading-snug tracking-tight">
+                        {n.title}
+                      </div>
+                    </div>
+                    <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 opacity-0 transition group-hover:opacity-60" />
+                  </div>
+
+                  <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-[hsl(var(--muted))] md:line-clamp-1">
+                    {n.excerpt}
+                  </div>
+                  {meta ? (
+                    <div className="mt-2 line-clamp-1 text-xs text-[color-mix(in_oklab,hsl(var(--fg))_55%,hsl(var(--muted)))]">
+                      {meta}
+                    </div>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -350,21 +394,32 @@ export function HomePage() {
             </Link>
           }
         />
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {categories.slice(0, 6).map((c) => (
-            <Link key={c.id} to={`/categories/${c.id}`} className="group card p-5 transition-colors hover:bg-[hsl(var(--card2))]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-base font-semibold tracking-tight">{c.title}</div>
-                  <div className="mt-2 text-sm text-[hsl(var(--muted))]">{c.description ?? "作为传统目录入口"}</div>
+        <div className="card overflow-hidden">
+          <div className="grid gap-px bg-[color:var(--border-soft)] sm:grid-cols-2 lg:grid-cols-3">
+            {categories.slice(0, 6).map((c) => (
+              <Link
+                key={c.id}
+                to={`/categories/${c.id}`}
+                className="group bg-[hsl(var(--card))] px-4 py-3 transition hover:bg-[hsl(var(--card2))]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <div className="font-serif text-base font-semibold tracking-tight">{c.title}</div>
+                      <div className="font-mono text-xs text-[hsl(var(--muted))]">/{c.id}</div>
+                    </div>
+                    <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-[hsl(var(--muted))]">
+                      {c.description ?? "传统目录入口：像写书一样维护栏目结构与叙事。"}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="font-mono text-xs font-semibold tabular-nums text-[hsl(var(--muted))]">{c.noteCount ?? 0}</div>
+                    <div className="mt-0.5 text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">NOTES</div>
+                  </div>
                 </div>
-                <ArrowUpRight className="mt-1 h-4 w-4 opacity-50 transition group-hover:opacity-80" />
-              </div>
-              <div className="mt-4 flex items-center gap-2">
-                <Chip label={`${c.noteCount ?? 0} notes`} tone="glass" />
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
     </div>

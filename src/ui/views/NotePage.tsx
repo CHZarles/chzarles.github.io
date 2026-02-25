@@ -346,7 +346,7 @@ export function NotePage() {
   React.useEffect(() => {
     if (!noteId) return;
     let cancelled = false;
-    setNote(null);
+    setNote(api.peekNote(noteId));
     setError(null);
     api
       .note(noteId)

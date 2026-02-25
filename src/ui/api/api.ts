@@ -84,11 +84,33 @@ function getNotesIndex(): Promise<NoteListItem[]> {
         return list;
       })
       .catch((err) => {
-      notesIndexPromise = null;
-      throw err;
-    });
+        notesIndexPromise = null;
+        throw err;
+      });
   }
   return notesIndexPromise;
+}
+
+const noteMemo = new Map<string, Note>();
+function safeId(input: string): string {
+  return String(input ?? "").trim();
+}
+
+function peekNote(id: string): Note | null {
+  const key = safeId(id);
+  if (!key) return null;
+  return noteMemo.get(key) ?? null;
+}
+
+function prefetchNote(id: string) {
+  const key = safeId(id);
+  if (!key) return;
+  if (noteMemo.has(key)) return;
+  void apiFetchCached<Note>(`/api/notes/${key}.json`)
+    .then((n) => {
+      if (!n.draft) noteMemo.set(key, n);
+    })
+    .catch(() => {});
 }
 
 let nodesIndexPromise: Promise<RoadmapNodeEntry[]> | null = null;
@@ -157,19 +179,22 @@ export const api = {
     if (embedded) return Promise.resolve(embedded);
     return apiFetchCached<Profile>("/api/profile.json");
   },
-  prefetchNote: (id: string) => {
-    const safeId = String(id ?? "").trim();
-    if (!safeId) return;
-    void apiFetchCached<Note>(`/api/notes/${safeId}.json`).catch(() => {});
-  },
+  prefetchNote,
+  peekNote,
   categories: () => apiFetchCached<Category[]>("/api/categories.json"),
   notes: async (params?: { q?: string; category?: string; roadmap?: string; node?: string }) => {
     const all = await getNotesIndex();
     return filterNotes(all, params);
   },
   note: async (id: string) => {
-    const n = await apiFetchCached<Note>(`/api/notes/${id}.json`);
+    const key = safeId(id);
+    if (!key) throw new Error("note_not_found");
+    const cached = noteMemo.get(key);
+    if (cached) return cached;
+
+    const n = await apiFetchCached<Note>(`/api/notes/${key}.json`);
     if (n.draft) throw new Error("note_not_found");
+    noteMemo.set(key, n);
     return n;
   },
   projects: () => apiFetchCached<Project[]>("/api/projects.json"),

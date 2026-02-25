@@ -379,6 +379,8 @@ export function HomePage() {
                 <div className="mt-5">
                   <Link
                     to={`/notes/${notes[0]!.id}`}
+                    onMouseEnter={() => api.prefetchNote(notes[0]!.id)}
+                    onFocus={() => api.prefetchNote(notes[0]!.id)}
                     className="group block rounded-2xl px-1 py-2 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
                   >
                     <div className="flex items-baseline justify-between gap-4">
@@ -411,6 +413,8 @@ export function HomePage() {
                         <Link
                           key={n.id}
                           to={`/notes/${n.id}`}
+                          onMouseEnter={() => api.prefetchNote(n.id)}
+                          onFocus={() => api.prefetchNote(n.id)}
                           className="group relative -mx-1 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] gap-4 rounded-xl px-1 py-3.5 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
                         >
                           <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-[hsl(var(--accent))] opacity-0 transition group-hover:opacity-45" />

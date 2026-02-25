@@ -157,6 +157,11 @@ export const api = {
     if (embedded) return Promise.resolve(embedded);
     return apiFetchCached<Profile>("/api/profile.json");
   },
+  prefetchNote: (id: string) => {
+    const safeId = String(id ?? "").trim();
+    if (!safeId) return;
+    void apiFetchCached<Note>(`/api/notes/${safeId}.json`).catch(() => {});
+  },
   categories: () => apiFetchCached<Category[]>("/api/categories.json"),
   notes: async (params?: { q?: string; category?: string; roadmap?: string; node?: string }) => {
     const all = await getNotesIndex();

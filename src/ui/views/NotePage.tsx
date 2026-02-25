@@ -877,6 +877,8 @@ export function NotePage() {
                 {nav.newer ? (
                   <Link
                     to={`/notes/${nav.newer.id}`}
+                    onMouseEnter={() => api.prefetchNote(nav.newer!.id)}
+                    onFocus={() => api.prefetchNote(nav.newer!.id)}
                     className="group -mx-2 rounded-xl px-2 py-3 transition hover:bg-[var(--surface-muted-weak)]"
                   >
                     <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
@@ -895,6 +897,8 @@ export function NotePage() {
                 {nav.older ? (
                   <Link
                     to={`/notes/${nav.older.id}`}
+                    onMouseEnter={() => api.prefetchNote(nav.older!.id)}
+                    onFocus={() => api.prefetchNote(nav.older!.id)}
                     className="group -mx-2 rounded-xl px-2 py-3 transition hover:bg-[var(--surface-muted-weak)]"
                   >
                     <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
@@ -923,6 +927,8 @@ export function NotePage() {
                     <Link
                       key={n.id}
                       to={`/notes/${n.id}`}
+                      onMouseEnter={() => api.prefetchNote(n.id)}
+                      onFocus={() => api.prefetchNote(n.id)}
                       className="group -mx-1 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 rounded-xl px-1 py-3.5 transition hover:bg-[var(--surface-muted-weak)]"
                     >
                       <div className="min-w-0">

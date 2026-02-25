@@ -119,6 +119,8 @@ export function NotesPage() {
                       <Link
                         key={n.id}
                         to={`/notes/${n.id}`}
+                        onMouseEnter={() => api.prefetchNote(n.id)}
+                        onFocus={() => api.prefetchNote(n.id)}
                         className="group relative -mx-1 grid grid-cols-[7.5rem_minmax(0,1fr)] gap-4 rounded-xl px-1 py-4 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
                       >
                         <div className="pt-0.5 font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">

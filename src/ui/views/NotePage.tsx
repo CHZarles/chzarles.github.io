@@ -432,6 +432,14 @@ export function NotePage() {
     })();
   }, []);
 
+  const onScrollTop = React.useCallback(() => {
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, []);
+
   const markdownComponents = React.useMemo(() => {
     const renderHeading = (level: number) => {
       return function HeadingRenderer(props: { children?: React.ReactNode; className?: string }) {
@@ -607,14 +615,6 @@ export function NotePage() {
   const readMinutes = estimateReadMinutes(note.content);
   const metaPrimary = `${published} · ${readMinutes} MIN`;
   const metaSecondary = updatedKey !== publishedKey ? `LAST UPDATE · ${updated}` : null;
-
-  const onScrollTop = React.useCallback(() => {
-    try {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch {
-      window.scrollTo(0, 0);
-    }
-  }, []);
 
   return (
     <div className="grid gap-10">

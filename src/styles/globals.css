@@ -189,6 +189,10 @@ body {
   border-bottom-color: hsl(var(--accent));
 }
 
+.prose a.hb-heading-anchor {
+  border-bottom: 0 !important;
+}
+
 /* Tailwind typography adds backticks around inline code via ::before/::after. */
 .prose code::before,
 .prose code::after {

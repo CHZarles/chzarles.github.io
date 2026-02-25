@@ -14,6 +14,10 @@ import type { Note, NoteListItem } from "../types";
 
 type HeadingRef = { depth: number; text: string; id: string };
 
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n));
+}
+
 function fmtYmdDots(iso: string) {
   try {
     const d = new Date(iso);
@@ -32,6 +36,35 @@ function fmtMdDots(iso: string) {
   const parts = s.split(".");
   if (parts.length === 3) return `${parts[1]}.${parts[2]}`;
   return s;
+}
+
+const MONTHS_EN = [
+  "JANUARY",
+  "FEBRUARY",
+  "MARCH",
+  "APRIL",
+  "MAY",
+  "JUNE",
+  "JULY",
+  "AUGUST",
+  "SEPTEMBER",
+  "OCTOBER",
+  "NOVEMBER",
+  "DECEMBER",
+];
+
+function fmtNazhaDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const month = MONTHS_EN[d.getMonth()] ?? "";
+    const day = String(d.getDate()).padStart(2, "0");
+    const year = String(d.getFullYear());
+    if (!month) return fmtYmdDots(iso);
+    return `${month} ${day}, ${year}`;
+  } catch {
+    return iso;
+  }
 }
 
 function estimateReadMinutes(md: string): number {
@@ -227,6 +260,9 @@ export function NotePage() {
   const [error, setError] = React.useState<string | null>(null);
   const [index, setIndex] = React.useState<NoteListItem[] | null>(null);
   const [lightbox, setLightbox] = React.useState<{ src: string; alt?: string } | null>(null);
+  const [scrollProgress, setScrollProgress] = React.useState(0);
+  const [copiedPermalink, setCopiedPermalink] = React.useState(false);
+  const [copiedAnchorId, setCopiedAnchorId] = React.useState<string | null>(null);
   const { categories } = useAppState();
   const titleById = React.useMemo(() => {
     const m = new Map(categories.map((c) => [c.id, c.title] as const));
@@ -251,6 +287,33 @@ export function NotePage() {
       });
     return () => {
       cancelled = true;
+    };
+  }, [noteId]);
+
+  React.useEffect(() => {
+    if (!noteId) return;
+    let raf = 0;
+
+    const update = () => {
+      raf = 0;
+      const doc = document.documentElement;
+      const total = doc.scrollHeight - doc.clientHeight;
+      const p = total > 0 ? doc.scrollTop / total : 0;
+      setScrollProgress(clamp(p, 0, 1));
+    };
+
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
     };
   }, [noteId]);
 
@@ -313,6 +376,57 @@ export function NotePage() {
   React.useEffect(() => {
     headingCursorRef.current = 0;
   }, [noteId, tocKey]);
+  const tocDetailsRef = React.useRef<HTMLDetailsElement | null>(null);
+
+  const scrollToId = React.useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try {
+      history.replaceState(null, "", `#${id}`);
+    } catch {
+      // ignore
+    }
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {
+      el.scrollIntoView();
+    }
+  }, []);
+
+  const copiedPermalinkTimerRef = React.useRef<number | null>(null);
+  const copiedAnchorTimerRef = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    return () => {
+      if (copiedPermalinkTimerRef.current) window.clearTimeout(copiedPermalinkTimerRef.current);
+      if (copiedAnchorTimerRef.current) window.clearTimeout(copiedAnchorTimerRef.current);
+    };
+  }, []);
+
+  const onCopyPermalink = React.useCallback(() => {
+    void (async () => {
+      const ok = await tryCopy(window.location.href);
+      if (!ok) return;
+      setCopiedPermalink(true);
+      if (copiedPermalinkTimerRef.current) window.clearTimeout(copiedPermalinkTimerRef.current);
+      copiedPermalinkTimerRef.current = window.setTimeout(() => setCopiedPermalink(false), 900);
+    })();
+  }, []);
+
+  const onCopyAnchor = React.useCallback((id: string) => {
+    void (async () => {
+      try {
+        const url = new URL(window.location.href);
+        url.hash = `#${id}`;
+        const ok = await tryCopy(url.toString());
+        if (!ok) return;
+        setCopiedAnchorId(id);
+        if (copiedAnchorTimerRef.current) window.clearTimeout(copiedAnchorTimerRef.current);
+        copiedAnchorTimerRef.current = window.setTimeout(() => setCopiedAnchorId(null), 900);
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
 
   const markdownComponents = React.useMemo(() => {
     const renderHeading = (level: number) => {
@@ -336,13 +450,18 @@ export function NotePage() {
           <Tag id={id} className={className}>
             <span className="inline-flex items-baseline gap-2">
               <span className="min-w-0">{props.children}</span>
-              <a
-                href={`#${id}`}
-                aria-label="Link to this section"
+              <button
+                type="button"
+                onClick={() => {
+                  onCopyAnchor(id);
+                  scrollToId(id);
+                }}
+                aria-label="Copy link to this section"
+                title={copiedAnchorId === id ? "Copied" : "Copy link"}
                 className="hb-heading-anchor not-prose inline-flex h-6 w-6 items-center justify-center rounded-md border border-transparent text-[hsl(var(--muted))] opacity-0 transition hover:border-[color:var(--border-soft)] hover:bg-[var(--surface-muted-weak)] hover:text-[hsl(var(--fg))] group-hover:opacity-80"
               >
-                <Link2 className="h-3.5 w-3.5" />
-              </a>
+                {copiedAnchorId === id ? <Check className="h-3.5 w-3.5 opacity-85" /> : <Link2 className="h-3.5 w-3.5" />}
+              </button>
             </span>
           </Tag>
         );
@@ -408,7 +527,7 @@ export function NotePage() {
         );
       },
     };
-  }, [headings]);
+  }, [copiedAnchorId, headings, onCopyAnchor, scrollToId]);
 
   const contentRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -477,15 +596,22 @@ export function NotePage() {
   }
 
   const markdown = normalizeMathDelimiters(note.content);
-  const published = fmtYmdDots(note.date);
-  const updated = fmtYmdDots(note.updated);
+  const publishedKey = fmtYmdDots(note.date);
+  const updatedKey = fmtYmdDots(note.updated);
+  const published = fmtNazhaDate(note.date);
+  const updated = fmtNazhaDate(note.updated);
   const readMinutes = estimateReadMinutes(note.content);
-  const metaLine = [published, updated !== published ? `Updated ${updated}` : null, `${readMinutes} min`]
-    .filter(Boolean)
-    .join(" · ");
+  const metaPrimary = `${published} · ${readMinutes} MIN`;
+  const metaSecondary = updatedKey !== publishedKey ? `LAST UPDATE · ${updated}` : null;
 
   return (
     <div className="grid gap-10">
+      <div aria-hidden="true" className="fixed inset-x-0 top-0 z-50 h-[2px] bg-[color-mix(in_oklab,hsl(var(--border))_40%,transparent)]">
+        <div
+          className="h-full bg-[color-mix(in_oklab,hsl(var(--accent))_70%,transparent)]"
+          style={{ width: `${(scrollProgress * 100).toFixed(3)}%` }}
+        />
+      </div>
       {lightbox ? <Lightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} /> : null}
       <Reveal key={note.id} yPx={8} className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_260px] xl:gap-12">
         <div className="min-w-0">
@@ -497,12 +623,17 @@ export function NotePage() {
               <span aria-hidden="true">↩</span>
               <span>Index</span>
             </Link>
-            <div className="font-mono text-[11px] tabular-nums tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
-              {metaLine}
-            </div>
-            <h1 className="mt-4 font-display text-[clamp(2.05rem,3.6vw,2.85rem)] font-semibold leading-[1.06] tracking-[var(--tracking-tight)]">
+            <h1 className="mt-8 font-display text-[clamp(1.95rem,3.2vw,2.65rem)] font-semibold leading-[1.06] tracking-[var(--tracking-tight)]">
               {note.title}
             </h1>
+            <div className="flex flex-col pt-6 pb-1 font-mono text-[11px] font-normal tracking-[0.14em] text-[hsl(var(--muted))]">
+              <time dateTime={note.date}>{metaPrimary}</time>
+              {metaSecondary ? (
+                <div className="mt-2 tracking-[0.12em] text-[color-mix(in_oklab,hsl(var(--fg))_55%,hsl(var(--muted)))]">
+                  {metaSecondary}
+                </div>
+              ) : null}
+            </div>
             {note.excerpt ? (
               <p className="mt-4 text-base leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_76%,hsl(var(--muted)))] md:text-lg">
                 {note.excerpt}
@@ -542,7 +673,7 @@ export function NotePage() {
             ) : null}
 
             {toc.items.length ? (
-              <details className="mt-8 xl:hidden">
+              <details ref={tocDetailsRef} className="mt-8 xl:hidden">
                 <summary className="cursor-pointer text-xs font-medium tracking-wide text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]">
                   On this page
                 </summary>
@@ -551,6 +682,11 @@ export function NotePage() {
                     <a
                       key={t.id}
                       href={`#${t.id}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        scrollToId(t.id);
+                        if (tocDetailsRef.current) tocDetailsRef.current.open = false;
+                      }}
                       className={[
                         "block rounded-lg px-2 py-1.5 text-sm transition",
                         activeHeadingId === t.id
@@ -612,11 +748,11 @@ export function NotePage() {
               <div className="text-xs font-medium tracking-wide text-[hsl(var(--muted))]">Permalink</div>
               <button
                 type="button"
-                onClick={() => navigator.clipboard?.writeText?.(window.location.href)}
+                onClick={onCopyPermalink}
                 className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-transparent px-4 py-2 text-sm text-[hsl(var(--fg))] transition hover:bg-[var(--surface-muted-weak)]"
               >
-                <Link2 className="h-4 w-4 opacity-75" />
-                Copy link
+                {copiedPermalink ? <Check className="h-4 w-4 opacity-85" /> : <Link2 className="h-4 w-4 opacity-75" />}
+                {copiedPermalink ? "Copied" : "Copy link"}
               </button>
             </div>
 
@@ -702,6 +838,10 @@ export function NotePage() {
                     <a
                       key={t.id}
                       href={`#${t.id}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        scrollToId(t.id);
+                      }}
                       className={[
                         "relative block rounded-lg py-1.5 pl-3 pr-2 text-[13px] leading-snug transition",
                         "before:absolute before:left-[0.5px] before:top-[0.85em] before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full before:border before:border-[color:var(--border-soft)] before:bg-[hsl(var(--bg))]",

@@ -31,47 +31,57 @@ function resolveBuildId(): string {
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
-function injectProfileIntoIndexHtml(indexHtml: string, profile: unknown): string {
-  if (indexHtml.includes('id="hb-profile"')) return indexHtml;
+function injectProfileIntoIndexHtml(indexHtml: string, profile: unknown, buildId: string): string {
   if (!indexHtml.includes("</head>")) return indexHtml;
 
   const profileJson = escapeJsonForHtmlScript(JSON.stringify(profile));
-  const buildId = escapeJsonForHtmlScript(JSON.stringify(resolveBuildId()));
+  const buildJson = escapeJsonForHtmlScript(JSON.stringify(buildId));
 
-  const snippet =
-    `\n    <script id="hb-profile" type="application/json">${profileJson}</script>\n` +
-    `    <script>\n` +
-    `      (() => {\n` +
-    `        try {\n` +
-    `          const el = document.getElementById("hb-profile");\n` +
-    `          if (!el) return;\n` +
-    `          const profile = JSON.parse(el.textContent || "null");\n` +
-    `          window.__HB_PROFILE__ = profile;\n` +
-    `\n` +
-    `          const path = (location.pathname || "/").replace(/\\/index\\.html$/, "/");\n` +
-    `          if (path !== "/") return;\n` +
-    `\n` +
-    `          const hero = profile && profile.hero;\n` +
-    `          if (!hero || hero.preload === false || !hero.imageUrl) return;\n` +
-    `          const href = new URL(hero.imageUrl, location.origin + "/").toString();\n` +
-    `          const link = document.createElement("link");\n` +
-    `          link.rel = "preload";\n` +
-    `          link.as = "image";\n` +
-    `          link.href = href;\n` +
-    `          link.setAttribute("fetchpriority", "high");\n` +
-    `          document.head.appendChild(link);\n` +
-    `        } catch {\n` +
-    `          // ignore\n` +
-    `        }\n` +
-    `      })();\n` +
-    `    </script>\n`;
+  let out = indexHtml;
 
-  const buildSnippet =
-    `\n    <script>\n` +
-    `      try { window.__HB_BUILD__ = ${buildId}; } catch {}\n` +
-    `    </script>\n`;
+  if (!out.includes('id="hb-profile"')) {
+    const snippet =
+      `\n    <script id="hb-profile" type="application/json">${profileJson}</script>\n` +
+      `    <script>\n` +
+      `      (() => {\n` +
+      `        try {\n` +
+      `          const el = document.getElementById("hb-profile");\n` +
+      `          if (!el) return;\n` +
+      `          const profile = JSON.parse(el.textContent || "null");\n` +
+      `          window.__HB_PROFILE__ = profile;\n` +
+      `\n` +
+      `          const path = (location.pathname || "/").replace(/\\/index\\.html$/, "/");\n` +
+      `          if (path !== "/") return;\n` +
+      `\n` +
+      `          const hero = profile && profile.hero;\n` +
+      `          if (!hero || hero.preload === false || !hero.imageUrl) return;\n` +
+      `          const href = new URL(hero.imageUrl, location.origin + "/").toString();\n` +
+      `          const link = document.createElement("link");\n` +
+      `          link.rel = "preload";\n` +
+      `          link.as = "image";\n` +
+      `          link.href = href;\n` +
+      `          link.setAttribute("fetchpriority", "high");\n` +
+      `          document.head.appendChild(link);\n` +
+      `        } catch {\n` +
+      `          // ignore\n` +
+      `        }\n` +
+      `      })();\n` +
+      `    </script>\n`;
 
-  return indexHtml.replace("</head>", `${snippet}${buildSnippet}  </head>`);
+    out = out.replace("</head>", `${snippet}  </head>`);
+  }
+
+  if (!out.includes("__HB_BUILD__")) {
+    const buildSnippet = `\n    <script>\n      try { window.__HB_BUILD__ = ${buildJson}; } catch {}\n    </script>\n`;
+    out = out.replace("</head>", `${buildSnippet}  </head>`);
+  }
+
+  const v = encodeURIComponent(buildId);
+  out = out
+    .replace('href="/api/notes.json"', `href="/api/notes.json?v=${v}"`)
+    .replace('href="/api/categories.json"', `href="/api/categories.json?v=${v}"`);
+
+  return out;
 }
 
 async function main() {
@@ -140,7 +150,8 @@ async function main() {
   // GitHub Pages SPA fallback
   const indexPath = path.join(distDir, "index.html");
   const indexHtmlRaw = await fs.readFile(indexPath, "utf8");
-  const indexHtml = injectProfileIntoIndexHtml(indexHtmlRaw, db.profile);
+  const buildId = resolveBuildId();
+  const indexHtml = injectProfileIntoIndexHtml(indexHtmlRaw, db.profile, buildId);
   if (indexHtml !== indexHtmlRaw) await fs.writeFile(indexPath, indexHtml, "utf8");
   await fs.writeFile(path.join(distDir, "404.html"), indexHtml, "utf8");
   await fs.writeFile(path.join(distDir, ".nojekyll"), "", "utf8");

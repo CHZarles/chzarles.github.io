@@ -16,7 +16,16 @@ export function Reveal(props: {
   yPx?: number;
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null);
-  const [shown, setShown] = React.useState(false);
+  const [shown, setShown] = React.useState(() => {
+    if (prefersReducedMotion()) return true;
+    try {
+      // On hard refresh we already run a global fade-in; avoid stacked "double" reveals.
+      if (document.documentElement.dataset.hbMounted === "0") return true;
+    } catch {
+      // ignore
+    }
+    return false;
+  });
 
   React.useEffect(() => {
     if (shown) return;
@@ -58,7 +67,7 @@ export function Reveal(props: {
   const transitionStyle: React.CSSProperties = reduce
     ? {}
     : {
-        transition: `opacity 560ms cubic-bezier(0.22,1,0.36,1) ${delayMs}ms, transform 560ms cubic-bezier(0.22,1,0.36,1) ${delayMs}ms`,
+        transition: `opacity 460ms cubic-bezier(0.22,1,0.36,1) ${delayMs}ms, transform 460ms cubic-bezier(0.22,1,0.36,1) ${delayMs}ms`,
         willChange: "opacity, transform",
       };
 

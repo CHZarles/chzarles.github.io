@@ -104,7 +104,7 @@ function CommandPalette(props: { onClose: () => void }) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索 Notes / Categories / Roadmaps / Nodes / Mindmaps / Projects"
+            placeholder="搜索 Notes / Roadmaps / Nodes / Mindmaps / Projects"
             className="w-full bg-transparent py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))]"
           />
           <span className="kbd hidden sm:inline-flex">Esc</span>
@@ -172,4 +172,3 @@ export function CommandPaletteOverlay(props: { onClose: () => void }) {
     </div>
   );
 }
-

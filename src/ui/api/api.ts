@@ -158,12 +158,6 @@ export const api = {
     return apiFetchCached<Profile>("/api/profile.json");
   },
   categories: () => apiFetchCached<Category[]>("/api/categories.json"),
-  category: async (id: string) => {
-    const [categories, notes] = await Promise.all([apiFetchCached<Category[]>("/api/categories.json"), getNotesIndex()]);
-    const category = categories.find((c) => c.id === id);
-    if (!category) throw new Error("category_not_found");
-    return { category, notes: notes.filter((n) => n.categories.includes(id)) };
-  },
   notes: async (params?: { q?: string; category?: string; roadmap?: string; node?: string }) => {
     const all = await getNotesIndex();
     return filterNotes(all, params);
@@ -223,7 +217,12 @@ export const api = {
       if (hits.length >= 18) break;
       const hay = `${c.title} ${c.id}`.toLowerCase();
       if (hay.includes(query))
-        hits.push({ type: "category", title: c.title, subtitle: "Category", href: `/categories/${c.id}` });
+        hits.push({
+          type: "category",
+          title: c.title,
+          subtitle: "Category",
+          href: `/notes?category=${encodeURIComponent(c.id)}`,
+        });
     }
 
     for (const rm of roadmaps) {

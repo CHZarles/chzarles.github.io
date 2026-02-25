@@ -40,7 +40,7 @@ export function NoteCard(props: { note: NoteListItem }) {
         {n.categories.slice(0, 2).map((c) => {
           const title = titleById(c);
           if (!title) return null;
-          return <Chip key={c} label={title} to={`/categories/${c}`} tone="glass" />;
+          return <Chip key={c} label={title} to={`/notes?category=${encodeURIComponent(c)}`} tone="glass" />;
         })}
         {n.nodes.slice(0, 2).map((r) => (
           <Chip

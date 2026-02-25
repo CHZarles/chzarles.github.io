@@ -48,7 +48,6 @@ export function TopNav() {
   const prefetch = React.useMemo(
     () => ({
       notes: () => void api.notes(),
-      categories: () => void api.categories(),
       roadmaps: () => void api.roadmaps(),
       mindmaps: () => void api.mindmaps(),
       projects: () => void api.projects(),
@@ -65,12 +64,11 @@ export function TopNav() {
             onClick={() => navigate("/")}
             className="group inline-flex items-center rounded-xl px-2 py-1 text-left transition"
           >
-            <span className="text-sm font-sans font-bold leading-none tracking-[0.02em]">{navTitle}</span>
+            <span className="text-sm font-display font-semibold leading-none tracking-[0.01em]">{navTitle}</span>
           </button>
 
           <nav className="hidden items-center gap-6 md:flex">
             <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
-            <NavItem to="/categories" label="Categories" prefetch={prefetch.categories} />
             <NavItem to="/roadmaps" label="Roadmaps" prefetch={prefetch.roadmaps} />
             <NavItem to="/mindmaps" label="Mindmaps" prefetch={prefetch.mindmaps} />
             <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />
@@ -118,7 +116,6 @@ export function TopNav() {
         <div className="flex items-center justify-between gap-3 pb-3 md:hidden">
           <nav className="flex items-center gap-5 overflow-x-auto pb-1 text-sm [-webkit-overflow-scrolling:touch]">
             <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
-            <NavItem to="/categories" label="Categories" prefetch={prefetch.categories} />
             <NavItem to="/roadmaps" label="Roadmaps" prefetch={prefetch.roadmaps} />
             <NavItem to="/mindmaps" label="Mindmaps" prefetch={prefetch.mindmaps} />
             <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />

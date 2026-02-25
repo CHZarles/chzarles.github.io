@@ -294,7 +294,7 @@ export function HomePage() {
                 <h1
                   className={[
                     heroVariant === "mimo"
-                      ? "font-sans font-bold leading-none tracking-[0.02em]"
+                      ? "font-sans font-bold leading-none tracking-[0.01em]"
                       : "hero-ink font-serif font-semibold leading-[0.98] tracking-tight",
                   ].join(" ")}
                   style={{ color: heroFg, fontSize: heroTitleSize }}
@@ -329,7 +329,7 @@ export function HomePage() {
                     }}
                   >
                     <h1
-                      className="font-sans font-bold leading-none tracking-[0.02em]"
+                      className="font-sans font-bold leading-none tracking-[0.01em]"
                       style={{ color: "hsl(var(--bg))", fontSize: heroTitleSize }}
                     >
                       {heroTitleText}
@@ -452,7 +452,7 @@ export function HomePage() {
                   <div className="mt-1 font-serif text-xl font-semibold tracking-tight">Categories</div>
                 </div>
                 <Link
-                  to="/categories"
+                  to="/notes"
                   className="font-mono text-xs font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
                 >
                   ALL →
@@ -466,7 +466,7 @@ export function HomePage() {
                     {categories.slice(0, 10).map((c) => (
                       <Link
                         key={c.id}
-                        to={`/categories/${c.id}`}
+                        to={`/notes?category=${encodeURIComponent(c.id)}`}
                         className="group relative -mx-1 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 rounded-xl px-1 py-3.5 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
                       >
                         <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-[hsl(var(--accent))] opacity-0 transition group-hover:opacity-35" />

@@ -178,23 +178,29 @@ function CodeBlockCard(props: {
   }, [code]);
 
   return (
-    <div className="not-prose my-7 overflow-hidden rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-3 py-1.5">
-        <div className="min-w-0 truncate font-mono text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] uppercase text-[hsl(var(--muted))]">
-          {lang ? lang : "CODE"}
+    <div className="group not-prose my-7 overflow-hidden rounded-[var(--radius-card)] bg-[var(--surface-muted-weak)] shadow-[inset_0_0_0_1px_var(--border-soft)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border-soft)] px-3 py-1.5">
+        <div className="min-w-0 truncate">
+          {lang ? (
+            <span className="inline-flex items-center rounded-full border border-[color:var(--border-soft)] bg-[color-mix(in_oklab,hsl(var(--bg))_32%,transparent)] px-2 py-0.5 font-mono text-[10px] font-semibold tracking-[0.16em] text-[hsl(var(--muted))]">
+              {lang}
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] font-semibold tracking-[0.18em] text-[hsl(var(--muted))]">CODE</span>
+          )}
         </div>
         <button
           type="button"
           onClick={onCopy}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[hsl(var(--muted))] transition hover:bg-[var(--surface-muted-weak)] hover:text-[hsl(var(--fg))]"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[hsl(var(--muted))] opacity-0 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_65%,transparent)] hover:text-[hsl(var(--fg))] focus-visible:opacity-100 group-hover:opacity-100"
           aria-label="Copy code"
           title={copied ? "Copied" : "Copy"}
         >
           {copied ? <Check className="h-3.5 w-3.5 opacity-85" /> : <Copy className="h-3.5 w-3.5 opacity-70" />}
         </button>
       </div>
-      <pre className="m-0 overflow-x-auto p-3.5 text-[var(--text-sm)] leading-relaxed">
-        <code className={["font-mono hljs", codeClassName].filter(Boolean).join(" ")}>
+      <pre className="m-0 overflow-x-auto px-4 py-3.5 text-[13px] leading-[1.75] md:text-[13.5px]">
+        <code className={["font-mono tabular-nums hljs [font-variant-ligatures:none]", codeClassName].filter(Boolean).join(" ")}>
           {props.children ?? code}
         </code>
       </pre>
@@ -634,19 +640,23 @@ export function NotePage() {
               <span aria-hidden="true">↩</span>
               <span>Index</span>
             </Link>
-            <h1 className="mt-8 font-display text-[clamp(1.95rem,3.2vw,2.65rem)] font-semibold leading-[1.06] tracking-[var(--tracking-tight)]">
-              {note.title}
-            </h1>
-            <div className="flex flex-col pt-6 pb-1 font-mono text-[11px] font-normal tracking-[0.14em] text-[hsl(var(--muted))]">
-              <time dateTime={note.date}>{metaPrimary}</time>
-              {metaSecondary ? (
-                <div className="mt-2 tracking-[0.12em] text-[color-mix(in_oklab,hsl(var(--fg))_55%,hsl(var(--muted)))]">
-                  {metaSecondary}
-                </div>
-              ) : null}
+            <div className="mt-8 grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+              <h1 className="text-balance font-display text-[clamp(1.95rem,3.2vw,2.65rem)] font-semibold leading-[1.06] tracking-[var(--tracking-tight)]">
+                {note.title}
+              </h1>
+              <div className="flex flex-col gap-2 font-mono text-[10px] font-semibold leading-[1.35] tracking-[0.22em] text-[color-mix(in_oklab,hsl(var(--fg))_55%,hsl(var(--muted)))] md:pb-1 md:text-right">
+                <time dateTime={note.date} className="tabular-nums uppercase">
+                  {metaPrimary}
+                </time>
+                {metaSecondary ? (
+                  <div className="tabular-nums uppercase text-[color-mix(in_oklab,hsl(var(--fg))_45%,hsl(var(--muted)))]">
+                    {metaSecondary}
+                  </div>
+                ) : null}
+              </div>
             </div>
             {note.excerpt ? (
-              <p className="mt-4 text-base leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_76%,hsl(var(--muted)))] md:text-lg">
+              <p className="mt-6 text-base leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_76%,hsl(var(--muted)))] md:text-lg">
                 {note.excerpt}
               </p>
             ) : null}
@@ -687,7 +697,7 @@ export function NotePage() {
           </header>
 
           <div ref={contentRef} className="mx-auto mt-10 max-w-[85ch]">
-            <div className="prose max-w-none text-[15px] leading-[1.75] md:text-[16px] prose-headings:font-sans prose-headings:font-semibold prose-headings:tracking-[var(--tracking-tight)] prose-headings:leading-[1.15] prose-h1:text-2xl md:prose-h1:text-3xl prose-h2:text-xl md:prose-h2:text-2xl prose-h2:mt-14 prose-h3:text-lg md:prose-h3:text-xl prose-h3:mt-10 prose-p:leading-[1.75]">
+            <div className="prose max-w-none text-[16px] leading-[1.85] md:text-[17px] prose-headings:font-display prose-headings:font-semibold prose-headings:text-balance prose-headings:tracking-[var(--tracking-tight)] prose-headings:leading-[1.15] prose-h1:text-2xl md:prose-h1:text-3xl prose-h2:text-xl md:prose-h2:text-2xl prose-h2:mt-14 prose-h3:text-lg md:prose-h3:text-xl prose-h3:mt-10 prose-p:leading-[1.85]">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
                 rehypePlugins={[rehypeKatex, [rehypeHighlight, { detect: false }]]}
@@ -739,7 +749,11 @@ export function NotePage() {
                           const title = titleById(c);
                           if (!title) return null;
                           return (
-                            <Link key={c} to={`/categories/${c}`} className="hover:text-[hsl(var(--fg))]">
+                            <Link
+                              key={c}
+                              to={`/notes?category=${encodeURIComponent(c)}`}
+                              className="hover:text-[hsl(var(--fg))]"
+                            >
                               #{title}
                             </Link>
                           );

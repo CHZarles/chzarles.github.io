@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigate, createBrowserRouter } from "react-router-dom";
+import { Navigate, createBrowserRouter, useParams } from "react-router-dom";
 import { AppShell } from "./ui/shell/AppShell";
 import { ErrorPage } from "./ui/views/ErrorPage";
 import { HomePage } from "./ui/views/HomePage";
@@ -17,13 +17,21 @@ function Lazy(props: { label: string; tone?: "card" | "plain"; children: React.R
   return <React.Suspense fallback={<PageLoader label={props.label} tone={props.tone} />}>{props.children}</React.Suspense>;
 }
 
+function CategoryIndexRedirect() {
+  return <Navigate to="/notes" replace />;
+}
+
+function CategorySlugRedirect() {
+  const { slug } = useParams();
+  if (!slug) return <Navigate to="/notes" replace />;
+  return <Navigate to={`/notes?category=${encodeURIComponent(slug)}`} replace />;
+}
+
 const AuthCallbackPageLazy = React.lazy(() =>
   import("./ui/views/AuthCallbackPage").then((m) => ({ default: m.AuthCallbackPage })),
 );
 const NotesPageLazy = React.lazy(() => import("./ui/views/NotesPage").then((m) => ({ default: m.NotesPage })));
 const NotePageLazy = React.lazy(() => import("./ui/views/NotePage").then((m) => ({ default: m.NotePage })));
-const CategoriesPageLazy = React.lazy(() => import("./ui/views/CategoriesPage").then((m) => ({ default: m.CategoriesPage })));
-const CategoryPageLazy = React.lazy(() => import("./ui/views/CategoryPage").then((m) => ({ default: m.CategoryPage })));
 const MindmapsPageLazy = React.lazy(() => import("./ui/views/MindmapsPage").then((m) => ({ default: m.MindmapsPage })));
 const MindmapPageLazy = React.lazy(() => import("./ui/views/MindmapPage").then((m) => ({ default: m.MindmapPage })));
 const RoadmapsPageLazy = React.lazy(() => import("./ui/views/RoadmapsPage").then((m) => ({ default: m.RoadmapsPage })));
@@ -154,19 +162,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "categories",
-        element: (
-          <Lazy label="Loading categories…" tone="plain">
-            <CategoriesPageLazy />
-          </Lazy>
-        ),
+        element: <CategoryIndexRedirect />,
       },
       {
         path: "categories/:slug",
-        element: (
-          <Lazy label="Loading category…" tone="plain">
-            <CategoryPageLazy />
-          </Lazy>
-        ),
+        element: <CategorySlugRedirect />,
       },
       { path: "publish", element: <Navigate to="/studio/notes" replace /> },
       {

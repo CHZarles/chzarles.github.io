@@ -3,6 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (() => {
+        try {
+          const d = document.documentElement;
+          const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+          d.dataset.hbMounted = reduce ? "1" : "0";
+
+          const theme = localStorage.getItem("hyperblog.theme");
+          if (theme === "dark" || theme === "light") d.dataset.theme = theme;
+
+          const accent = localStorage.getItem("hyperblog.accent");
+          if (accent) d.style.setProperty("--accent", accent);
+        } catch {
+          // ignore
+        }
+      })();
+    </script>
     <title>BLOG</title>
     <meta name="description" content="可探索的个人技术空间。" />
     <meta property="og:title" content="BLOG" />

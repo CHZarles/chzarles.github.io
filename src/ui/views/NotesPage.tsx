@@ -89,9 +89,16 @@ export function NotesPage() {
                       next.delete("category");
                       setSp(next, { replace: true });
                     }}
-                    className="rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_32%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)] px-4 py-3 text-sm text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_14%,transparent)]"
+                    className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_24%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_6%,transparent)] px-4 py-3 text-sm text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_9%,transparent)]"
                   >
-                    Category{categoryTitleById(category) ? ` · ${categoryTitleById(category)}` : ""} ×
+                    <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--accent))] opacity-80" />
+                    <span className="font-mono text-[11px] font-semibold tracking-[0.18em] text-[hsl(var(--muted))]">
+                      CATEGORY
+                    </span>
+                    <span className="max-w-[18ch] truncate font-serif text-sm font-semibold tracking-tight text-[hsl(var(--fg))]">
+                      {categoryTitleById(category) ?? category}
+                    </span>
+                    <span className="pl-1 text-[hsl(var(--muted))]">×</span>
                   </button>
                 ) : null}
               </div>
@@ -164,36 +171,51 @@ export function NotesPage() {
               </div>
 
               <div className="mt-5">
-                <div className="hairline" />
-                <div className="divide-y divide-[color:var(--border-soft)]">
-                  {sortedCategories.slice(0, 12).map((c) => {
-                    const active = c.id === category;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          const next = new URLSearchParams(sp);
-                          next.set("category", c.id);
-                          setSp(next, { replace: true });
-                        }}
-                        className={[
-                          "group relative -mx-1 grid w-[calc(100%+0.5rem)] grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 rounded-xl px-1 py-3.5 text-left transition",
-                          active
-                            ? "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)]"
-                            : "hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]",
-                        ].join(" ")}
-                      >
-                        <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-[hsl(var(--accent))] opacity-0 transition group-hover:opacity-35" />
-                        <div className="truncate font-serif text-sm font-semibold tracking-tight text-[hsl(var(--fg))]">
-                          {c.title}
-                        </div>
-                        <div className="font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
-                          {(c.noteCount ?? 0).toString().padStart(2, "0")}
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="overflow-hidden rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[color-mix(in_oklab,hsl(var(--card))_55%,transparent)]">
+                  <div className="divide-y divide-[color:var(--border-soft)]">
+                    {sortedCategories.slice(0, 12).map((c) => {
+                      const active = c.id === category;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => {
+                            const next = new URLSearchParams(sp);
+                            next.set("category", c.id);
+                            setSp(next, { replace: true });
+                          }}
+                          className={[
+                            "group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 px-3 py-3.5 text-left transition",
+                            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color-mix(in_oklab,hsl(var(--accent))_28%,transparent)]",
+                            active
+                              ? "bg-[color-mix(in_oklab,hsl(var(--accent))_7%,transparent)]"
+                              : "hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]",
+                          ].join(" ")}
+                        >
+                          <div
+                            className={[
+                              "pointer-events-none absolute inset-y-0 left-0 w-px bg-[hsl(var(--accent))] transition",
+                              active ? "opacity-55" : "opacity-0 group-hover:opacity-30",
+                            ].join(" ")}
+                          />
+                          <div className="truncate font-serif text-sm font-semibold tracking-tight text-[hsl(var(--fg))]">
+                            {c.title}
+                          </div>
+                          <div
+                            className={[
+                              "font-mono text-[11px] tabular-nums tracking-[0.18em]",
+                              active
+                                ? "text-[color-mix(in_oklab,hsl(var(--fg))_74%,hsl(var(--muted)))]"
+                                : "text-[hsl(var(--muted))]",
+                            ].join(" ")}
+                          >
+                            {(c.noteCount ?? 0).toString().padStart(2, "0")}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </aside>

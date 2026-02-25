@@ -8,9 +8,12 @@
   --font-sans: "MiSans", "MiSans VF", "HarmonyOS Sans SC", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
     "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-serif: "Noto Serif SC", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun",
-    ui-serif, Georgia, Cambria, "Times New Roman", serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-serif: "Noto Serif SC", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "MiSans",
+    "MiSans VF", "HarmonyOS Sans SC", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC",
+    "Source Han Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", ui-serif, Georgia, Cambria, "Times New Roman",
+    serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", "Cascadia Code", "Fira Code", ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   --text-base: 15px;
   --text-sm: 13px;
@@ -18,7 +21,7 @@
   --text-kicker: 10px;
   --leading-base: 1.75;
   --leading-tight: 1.12;
-  --tracking-tight: -0.02em;
+  --tracking-tight: -0.015em;
   --tracking-wide: 0.18em;
   --tracking-kicker: 0.22em;
 
@@ -103,6 +106,26 @@ body {
   line-height: var(--leading-base);
   background: linear-gradient(180deg, hsl(var(--bg)), var(--bg-grad-to));
   color: hsl(var(--fg));
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Refresh / initial load: keep it quiet + fast */
+html[data-hb-mounted="0"] #root {
+  opacity: 0;
+}
+
+html[data-hb-mounted="1"] #root {
+  opacity: 1;
+  transition: opacity 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-hb-mounted] #root {
+    opacity: 1;
+    transition: none;
+  }
 }
 
 /* keep the surface clean & fast: no global noise / blur layers */

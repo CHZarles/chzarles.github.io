@@ -1,4 +1,4 @@
-import { Check, Copy, Link2, X } from "lucide-react";
+import { Check, ChevronUp, Copy, Link2, Search, X } from "lucide-react";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import { Link, useParams } from "react-router-dom";
@@ -8,6 +8,9 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { api } from "../api/api";
 import { Reveal } from "../components/Reveal";
+import { AccentPicker } from "../widgets/AccentPicker";
+import { ThemeToggle } from "../widgets/ThemeToggle";
+import { useCommandPalette } from "../widgets/CommandPalette";
 import { normalizeMathDelimiters } from "../markdown/normalizeMathDelimiters";
 import { useAppState } from "../state/AppState";
 import type { Note, NoteListItem } from "../types";
@@ -264,6 +267,7 @@ export function NotePage() {
   const [copiedPermalink, setCopiedPermalink] = React.useState(false);
   const [copiedAnchorId, setCopiedAnchorId] = React.useState<string | null>(null);
   const { categories } = useAppState();
+  const { open } = useCommandPalette();
   const titleById = React.useMemo(() => {
     const m = new Map(categories.map((c) => [c.id, c.title] as const));
     return (id: string) => m.get(id) ?? null;
@@ -604,6 +608,14 @@ export function NotePage() {
   const metaPrimary = `${published} · ${readMinutes} MIN`;
   const metaSecondary = updatedKey !== publishedKey ? `LAST UPDATE · ${updated}` : null;
 
+  const onScrollTop = React.useCallback(() => {
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, []);
+
   return (
     <div className="grid gap-10">
       <div aria-hidden="true" className="fixed inset-x-0 top-0 z-50 h-[2px] bg-[color-mix(in_oklab,hsl(var(--border))_40%,transparent)]">
@@ -613,12 +625,12 @@ export function NotePage() {
         />
       </div>
       {lightbox ? <Lightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} /> : null}
-      <Reveal key={note.id} yPx={8} className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_260px] xl:gap-12">
+      <Reveal key={note.id} yPx={8}>
         <div className="min-w-0">
           <header className="mx-auto max-w-[85ch] pt-10">
             <Link
               to="/"
-              className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+              className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))] xl:hidden"
             >
               <span aria-hidden="true">↩</span>
               <span>Index</span>
@@ -638,38 +650,6 @@ export function NotePage() {
               <p className="mt-4 text-base leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_76%,hsl(var(--muted)))] md:text-lg">
                 {note.excerpt}
               </p>
-            ) : null}
-
-            {(note.categories.length || note.nodes.length || note.tags.length || note.mindmaps.length) ? (
-              <div className="mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[hsl(var(--muted))]">
-                {note.categories.slice(0, 3).map((c) => {
-                  const title = titleById(c);
-                  if (!title) return null;
-                  return (
-                    <Link
-                      key={c}
-                      to={`/categories/${c}`}
-                      className="hover:text-[hsl(var(--fg))]"
-                    >
-                      #{title}
-                    </Link>
-                  );
-                })}
-                {note.nodes.slice(0, 2).map((r) => (
-                  <Link
-                    key={r.ref}
-                    to={`/roadmaps/${r.roadmapId}/node/${r.nodeId}`}
-                    className="hover:text-[hsl(var(--fg))]"
-                  >
-                    {r.roadmapTitle} / {r.title}
-                  </Link>
-                ))}
-                {note.tags.slice(0, 6).map((t) => (
-                  <span key={t} className="text-[color-mix(in_oklab,hsl(var(--fg))_58%,hsl(var(--muted)))]">
-                    {t}
-                  </span>
-                ))}
-              </div>
             ) : null}
 
             {toc.items.length ? (
@@ -740,6 +720,68 @@ export function NotePage() {
                       </div>
                     </Link>
                   ))}
+                </div>
+              </section>
+            ) : null}
+
+            {note.categories.length || note.nodes.length || note.tags.length ? (
+              <section className="mt-14">
+                <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
+                  META
+                </div>
+                <div className="mt-4 grid gap-3 text-sm leading-relaxed text-[hsl(var(--muted))]">
+                  {note.categories.length ? (
+                    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
+                      <div className="pt-0.5 text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)]">
+                        CATEGORIES
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        {note.categories.map((c) => {
+                          const title = titleById(c);
+                          if (!title) return null;
+                          return (
+                            <Link key={c} to={`/categories/${c}`} className="hover:text-[hsl(var(--fg))]">
+                              #{title}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {note.nodes.length ? (
+                    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
+                      <div className="pt-0.5 text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)]">
+                        ROADMAP
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {note.nodes.slice(0, 6).map((r) => (
+                          <Link
+                            key={r.ref}
+                            to={`/roadmaps/${r.roadmapId}/node/${r.nodeId}`}
+                            className="hover:text-[hsl(var(--fg))]"
+                          >
+                            {r.roadmapTitle} / {r.title}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {note.tags.length ? (
+                    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
+                      <div className="pt-0.5 text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)]">
+                        TAGS
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        {note.tags.slice(0, 12).map((t) => (
+                          <span key={t} className="text-[color-mix(in_oklab,hsl(var(--fg))_58%,hsl(var(--muted)))]">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </section>
             ) : null}
@@ -826,40 +868,83 @@ export function NotePage() {
           </div>
         </div>
 
-        {toc.items.length ? (
-          <aside className="hidden xl:block">
-            <div className="sticky top-12">
-              <div className="border-l border-[color:var(--border-soft)] pl-4">
-                <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
-                  ON THIS PAGE
-                </div>
-                <nav className="mt-4 max-h-[calc(100vh-170px)] overflow-auto pr-2 [-webkit-overflow-scrolling:touch]">
-                  {toc.items.map((t) => (
-                    <a
-                      key={t.id}
-                      href={`#${t.id}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        scrollToId(t.id);
-                      }}
-                      className={[
-                        "relative block rounded-lg py-1.5 pl-3 pr-2 text-[13px] leading-snug transition",
-                        "before:absolute before:left-[0.5px] before:top-[0.85em] before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full before:border before:border-[color:var(--border-soft)] before:bg-[hsl(var(--bg))]",
-                        activeHeadingId === t.id
-                          ? "text-[hsl(var(--fg))] before:border-[hsl(var(--accent))] before:bg-[hsl(var(--accent))]"
-                          : "text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))] hover:before:border-[color:var(--border-hover)]",
-                      ].join(" ")}
-                      style={{ marginLeft: `${Math.max(0, t.depth - toc.baseDepth) * 8}px` }}
-                    >
-                      {t.text}
-                    </a>
-                  ))}
-                </nav>
-              </div>
-            </div>
-          </aside>
-        ) : null}
       </Reveal>
+
+      <aside className="hidden xl:block">
+        <div className="fixed right-7 top-24 w-[260px]">
+          <div className="flex items-center gap-2">
+            <Link
+              to="/"
+              aria-label="Index"
+              title="Index"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+            >
+              <span aria-hidden="true">↩</span>
+            </Link>
+            <button
+              type="button"
+              onClick={open}
+              aria-label="Search"
+              title="Search"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+            >
+              <Search className="h-4 w-4 opacity-85" />
+            </button>
+            <button
+              type="button"
+              onClick={onCopyPermalink}
+              aria-label={copiedPermalink ? "Copied" : "Copy permalink"}
+              title={copiedPermalink ? "Copied" : "Copy link"}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+            >
+              {copiedPermalink ? <Check className="h-4 w-4 opacity-85" /> : <Link2 className="h-4 w-4 opacity-85" />}
+            </button>
+            <ThemeToggle />
+            <AccentPicker />
+          </div>
+
+          {toc.items.length ? (
+            <div className="mt-5 border-l border-[color:var(--border-soft)] pl-4">
+              <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
+                ON THIS PAGE
+              </div>
+              <nav className="mt-4 max-h-[calc(100vh-240px)] overflow-auto pr-2 [-webkit-overflow-scrolling:touch]">
+                {toc.items.map((t) => (
+                  <a
+                    key={t.id}
+                    href={`#${t.id}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      scrollToId(t.id);
+                    }}
+                    className={[
+                      "relative block rounded-lg py-1.5 pl-3 pr-2 text-[13px] leading-snug transition",
+                      "before:absolute before:left-[0.5px] before:top-[0.85em] before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full before:border before:border-[color:var(--border-soft)] before:bg-[hsl(var(--bg))]",
+                      activeHeadingId === t.id
+                        ? "text-[hsl(var(--fg))] before:border-[hsl(var(--accent))] before:bg-[hsl(var(--accent))]"
+                        : "text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))] hover:before:border-[color:var(--border-hover)]",
+                    ].join(" ")}
+                    style={{ marginLeft: `${Math.max(0, t.depth - toc.baseDepth) * 8}px` }}
+                  >
+                    {t.text}
+                  </a>
+                ))}
+              </nav>
+            </div>
+          ) : null}
+
+          {scrollProgress > 0.1 ? (
+            <button
+              type="button"
+              onClick={onScrollTop}
+              className="mt-4 inline-flex items-center gap-2 text-xs font-medium tracking-wide text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+            >
+              <ChevronUp className="h-4 w-4 opacity-80" />
+              Top
+            </button>
+          ) : null}
+        </div>
+      </aside>
     </div>
   );
 }

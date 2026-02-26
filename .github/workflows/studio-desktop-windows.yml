@@ -1,6 +1,11 @@
 name: Build Studio Desktop (Windows)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "desktop/studio-desktop/**"
+      - ".github/workflows/studio-desktop-windows.yml"
   workflow_dispatch:
 
 permissions:
@@ -32,4 +37,3 @@ jobs:
         with:
           name: hyperblog-studio-desktop-windows
           path: desktop/studio-desktop/dist/*.exe
-

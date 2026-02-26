@@ -89,31 +89,6 @@ pnpm run doctor
 
 ---
 
-## Studio CLI（可选：不想开浏览器时）
-
-Studio Web UI 很顺手，但如果你只想用终端快速写/改/发 Note，可以用内置 CLI（同样是「本地暂存 → 一次 Publish commit」）。
-
-前提：Publisher API 可用（本地 `pnpm run dev:publisher` 或你部署到 Workers 的 URL）。
-
-```bash
-# 1) 登录（GitHub Device Flow：只会打开 GitHub 授权页，不需要打开 Studio 网页）
-pnpm studio:cli -- login http://localhost:8788
-
-# 2) 看看当前是谁、写到哪个 repo/branch
-pnpm studio:cli -- me
-
-# 3) 写作（会打开 $EDITOR）
-pnpm studio:cli -- notes new "My first note"
-pnpm studio:cli -- notes list
-pnpm studio:cli -- notes edit 2026-02-11-my-first-note
-
-# 4) 查看暂存 / 发布（一次 commit）
-pnpm studio:cli -- stage
-pnpm studio:cli -- publish -m "notes: publish"
-```
-
----
-
 ## 上线（两步走）
 
 1) **公开站点（纯静态）**：GitHub Pages  

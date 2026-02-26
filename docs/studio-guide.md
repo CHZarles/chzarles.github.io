@@ -21,29 +21,6 @@ Studio 故意把“频繁保存”与“发布”拆开：
 
 ---
 
-## 0.5) Studio CLI（可选：不想开浏览器时）
-
-如果你只想在终端里快速写/改/发 Note（不打开 Studio 网页），可以用内置 CLI：`pnpm studio:cli`。
-
-它同样遵循「本地暂存 → 一次 Publish commit」的语义，只是把编辑器换成 `$EDITOR`。
-
-```bash
-# 本地运行 Publisher（或换成你的 Workers URL）
-pnpm run dev:publisher
-
-# Device Flow 登录（只会打开 GitHub 授权页）
-pnpm studio:cli -- login http://localhost:8788
-
-# 写作（打开 $EDITOR），然后一次发布
-pnpm studio:cli -- notes new "Daily log"
-pnpm studio:cli -- stage
-pnpm studio:cli -- publish -m "notes: publish"
-```
-
-CLI 会把 token 存在本机：`~/.config/hyperblog/studio-cli.json`（权限 `600`），暂存区在：`~/.config/hyperblog/studio-cli.stage.json`。
-
----
-
 ## 1) 进入 Studio（本地 / 线上）
 
 - 线上：`https://<user>.github.io/studio/notes`

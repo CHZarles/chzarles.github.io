@@ -3,7 +3,7 @@ import { HttpError } from "../http/errors";
 import { requireAuth } from "../auth/guard";
 import { issuePublisherToken } from "../auth/token";
 import { issueOAuthState, verifyOAuthState } from "../auth/oauthState";
-import { exchangeCodeForAccessToken, githubAuthorizeUrl } from "../github/oauth";
+import { exchangeCodeForAccessToken, exchangeDeviceCodeForAccessTokenOnce, githubAuthorizeUrl, requestDeviceCode } from "../github/oauth";
 import { ghJson } from "../github/client";
 import { getRepo, getViewer } from "../github/user";
 
@@ -88,6 +88,63 @@ authRoutes.get("/github/callback", async (c) => {
   hp.set("token", token);
   redirectUrl.hash = hp.toString();
   return c.redirect(redirectUrl.toString(), 302);
+});
+
+authRoutes.post("/device/start", async (c) => {
+  const cfg = c.get("config");
+  const code = await requestDeviceCode({ clientId: cfg.githubClientId, scope: "public_repo read:user" });
+  return c.json(code);
+});
+
+authRoutes.post("/device/poll", async (c) => {
+  const cfg = c.get("config");
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new HttpError(400, "BAD_REQUEST", "Invalid JSON.");
+  }
+  const deviceCode = String((body as any)?.deviceCode ?? "").trim();
+  if (!deviceCode) throw new HttpError(400, "BAD_REQUEST", "Missing deviceCode.");
+
+  const polled = await exchangeDeviceCodeForAccessTokenOnce({
+    clientId: cfg.githubClientId,
+    clientSecret: cfg.githubClientSecret,
+    deviceCode,
+  });
+
+  if (polled.status === "pending") {
+    return c.json({ status: "pending", error: polled.error }, 202);
+  }
+
+  if (polled.status === "error") {
+    if (polled.error === "access_denied") throw new HttpError(401, "UNAUTHENTICATED", "Access denied.");
+    if (polled.error === "expired_token") throw new HttpError(401, "UNAUTHENTICATED", "Device code expired.");
+    throw new HttpError(502, "GITHUB_UPSTREAM", "GitHub device flow failed.", { error: polled.error, message: polled.message });
+  }
+
+  const accessToken = polled.accessToken;
+  const viewer = await getViewer(accessToken);
+  const login = viewer.login.toLowerCase();
+  if (!cfg.adminLogins.has(login)) throw new HttpError(403, "FORBIDDEN", "Not allowed.");
+
+  const repo = await getRepo(accessToken, cfg.contentRepo);
+  if (repo.permissions && repo.permissions.push === false) {
+    throw new HttpError(403, "FORBIDDEN", "No push permission to repo.");
+  }
+
+  const token = await issuePublisherToken({
+    secret: cfg.tokenSecret,
+    ttlSeconds: cfg.tokenTtlSeconds,
+    user: { id: viewer.id, login: viewer.login, avatarUrl: viewer.avatar_url, ghToken: accessToken },
+  });
+
+  return c.json({
+    status: "authorized",
+    token,
+    user: { id: viewer.id, login: viewer.login, avatarUrl: viewer.avatar_url ?? null },
+    scope: polled.scope ?? null,
+  });
 });
 
 authRoutes.get("/me", async (c) => {

@@ -57,7 +57,7 @@ type NoteGetResponse = {
 type ViewMode = "edit" | "split" | "preview";
 
 type EditorState = {
-  mode: "create" | "edit";
+  mode: "none" | "create" | "edit";
   id: string | null;
   title: string;
   date: string;
@@ -297,6 +297,11 @@ function emptyEditor(): EditorState {
   };
 }
 
+function idleEditor(): EditorState {
+  const seed = emptyEditor();
+  return { ...seed, mode: "none" };
+}
+
 function insertIntoTextarea(el: HTMLTextAreaElement, insert: string) {
   const start = el.selectionStart ?? el.value.length;
   const end = el.selectionEnd ?? el.value.length;
@@ -442,7 +447,7 @@ export function StudioNotesPage() {
   const [listRefreshing, setListRefreshing] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
 
-  const [editor, setEditor] = React.useState<EditorState>(() => emptyEditor());
+  const [editor, setEditor] = React.useState<EditorState>(() => idleEditor());
   const [dirty, setDirty] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<Notice | null>(null);
@@ -776,6 +781,7 @@ export function StudioNotesPage() {
 
   const saveLocal = React.useCallback(
     (opts?: { quiet?: boolean; pendingDelete?: boolean }) => {
+      if (editor.mode === "none") return;
       const key = (() => {
         if (editor.mode === "edit" && editor.id) return noteDraftKey(editor.id);
         return draftKey ?? newDraftKey();
@@ -910,13 +916,14 @@ export function StudioNotesPage() {
 
       const key = e.key.toLowerCase();
       if (key === "s") {
+        if (editor.mode === "none") return;
         e.preventDefault();
         saveLocal();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [saveLocal]);
+  }, [editor.mode, saveLocal]);
 
   React.useEffect(() => {
     if (editor.mode !== "create") return;
@@ -934,6 +941,9 @@ export function StudioNotesPage() {
   }, [notes, filter]);
 
   const noteIdPreview = React.useMemo(() => {
+    if (editor.mode === "none") {
+      return { ok: false as const, noteId: null, error: "Select a note from Library." };
+    }
     if (editor.mode === "edit" && editor.id) {
       return { ok: true as const, noteId: editor.id, error: null };
     }
@@ -943,8 +953,15 @@ export function StudioNotesPage() {
     return { ok: true as const, noteId: resolved.noteId, error: null };
   }, [editor.mode, editor.id, editor.title, editor.date, editor.slug]);
 
+  const hasSelection = editor.mode !== "none";
+
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_360px]">
+    <div
+      className={[
+        "grid h-full min-h-0 grid-cols-1",
+        hasSelection ? "lg:grid-cols-[320px_minmax(0,1fr)_360px]" : "lg:grid-cols-[320px_minmax(0,1fr)]",
+      ].join(" ")}
+    >
       <aside className="min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between gap-2 px-4 py-3">
           <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">LIBRARY</div>
@@ -1087,7 +1104,90 @@ export function StudioNotesPage() {
         </div>
       </aside>
 
-      <section className="min-h-0 min-w-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))] lg:border-b-0 lg:border-r">
+      {!hasSelection ? (
+        <section className="min-h-0 min-w-0 bg-[hsl(var(--bg))]">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
+              <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">EDITOR</div>
+              <div className="mt-0.5 text-sm font-semibold tracking-tight">Select a note</div>
+              <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">
+                Local drafts auto-save in your browser. Publish (Changes tab) creates a single GitHub commit.
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center justify-center px-6 py-10">
+              <div className="w-full max-w-[560px]">
+                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[color-mix(in_oklab,hsl(var(--card))_72%,transparent)] p-6">
+                  <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">START</div>
+                  <div className="mt-2 font-serif text-2xl font-semibold tracking-tight">Open something</div>
+                  <p className="mt-3 text-sm leading-relaxed text-[hsl(var(--muted))]">
+                    Choose a note from <span className="font-medium text-[hsl(var(--fg))]">Library</span>, or start a new
+                    draft. This page stays quiet until you pick a file.
+                  </p>
+
+                  {listError ? (
+                    <div className="mt-4 rounded-xl border border-[color-mix(in_oklab,red_40%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] px-4 py-3 text-sm text-red-700">
+                      {listError}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={newNote}
+                      className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] px-4 py-2 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]"
+                    >
+                      <Plus className="h-4 w-4 opacity-85" />
+                      New note
+                    </button>
+
+                    {localDrafts[0] ? (
+                      <button
+                        type="button"
+                        onClick={() => void openLocalDraft(localDrafts[0]!)}
+                        className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                        title="Continue the most recent local draft"
+                      >
+                        Continue draft
+                      </button>
+                    ) : null}
+
+                    {notes[0] ? (
+                      <button
+                        type="button"
+                        onClick={() => void openNote(notes[0]!.id)}
+                        className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                        title="Open the latest note"
+                      >
+                        Open latest
+                      </button>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={() => void refreshList()}
+                      disabled={listBusy || listRefreshing}
+                      className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+                      title="Refresh list"
+                    >
+                      <RefreshCw className={["h-4 w-4 opacity-85", listRefreshing ? "animate-spin" : ""].join(" ")} />
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="mt-5 text-[10px] text-[hsl(var(--muted))]">
+                    Tip: <span className="font-mono">⌘S</span> saves local drafts when you’re editing.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {hasSelection ? (
+        <>
+          <section className="min-h-0 min-w-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))] lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -1453,9 +1553,11 @@ export function StudioNotesPage() {
             </div>
           ) : null}
         </div>
-      </aside>
-    </div>
-  );
+	      </aside>
+        </>
+      ) : null}
+	    </div>
+	  );
 }
 
 function Field(props: { label: string; children: React.ReactNode }) {

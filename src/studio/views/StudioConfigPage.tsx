@@ -183,6 +183,12 @@ function tryParseJson(raw: string): { ok: true; value: unknown } | { ok: false; 
   }
 }
 
+function makeRowKey(): string {
+  const c = globalThis.crypto as unknown as { randomUUID?: () => string } | undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  return `k_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+}
+
 export function StudioConfigPage() {
   const studio = useStudioState();
 
@@ -343,6 +349,27 @@ export function StudioConfigPage() {
     if (!categoriesState || !categoriesState.ok) return [] as Array<Category & Record<string, unknown>>;
     return categoriesState.categories ?? [];
   }, [categoriesState]);
+
+  const categoryRowKeysRef = React.useRef<string[]>([]);
+  const categoryRowKeyAt = React.useCallback((idx: number) => {
+    const cur = categoryRowKeysRef.current;
+    if (cur.length <= idx || !cur[idx]) {
+      const next = [...cur];
+      next[idx] = makeRowKey();
+      categoryRowKeysRef.current = next;
+      return next[idx]!;
+    }
+    return cur[idx]!;
+  }, []);
+
+  React.useEffect(() => {
+    if (active !== "categories") return;
+    if (!categoriesState?.ok) return;
+    const len = categoriesList.length;
+    const cur = categoryRowKeysRef.current;
+    if (cur.length === len) return;
+    categoryRowKeysRef.current = Array.from({ length: len }, (_, i) => cur[i] ?? makeRowKey());
+  }, [active, categoriesState?.ok, categoriesList.length]);
 
   const categoryIdCounts = React.useMemo(() => {
     const counts = new Map<string, number>();
@@ -553,6 +580,7 @@ export function StudioConfigPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      categoryRowKeysRef.current = [...categoryRowKeysRef.current, makeRowKey()];
                       const next = [...categoriesList, { id: "", title: "", description: "", tone: "neutral" as const }];
                       setCategoriesYaml(next);
                     }}
@@ -596,6 +624,10 @@ export function StudioConfigPage() {
                         const next = [...categoriesList];
                         const [it] = next.splice(idx, 1);
                         next.splice(to, 0, it);
+                        const keys = [...categoryRowKeysRef.current];
+                        const [k] = keys.splice(idx, 1);
+                        keys.splice(to, 0, k ?? makeRowKey());
+                        categoryRowKeysRef.current = keys;
                         setCategoriesYaml(next);
                       };
 
@@ -609,7 +641,7 @@ export function StudioConfigPage() {
 
                       return (
                         <div
-                          key={`${idx}:${idLower || "new"}`}
+                          key={categoryRowKeyAt(idx)}
                           className="border-l-4 border-l-transparent px-4 py-4"
                           style={{ borderLeftColor: `hsl(${toneSwatch(tone)})` }}
                         >
@@ -703,6 +735,9 @@ export function StudioConfigPage() {
                                 onClick={() => {
                                   const ok = window.confirm(`Delete category "${title || id || "Untitled"}"?`);
                                   if (!ok) return;
+                                  const keys = [...categoryRowKeysRef.current];
+                                  keys.splice(idx, 1);
+                                  categoryRowKeysRef.current = keys;
                                   const next = [...categoriesList];
                                   next.splice(idx, 1);
                                   setCategoriesYaml(next);

@@ -7,13 +7,17 @@ export type Profile = {
   name: string;
   handle: string;
   tagline: string;
-  accent?: string; // hsl string: "270 95% 65%"
-  publisherBaseUrl?: string; // Publisher API base URL
+  nav?: { title?: string };
+  accent?: string;
+  publisherBaseUrl?: string;
   avatarUrl?: string;
   links?: Array<{ label: string; href: string }>;
   hero?: {
+    title?: string;
+    tagline?: string;
     variant?: "image" | "mimo";
     imageUrl?: string;
+    preload?: boolean;
     blurPx?: number;
     opacity?: number;
     position?: string;
@@ -24,7 +28,16 @@ export type Profile = {
     textColor?: { light?: string; dark?: string };
     textScale?: number;
     patternText?: string;
+    patternOpacity?: number;
+    patternScale?: number;
+    patternMotion?: "none" | "drift";
+    spotlightSceneUrl?: string;
+    spotlightScenePosition?: string;
+    spotlightSceneOpacity?: number;
+    spotlightSceneScale?: number;
     spotlightRadiusPx?: number;
+    spotlightEase?: number;
+    spotlightEaseRadius?: number;
   };
 };
 
@@ -33,26 +46,6 @@ export type Category = {
   title: string;
   description?: string;
   tone?: "neutral" | "cyan" | "violet" | "lime" | "amber" | "rose";
-};
-
-export type RoadmapNode = {
-  id: string;
-  title: string;
-  description?: string;
-  status?: "idea" | "learning" | "using" | "solid" | "teach";
-  icon?: string;
-  children?: RoadmapNode[];
-  edges?: string[]; // dependency node ids (same roadmap)
-  pinned?: string[]; // note ids
-};
-
-export type RoadmapFile = {
-  id: string;
-  title: string;
-  description?: string;
-  theme?: string;
-  layout?: "vertical" | "horizontal";
-  nodes: RoadmapNode[];
 };
 
 export type Project = {
@@ -65,25 +58,6 @@ export type Project = {
   highlights?: string[];
 };
 
-export type Mindmap = {
-  id: string;
-  title: string;
-  updated: string;
-  format: string;
-  nodes: unknown[];
-  edges: unknown[];
-  viewport?: unknown;
-};
-
-export type MindmapListItem = {
-  id: string;
-  title: string;
-  updated: string;
-  format?: string;
-  nodeCount?: number;
-  edgeCount?: number;
-};
-
 export type NoteFrontmatter = {
   title: string;
   date?: string;
@@ -91,8 +65,6 @@ export type NoteFrontmatter = {
   excerpt?: string;
   categories?: string[];
   tags?: string[];
-  nodes?: string[];
-  mindmaps?: string[];
   cover?: string;
   draft?: boolean;
 };
@@ -106,54 +78,16 @@ export type Note = {
   updated: string;
   categories: string[];
   tags: string[];
-  nodes: Array<{
-    ref: string; // "ai-infra/otel"
-    roadmapId: string;
-    nodeId: string;
-    title: string;
-    roadmapTitle: string;
-    crumbs: Array<{ id: string; title: string }>;
-  }>;
-  mindmaps: Array<{ id: string; title: string }>;
   cover?: string;
   draft?: boolean;
 };
 
-export type NodeIndexEntry = {
-  roadmapId: string;
-  roadmapTitle: string;
-  nodeId: string;
-  title: string;
-  description?: string;
-  status?: RoadmapNode["status"];
-  icon?: string;
-  crumbs: Array<{ id: string; title: string }>;
-  children: Array<{ nodeId: string; title: string; status?: RoadmapNode["status"] }>;
-  dependencies: Array<{ nodeId: string; title: string }>;
-  pinned?: string[];
-};
-
-export type NoteListItem = {
-  id: string;
-  title: string;
-  excerpt: string;
-  date: string;
-  updated: string;
-  categories: string[];
-  tags: string[];
-  nodes: Note["nodes"];
-  mindmaps: Note["mindmaps"];
-  draft?: boolean;
-  cover?: string;
-};
+export type NoteListItem = Omit<Note, "content">;
 
 export type Db = {
   profile: Profile;
   categories: Category[];
-  roadmaps: RoadmapFile[];
-  nodesIndex: Map<string, NodeIndexEntry>; // key: "roadmapId/nodeId"
   notes: Note[];
-  mindmaps: Mindmap[];
   projects: Project[];
 };
 
@@ -188,12 +122,6 @@ async function exists(p: string): Promise<boolean> {
   }
 }
 
-function normalizeMindmapId(raw: unknown): string | null {
-  const v = String(raw ?? "").trim().toLowerCase();
-  if (!/^[a-z0-9-]{2,80}$/.test(v)) return null;
-  return v;
-}
-
 export function toNoteListItem(n: Note): NoteListItem {
   return {
     id: n.id,
@@ -203,10 +131,8 @@ export function toNoteListItem(n: Note): NoteListItem {
     updated: n.updated,
     categories: n.categories,
     tags: n.tags,
-    nodes: n.nodes,
-    mindmaps: n.mindmaps,
-    draft: n.draft,
     cover: n.cover,
+    draft: n.draft,
   };
 }
 
@@ -217,9 +143,7 @@ export async function loadDb(): Promise<Db> {
   const profilePath = path.join(contentDir, "profile.json");
   const categoriesPath = path.join(contentDir, "categories.yml");
   const projectsPath = path.join(contentDir, "projects.json");
-  const roadmapsDir = path.join(contentDir, "roadmaps");
   const notesDir = path.join(contentDir, "notes");
-  const mindmapsDir = path.join(contentDir, "mindmaps");
 
   const profile: Profile = (await exists(profilePath))
     ? JSON.parse(await fs.readFile(profilePath, "utf8"))
@@ -242,124 +166,6 @@ export async function loadDb(): Promise<Db> {
 
   const projects: Project[] = (await exists(projectsPath)) ? JSON.parse(await fs.readFile(projectsPath, "utf8")) : [];
 
-  const roadmaps: RoadmapFile[] = [];
-  if (await exists(roadmapsDir)) {
-    const files = (await fs.readdir(roadmapsDir))
-      .filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"))
-      .sort();
-    for (const file of files) {
-      const roadmap = await readYamlFile<RoadmapFile>(path.join(roadmapsDir, file));
-      roadmaps.push(roadmap);
-    }
-  }
-
-  const nodesIndex = new Map<string, NodeIndexEntry>();
-  const edgeIndex = new Map<string, string[]>(); // key: "roadmapId/nodeId" -> dependency ids
-
-  function indexRoadmapNode(args: {
-    roadmapId: string;
-    roadmapTitle: string;
-    node: RoadmapNode;
-    crumbs: Array<{ id: string; title: string }>;
-  }) {
-    const { roadmapId, roadmapTitle, node, crumbs } = args;
-    const key = `${roadmapId}/${node.id}`;
-
-    const children = node.children?.map((c) => ({ nodeId: c.id, title: c.title, status: c.status })) ?? [];
-    edgeIndex.set(key, node.edges ?? []);
-
-    nodesIndex.set(key, {
-      roadmapId,
-      roadmapTitle,
-      nodeId: node.id,
-      title: node.title,
-      description: node.description,
-      status: node.status,
-      icon: node.icon,
-      crumbs,
-      children,
-      dependencies: [],
-      pinned: node.pinned,
-    });
-
-    for (const child of node.children ?? []) {
-      indexRoadmapNode({
-        roadmapId,
-        roadmapTitle,
-        node: child,
-        crumbs: [...crumbs, { id: child.id, title: child.title }],
-      });
-    }
-  }
-
-  for (const rm of roadmaps) {
-    for (const top of rm.nodes ?? []) {
-      indexRoadmapNode({
-        roadmapId: rm.id,
-        roadmapTitle: rm.title,
-        node: top,
-        crumbs: [{ id: top.id, title: top.title }],
-      });
-    }
-  }
-
-  for (const [key, depIds] of edgeIndex.entries()) {
-    const entry = nodesIndex.get(key);
-    if (!entry) continue;
-    entry.dependencies = depIds
-      .map((depId) => {
-        const dep = nodesIndex.get(`${entry.roadmapId}/${depId}`);
-        return dep ? { nodeId: dep.nodeId, title: dep.title } : null;
-      })
-      .filter(Boolean) as Array<{ nodeId: string; title: string }>;
-  }
-
-  const mindmaps: Mindmap[] = [];
-  const mindmapById = new Map<string, Mindmap>();
-  if (await exists(mindmapsDir)) {
-    const files = (await fs.readdir(mindmapsDir)).filter((f) => f.toLowerCase().endsWith(".json")).sort().reverse();
-    for (const file of files) {
-      const id = normalizeMindmapId(file.replace(/\.json$/i, ""));
-      if (!id) continue;
-
-      const full = path.join(mindmapsDir, file);
-      const raw = await fs.readFile(full, "utf8");
-      const stat = await fs.stat(full);
-
-      let parsed: Record<string, unknown> = {};
-      try {
-        const v = JSON.parse(raw);
-        parsed = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
-      } catch {
-        parsed = {};
-      }
-
-      const title =
-        typeof parsed.title === "string" && parsed.title.trim()
-          ? String(parsed.title)
-          : id;
-      const updated = typeof parsed.updated === "string" ? toIsoDate(parsed.updated) : toIsoDate(stat.mtime);
-      const format =
-        typeof parsed.format === "string" && parsed.format.trim()
-          ? String(parsed.format)
-          : "reactflow";
-      const nodes = Array.isArray(parsed.nodes) ? (parsed.nodes as unknown[]) : [];
-      const edges = Array.isArray(parsed.edges) ? (parsed.edges as unknown[]) : [];
-
-      const mindmap: Mindmap = {
-        id,
-        title,
-        updated,
-        format,
-        nodes,
-        edges,
-        viewport: parsed.viewport,
-      };
-      mindmaps.push(mindmap);
-      mindmapById.set(id, mindmap);
-    }
-  }
-
   const notes: Note[] = [];
   if (await exists(notesDir)) {
     const files = (await fs.readdir(notesDir)).filter((f) => f.endsWith(".md")).sort().reverse();
@@ -375,38 +181,11 @@ export async function loadDb(): Promise<Db> {
       const title = (fm.title ?? file.replace(/\.md$/, "")).toString();
       const categoriesRefs = Array.isArray(fm.categories) ? fm.categories : [];
       const tags = Array.isArray(fm.tags) ? fm.tags : [];
-      const nodesRefs = Array.isArray(fm.nodes) ? fm.nodes : [];
-      const mindmapsRefs = Array.isArray(fm.mindmaps) ? fm.mindmaps : [];
       const draft = typeof fm.draft === "boolean" ? fm.draft : undefined;
 
       const body = parsed.content.trim();
       const excerptBase = fm.excerpt ? String(fm.excerpt) : stripMarkdown(body).slice(0, 220);
       const id = file.replace(/\.md$/, "");
-
-      const nodes = nodesRefs
-        .map((ref) => {
-          const [roadmapId, nodeId] = String(ref).split("/");
-          if (!roadmapId || !nodeId) return null;
-          const entry = nodesIndex.get(`${roadmapId}/${nodeId}`);
-          if (!entry) return null;
-          return {
-            ref: `${roadmapId}/${nodeId}`,
-            roadmapId,
-            nodeId,
-            title: entry.title,
-            roadmapTitle: entry.roadmapTitle,
-            crumbs: entry.crumbs,
-          };
-        })
-        .filter(Boolean) as Note["nodes"];
-
-      const mindmaps = mindmapsRefs
-        .map((x) => normalizeMindmapId(x))
-        .filter((x): x is string => Boolean(x))
-        .map((mid) => {
-          const mm = mindmapById.get(mid);
-          return { id: mid, title: mm?.title ?? mid };
-        });
 
       notes.push({
         id,
@@ -417,15 +196,12 @@ export async function loadDb(): Promise<Db> {
         updated,
         categories: categoriesRefs,
         tags,
-        nodes,
-        mindmaps,
         cover: fm.cover ? String(fm.cover) : undefined,
         draft,
       });
     }
   }
 
-  // Backfill category titles if content doesn't define them.
   const knownCategoryIds = new Set(categories.map((c) => c.id));
   for (const note of notes) {
     for (const c of note.categories) {
@@ -436,5 +212,5 @@ export async function loadDb(): Promise<Db> {
     }
   }
 
-  return { profile, categories, roadmaps, nodesIndex, notes, mindmaps, projects };
+  return { profile, categories, notes, projects };
 }

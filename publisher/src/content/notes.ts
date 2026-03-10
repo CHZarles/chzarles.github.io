@@ -7,8 +7,6 @@ export type NoteInput = {
   excerpt?: string;
   categories?: string[];
   tags?: string[];
-  nodes?: string[];
-  mindmaps?: string[];
   cover?: string;
   draft?: boolean;
   slug?: string;
@@ -77,8 +75,6 @@ export function renderNoteMarkdown(args: { noteId: string; input: NoteInput }): 
   if (input.excerpt) frontmatter.excerpt = String(input.excerpt);
   if (Array.isArray(input.categories) && input.categories.length) frontmatter.categories = input.categories;
   if (Array.isArray(input.tags) && input.tags.length) frontmatter.tags = input.tags;
-  if (Array.isArray(input.nodes) && input.nodes.length) frontmatter.nodes = input.nodes;
-  if (Array.isArray(input.mindmaps) && input.mindmaps.length) frontmatter.mindmaps = input.mindmaps;
   if (input.cover) frontmatter.cover = String(input.cover);
   if (typeof input.draft === "boolean") frontmatter.draft = input.draft;
 
@@ -96,4 +92,3 @@ export function parseFrontmatter(md: string): { frontmatter: Record<string, unkn
   const fm = (YAML.parse(yaml) ?? {}) as Record<string, unknown>;
   return { frontmatter: fm && typeof fm === "object" ? fm : {}, body };
 }
-

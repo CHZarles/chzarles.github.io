@@ -28,6 +28,10 @@ export type Profile = {
     patternOpacity?: number; // 0..1.5 (mimo only) overall visibility multiplier for background pattern
     patternScale?: number; // 0.7..1.4 (mimo only) scales pattern font sizes
     patternMotion?: "none" | "drift"; // (mimo only) subtle background drift animation
+    spotlightSceneUrl?: string; // optional hidden scene revealed inside spotlight
+    spotlightScenePosition?: string; // CSS object-position for spotlight scene
+    spotlightSceneOpacity?: number; // 0..1 opacity for spotlight scene
+    spotlightSceneScale?: number; // scales hidden scene slightly for depth
     spotlightRadiusPx?: number; // px radius for cursor spotlight (mimo only), clamped 120..520
     spotlightEase?: number; // (mimo only) 0.05..0.5 smoothing factor for spotlight follow
     spotlightEaseRadius?: number; // (mimo only) 0.05..0.5 smoothing factor for spotlight radius
@@ -42,43 +46,6 @@ export type Category = {
   noteCount?: number;
 };
 
-export type RoadmapNode = {
-  id: string;
-  title: string;
-  description?: string;
-  status?: "idea" | "learning" | "using" | "solid" | "teach";
-  icon?: string;
-  edges?: string[];
-  pinned?: string[];
-  children?: RoadmapNode[];
-};
-
-export type Roadmap = {
-  id: string;
-  title: string;
-  description?: string;
-  theme?: string;
-  layout?: "vertical" | "horizontal";
-  nodes: RoadmapNode[];
-};
-
-export type RoadmapListItem = {
-  id: string;
-  title: string;
-  description?: string;
-  theme?: string;
-  progress?: { done: number; total: number };
-};
-
-export type NoteNodeRef = {
-  ref: string; // "ai-infra/otel"
-  roadmapId: string;
-  nodeId: string;
-  title: string;
-  roadmapTitle: string;
-  crumbs: Array<{ id: string; title: string }>;
-};
-
 export type NoteListItem = {
   id: string;
   title: string;
@@ -87,57 +54,12 @@ export type NoteListItem = {
   updated: string;
   categories: string[];
   tags: string[];
-  nodes: NoteNodeRef[];
-  mindmaps: MindmapRef[];
   draft?: boolean;
   cover?: string;
 };
 
 export type Note = NoteListItem & {
   content: string;
-};
-
-export type RoadmapNodeEntry = {
-  roadmapId: string;
-  roadmapTitle: string;
-  nodeId: string;
-  title: string;
-  description?: string;
-  status?: RoadmapNode["status"];
-  icon?: string;
-  crumbs: Array<{ id: string; title: string }>;
-  children: Array<{ nodeId: string; title: string; status?: RoadmapNode["status"] }>;
-  dependencies: Array<{ nodeId: string; title: string }>;
-  pinned?: string[];
-};
-
-export type RoadmapNodeDetail = {
-  node: RoadmapNodeEntry;
-  notes: NoteListItem[];
-};
-
-export type MindmapListItem = {
-  id: string;
-  title: string;
-  updated: string;
-  format?: string;
-  nodeCount?: number;
-  edgeCount?: number;
-};
-
-export type Mindmap = {
-  id: string;
-  title: string;
-  updated: string;
-  format: string;
-  nodes: unknown[];
-  edges: unknown[];
-  viewport?: unknown;
-};
-
-export type MindmapRef = {
-  id: string;
-  title: string;
 };
 
 export type Project = {
@@ -151,8 +73,9 @@ export type Project = {
 };
 
 export type SearchHit = {
-  type: "note" | "category" | "roadmap" | "node" | "project" | "mindmap";
+  type: "note" | "category" | "project";
   title: string;
   subtitle?: string;
   href: string;
+  categoryId?: string;
 };

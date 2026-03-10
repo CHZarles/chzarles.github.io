@@ -1,7 +1,8 @@
-import { BookOpen, Compass, GitBranch, LayoutGrid, Network, Search, Waypoints, X } from "lucide-react";
+import { BookOpen, GitBranch, LayoutGrid, Search, X } from "lucide-react";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/api";
+import { useAppState } from "../state/AppState";
 import type { SearchHit } from "../types";
 
 function iconFor(hit: SearchHit) {
@@ -10,14 +11,8 @@ function iconFor(hit: SearchHit) {
       return <BookOpen className="h-4 w-4 opacity-85" />;
     case "category":
       return <LayoutGrid className="h-4 w-4 opacity-85" />;
-    case "roadmap":
-      return <Compass className="h-4 w-4 opacity-85" />;
-    case "node":
-      return <Waypoints className="h-4 w-4 opacity-85" />;
     case "project":
       return <GitBranch className="h-4 w-4 opacity-85" />;
-    case "mindmap":
-      return <Network className="h-4 w-4 opacity-85" />;
     default:
       return <Search className="h-4 w-4 opacity-85" />;
   }
@@ -27,15 +22,44 @@ function isExternalHref(href: string): boolean {
   return /^https?:\/\//i.test(href);
 }
 
+function noteHitsFromNotes(notes: Array<{ id: string; title: string; excerpt: string }>): SearchHit[] {
+  return notes.slice(0, 18).map((note) => ({
+    type: "note",
+    title: note.title,
+    subtitle: note.excerpt || "Note",
+    href: `/notes/${note.id}`,
+  }));
+}
+
 function CommandPalette(props: { onClose: () => void }) {
   const navigate = useNavigate();
+  const { categories } = useAppState();
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<SearchHit[]>([]);
   const [active, setActive] = React.useState(0);
+  const [activeCategory, setActiveCategory] = React.useState<{ id: string; title: string } | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
+  const sortedCategories = React.useMemo(() => {
+    const list = [...categories];
+    list.sort((a, b) => {
+      const countDiff = (b.noteCount ?? 0) - (a.noteCount ?? 0);
+      if (countDiff !== 0) return countDiff;
+      return a.title.localeCompare(b.title, "zh-CN");
+    });
+    return list.slice(0, 10);
+  }, [categories]);
+
   const openHit = React.useCallback(
-    (href: string) => {
+    (hit: SearchHit) => {
+      if (hit.type === "category") {
+        const categoryId = hit.categoryId?.trim();
+        if (!categoryId) return;
+        setActiveCategory({ id: categoryId, title: hit.title });
+        setActive(0);
+        return;
+      }
+      const href = hit.href;
       if (isExternalHref(href)) {
         window.open(href, "_blank", "noreferrer");
         return;
@@ -52,20 +76,23 @@ function CommandPalette(props: { onClose: () => void }) {
   React.useEffect(() => {
     let cancelled = false;
     const t = window.setTimeout(() => {
-      api
-        .search(query)
+      const run = activeCategory
+        ? api.notes({ q: query || undefined, category: activeCategory.id }).then((notes) => noteHitsFromNotes(notes))
+        : api.search(query);
+
+      run
         .then((r) => {
           if (cancelled) return;
           setResults(r);
           setActive(0);
         })
         .catch(() => {});
-    }, 120);
+    }, activeCategory ? 60 : 120);
     return () => {
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [query]);
+  }, [query, activeCategory]);
 
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -81,8 +108,12 @@ function CommandPalette(props: { onClose: () => void }) {
         const hit = results[active];
         if (!hit) return;
         e.preventDefault();
+        if (hit.type === "category") {
+          openHit(hit);
+          return;
+        }
         props.onClose();
-        openHit(hit.href);
+        openHit(hit);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -104,11 +135,57 @@ function CommandPalette(props: { onClose: () => void }) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索 Notes / Roadmaps / Nodes / Mindmaps / Projects"
+            placeholder="搜索 Notes / Projects，或先选一个 Category"
             className="w-full bg-transparent py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))]"
           />
           <span className="kbd hidden sm:inline-flex">Esc</span>
         </div>
+        {sortedCategories.length ? (
+          <>
+            <div className="hairline" />
+            <div className="px-4 py-3">
+              <div className="mb-2 text-[10px] font-semibold tracking-[0.18em] text-[hsl(var(--muted))]">CATEGORIES</div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveCategory(null)}
+                  className={[
+                    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition",
+                    activeCategory
+                      ? "border-[color:var(--border-soft)] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
+                      : "border-[color-mix(in_oklab,hsl(var(--accent))_28%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_7%,transparent)] text-[hsl(var(--fg))]",
+                  ].join(" ")}
+                >
+                  All
+                </button>
+                {sortedCategories.map((category) => {
+                  const selected = activeCategory?.id === category.id;
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveCategory({ id: category.id, title: category.title });
+                        setActive(0);
+                      }}
+                      className={[
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition",
+                        selected
+                          ? "border-[color-mix(in_oklab,hsl(var(--accent))_28%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_7%,transparent)] text-[hsl(var(--fg))]"
+                          : "border-[color:var(--border-soft)] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]",
+                      ].join(" ")}
+                    >
+                      <span className="font-serif font-semibold tracking-tight">{category.title}</span>
+                      <span className="font-mono text-[10px] tabular-nums text-[hsl(var(--muted))]">
+                        {(category.noteCount ?? 0).toString().padStart(2, "0")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        ) : null}
         <div className="hairline" />
         <div className="max-h-[60vh] overflow-auto p-2">
           {results.length === 0 ? (
@@ -121,8 +198,12 @@ function CommandPalette(props: { onClose: () => void }) {
                   type="button"
                   onMouseEnter={() => setActive(idx)}
                   onClick={() => {
+                    if (hit.type === "category") {
+                      openHit(hit);
+                      return;
+                    }
                     props.onClose();
-                    openHit(hit.href);
+                    openHit(hit);
                   }}
                   className={[
                     "flex items-center justify-between gap-4 rounded-2xl px-3 py-2.5 text-left transition",

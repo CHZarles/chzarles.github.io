@@ -177,19 +177,19 @@ html[data-hb-mounted="1"] #root {
 }
 
 .container {
-  width: min(1100px, calc(100% - 40px));
+  width: min(980px, calc(100% - 36px));
   margin-inline: auto;
 }
 
 @media (min-width: 1280px) {
   .container {
-    width: min(1320px, calc(100% - 64px));
+    width: min(1100px, calc(100% - 56px));
   }
 }
 
 @media (min-width: 1536px) {
   .container {
-    width: min(1440px, calc(100% - 80px));
+    width: min(1180px, calc(100% - 64px));
   }
 }
 

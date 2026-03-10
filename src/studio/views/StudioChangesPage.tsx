@@ -31,10 +31,6 @@ function labelForChange(c: WorkspaceChange): string {
   switch (c.kind) {
     case "note":
       return c.editor.title.trim() || c.noteId || "Untitled note";
-    case "roadmap":
-      return c.title.trim() || c.roadmapId;
-    case "mindmap":
-      return c.title.trim() || c.mindmapId;
     case "config":
       return `Config: ${c.fileKey}`;
     case "assets":
@@ -44,8 +40,6 @@ function labelForChange(c: WorkspaceChange): string {
 
 function subtitleForChange(c: WorkspaceChange): string {
   if (c.kind === "note") return c.noteId ? `content/notes/${c.noteId}.md` : "New note draft";
-  if (c.kind === "roadmap") return c.pathHint ?? `content/roadmaps/${c.roadmapId}.yml`;
-  if (c.kind === "mindmap") return `content/mindmaps/${c.mindmapId}.json`;
   if (c.kind === "config") {
     if (c.fileKey === "profile") return "content/profile.json";
     if (c.fileKey === "projects") return "content/projects.json";
@@ -54,16 +48,27 @@ function subtitleForChange(c: WorkspaceChange): string {
   return c.uploads.length || c.deletes.length ? "public/uploads/*" : "No staged asset changes";
 }
 
+function kindLabel(c: WorkspaceChange): string {
+  if (c.kind === "note") return c.pendingDelete ? "DELETE" : "NOTE";
+  if (c.kind === "config") return "CONFIG";
+  return "ASSETS";
+}
+
+function changeStats(c: WorkspaceChange): string[] {
+  if (c.kind === "note") {
+    return [c.noteId ? "existing" : "new", c.pendingDelete ? "pending delete" : "local draft"];
+  }
+  if (c.kind === "config") {
+    return [c.fileKey];
+  }
+  const out: string[] = [];
+  if (c.uploads.length) out.push(`${c.uploads.length} upload${c.uploads.length > 1 ? "s" : ""}`);
+  if (c.deletes.length) out.push(`${c.deletes.length} delete${c.deletes.length > 1 ? "s" : ""}`);
+  return out.length ? out : ["no file ops"];
+}
+
 function noteBaselineCacheKey(noteId: string): string {
   return studioDataCacheKey(PUBLISHER_BASE_URL, ["notes", "detail", noteId]);
-}
-
-function roadmapBaselineCacheKey(roadmapId: string): string {
-  return studioDataCacheKey(PUBLISHER_BASE_URL, ["roadmaps", "detail", roadmapId]);
-}
-
-function mindmapBaselineCacheKey(mindmapId: string): string {
-  return studioDataCacheKey(PUBLISHER_BASE_URL, ["mindmaps", "detail", mindmapId]);
 }
 
 function isValidYmd(input: string): boolean {
@@ -159,14 +164,6 @@ function renderNoteMarkdown(args: { baseMarkdown: string | null; editor: any; up
   if (tags.length) fm.tags = tags;
   else delete fm.tags;
 
-  const nodes = normalizeIdList(Array.isArray(args.editor.nodes) ? args.editor.nodes : []);
-  if (nodes.length) fm.nodes = nodes;
-  else delete fm.nodes;
-
-  const mindmaps = normalizeIdList(Array.isArray(args.editor.mindmaps) ? args.editor.mindmaps : []);
-  if (mindmaps.length) fm.mindmaps = mindmaps;
-  else delete fm.mindmaps;
-
   const cover = String(args.editor.cover ?? "").trim();
   if (cover) fm.cover = cover;
   else delete fm.cover;
@@ -227,32 +224,6 @@ function readBaseline(c: WorkspaceChange): Baseline | null {
     return { name: noteId ? `content/notes/${noteId}.md` : subtitleForChange(c), oldText, newText };
   }
 
-  if (c.kind === "roadmap") {
-    const cached = readStudioDataCache<any>(roadmapBaselineCacheKey(c.roadmapId))?.value ?? null;
-    const oldText = cached?.roadmap?.yaml ?? "";
-    if (c.pendingDelete) return { name: subtitleForChange(c), oldText, newText: "" };
-    return { name: subtitleForChange(c), oldText, newText: c.yaml.trimEnd() + "\n" };
-  }
-
-  if (c.kind === "mindmap") {
-    const cached = readStudioDataCache<any>(mindmapBaselineCacheKey(c.mindmapId))?.value ?? null;
-    const oldText = cached?.mindmap?.json ?? "";
-    if (c.pendingDelete) return { name: subtitleForChange(c), oldText, newText: "" };
-    const newText = JSON.stringify(
-      {
-        id: c.mindmapId,
-        title: c.title || c.mindmapId,
-        format: "reactflow",
-        nodes: c.nodes,
-        edges: c.edges,
-        viewport: c.viewport,
-      },
-      null,
-      2,
-    ).trimEnd() + "\n";
-    return { name: subtitleForChange(c), oldText, newText };
-  }
-
   return null;
 }
 
@@ -290,29 +261,6 @@ function buildBaselineWithOldText(c: WorkspaceChange, oldText: string): Baseline
     return { name: noteId ? `content/notes/${noteId}.md` : subtitleForChange(c), oldText, newText };
   }
 
-  if (c.kind === "roadmap") {
-    if (c.pendingDelete) return { name: subtitleForChange(c), oldText, newText: "" };
-    return { name: subtitleForChange(c), oldText, newText: c.yaml.trimEnd() + "\n" };
-  }
-
-  if (c.kind === "mindmap") {
-    if (c.pendingDelete) return { name: subtitleForChange(c), oldText, newText: "" };
-    const newText =
-      JSON.stringify(
-        {
-          id: c.mindmapId,
-          title: c.title || c.mindmapId,
-          format: "reactflow",
-          nodes: c.nodes,
-          edges: c.edges,
-          viewport: c.viewport,
-        },
-        null,
-        2,
-      ).trimEnd() + "\n";
-    return { name: subtitleForChange(c), oldText, newText };
-  }
-
   return null;
 }
 
@@ -342,22 +290,6 @@ async function readRemoteOldText(args: { change: WorkspaceChange; token: string 
     try {
       const res = await publisherFetchJson<{ note: { markdown: string } }>({ path: `/api/admin/notes/${noteId}`, token: args.token });
       return typeof res.note?.markdown === "string" ? res.note.markdown : "";
-    } catch (err: unknown) {
-      const pub = (err as any)?.publisher as { code?: string } | undefined;
-      if (pub?.code === "NOT_FOUND") return "";
-      throw err;
-    }
-  }
-
-  if (c.kind === "roadmap") {
-    const res = await publisherFetchJson<{ roadmap: { yaml: string } }>({ path: `/api/admin/roadmaps/${c.roadmapId}`, token: args.token });
-    return typeof res.roadmap?.yaml === "string" ? res.roadmap.yaml : "";
-  }
-
-  if (c.kind === "mindmap") {
-    try {
-      const res = await publisherFetchJson<{ mindmap: { json: string } }>({ path: `/api/admin/mindmaps/${c.mindmapId}`, token: args.token });
-      return typeof res.mindmap?.json === "string" ? res.mindmap.json : "";
     } catch (err: unknown) {
       const pub = (err as any)?.publisher as { code?: string } | undefined;
       if (pub?.code === "NOT_FOUND") return "";
@@ -527,6 +459,12 @@ export function StudioChangesPage() {
     publishHeadMoved && typeof (ws.publishError as any)?.details?.actualHeadSha === "string"
       ? String((ws.publishError as any).details.actualHeadSha)
       : null;
+  const summaryPills = [
+    { label: `${ws.stats.notes} notes`, active: ws.stats.notes > 0 },
+    { label: `${ws.stats.config} config`, active: ws.stats.config > 0 },
+    { label: `+${ws.stats.assetsUploads} uploads`, active: ws.stats.assetsUploads > 0 },
+    { label: `-${ws.stats.assetsDeletes} deletes`, active: ws.stats.assetsDeletes > 0 },
+  ];
 
   const [retrying, setRetrying] = React.useState(false);
   const retryPublishOnLatest = React.useCallback(async () => {
@@ -551,6 +489,13 @@ export function StudioChangesPage() {
           <div className="min-w-0">
             <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">CHANGES</div>
             <div className="mt-1 text-sm text-[hsl(var(--muted))]">{ws.stats.total} local draft(s)</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {summaryPills.map((pill) => (
+                <TinyPill key={pill.label} active={pill.active}>
+                  {pill.label}
+                </TinyPill>
+              ))}
+            </div>
           </div>
           <button
             type="button"
@@ -578,8 +523,16 @@ export function StudioChangesPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium tracking-tight">{labelForChange(c)}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="truncate text-sm font-medium tracking-tight">{labelForChange(c)}</div>
+                      <TinyPill active={active}>{kindLabel(c)}</TinyPill>
+                    </div>
                     <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">{subtitleForChange(c)}</div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {changeStats(c).map((stat) => (
+                        <TinyPill key={`${c.key}:${stat}`}>{stat}</TinyPill>
+                      ))}
+                    </div>
                   </div>
                   <div className="shrink-0 text-[10px] font-semibold tracking-[0.18em] text-[hsl(var(--muted))]">
                     {fmtTime(c.savedAt)}
@@ -604,6 +557,13 @@ export function StudioChangesPage() {
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold tracking-tight">{labelForChange(selected)}</div>
                   <div className="mt-1 truncate text-xs text-[hsl(var(--muted))]">{subtitleForChange(selected)}</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <TinyPill active>{kindLabel(selected)}</TinyPill>
+                    {changeStats(selected).map((stat) => (
+                      <TinyPill key={`selected:${stat}`}>{stat}</TinyPill>
+                    ))}
+                    <TinyPill>{fmtTime(selected.savedAt)}</TinyPill>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -619,7 +579,39 @@ export function StudioChangesPage() {
               </div>
 
               {selected.kind === "assets" ? (
-                <div className="mt-5 text-sm text-[hsl(var(--muted))]">Binary or non-diffable change.</div>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
+                    <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">UPLOADS</div>
+                    {selected.uploads.length ? (
+                      <ul className="mt-3 grid gap-2">
+                        {selected.uploads.map((upload) => (
+                          <li key={upload.path} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2">
+                            <div className="truncate text-xs font-medium tracking-tight">{upload.url}</div>
+                            <div className="mt-1 truncate text-[10px] text-[hsl(var(--muted))]">{upload.path}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="mt-3 text-sm text-[hsl(var(--muted))]">No staged uploads.</div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
+                    <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">DELETES</div>
+                    {selected.deletes.length ? (
+                      <ul className="mt-3 grid gap-2">
+                        {selected.deletes.map((filePath) => (
+                          <li key={filePath} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2">
+                            <div className="truncate text-xs font-medium tracking-tight">{filePath.replace(/^public\//, "/")}</div>
+                            <div className="mt-1 truncate text-[10px] text-[hsl(var(--muted))]">{filePath}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="mt-3 text-sm text-[hsl(var(--muted))]">No staged deletes.</div>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <div className="mt-5">
                   <div className="flex items-center justify-between gap-3">
@@ -799,5 +791,20 @@ export function StudioChangesPage() {
         ) : null}
       </main>
     </div>
+  );
+}
+
+function TinyPill(props: { children: React.ReactNode; active?: boolean }) {
+  return (
+    <span
+      className={[
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px]",
+        props.active
+          ? "border-[color-mix(in_oklab,hsl(var(--accent))_35%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_10%,hsl(var(--card)))] text-[hsl(var(--fg))]"
+          : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))]",
+      ].join(" ")}
+    >
+      {props.children}
+    </span>
   );
 }

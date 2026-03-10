@@ -15,7 +15,9 @@ export function AppShell() {
         <div className="min-h-screen">
           {hideTopNav ? null : <TopNav />}
           <main className={["container pb-16", hideTopNav ? "pt-0" : "pt-24"].join(" ")}>
-            <Outlet />
+            <div className="mx-auto max-w-[56rem]">
+              <Outlet />
+            </div>
           </main>
           <Footer />
           <ScrollRestoration />

@@ -11,7 +11,6 @@ import { Reveal } from "../components/Reveal";
 import { ThemeToggle } from "../widgets/ThemeToggle";
 import { useCommandPalette } from "../widgets/CommandPalette";
 import { normalizeMathDelimiters } from "../markdown/normalizeMathDelimiters";
-import { useAppState } from "../state/AppState";
 import type { Note, NoteListItem } from "../types";
 
 type HeadingRef = { depth: number; text: string; id: string };
@@ -336,12 +335,7 @@ export function NotePage() {
   const [scrollProgress, setScrollProgress] = React.useState(0);
   const [copiedPermalink, setCopiedPermalink] = React.useState(false);
   const [copiedAnchorId, setCopiedAnchorId] = React.useState<string | null>(null);
-  const { categories } = useAppState();
   const { open } = useCommandPalette();
-  const titleById = React.useMemo(() => {
-    const m = new Map(categories.map((c) => [c.id, c.title] as const));
-    return (id: string) => m.get(id) ?? null;
-  }, [categories]);
 
   React.useEffect(() => {
     if (!noteId) return;
@@ -625,7 +619,6 @@ export function NotePage() {
   const related = React.useMemo(() => {
     if (!note || !index) return [] as NoteListItem[];
     const baseCats = new Set(note.categories);
-    const baseNodes = new Set(note.nodes.map((r) => r.ref));
     const baseTags = new Set(note.tags);
 
     const scored: Array<{ score: number; note: NoteListItem }> = [];
@@ -633,7 +626,6 @@ export function NotePage() {
       if (n.id === note.id) continue;
       let score = 0;
       for (const c of n.categories) if (baseCats.has(c)) score += 2;
-      for (const r of n.nodes) if (baseNodes.has(r.ref)) score += 3;
       for (const t of n.tags) if (baseTags.has(t)) score += 1;
       if (score > 0) scored.push({ score, note: n });
     }
@@ -768,80 +760,12 @@ export function NotePage() {
               </ReactMarkdown>
             </div>
 
-            {note.mindmaps.length ? (
-              <section className="mt-14">
-                <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
-                  MINDMAPS
-                </div>
-                <div className="mt-4 divide-y divide-[color:var(--border-soft)]">
-                  {note.mindmaps.map((m) => (
-                    <Link
-                      key={m.id}
-                      to={`/mindmaps/${m.id}`}
-                      className="group -mx-1 flex items-baseline justify-between gap-4 rounded-xl px-1 py-3 transition hover:bg-[var(--surface-muted-weak)]"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-serif text-sm font-semibold tracking-tight text-[hsl(var(--fg))]">
-                          {m.title}
-                        </div>
-                      </div>
-                      <div className="shrink-0 font-mono text-[11px] tracking-[0.18em] text-[hsl(var(--muted))]">
-                        OPEN
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {note.categories.length || note.nodes.length || note.tags.length ? (
+            {note.tags.length ? (
               <section className="mt-14">
                 <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
                   META
                 </div>
                 <div className="mt-4 grid gap-3 text-sm leading-relaxed text-[hsl(var(--muted))]">
-                  {note.categories.length ? (
-                    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
-                      <div className="pt-0.5 text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)]">
-                        CATEGORIES
-                      </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-2">
-                        {note.categories.map((c) => {
-                          const title = titleById(c);
-                          if (!title) return null;
-                          return (
-                            <Link
-                              key={c}
-                              to={`/notes?category=${encodeURIComponent(c)}`}
-                              className="hover:text-[hsl(var(--fg))]"
-                            >
-                              #{title}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {note.nodes.length ? (
-                    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
-                      <div className="pt-0.5 text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)]">
-                        ROADMAP
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        {note.nodes.slice(0, 6).map((r) => (
-                          <Link
-                            key={r.ref}
-                            to={`/roadmaps/${r.roadmapId}/node/${r.nodeId}`}
-                            className="hover:text-[hsl(var(--fg))]"
-                          >
-                            {r.roadmapTitle} / {r.title}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
                   {note.tags.length ? (
                     <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
                       <div className="pt-0.5 text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)]">

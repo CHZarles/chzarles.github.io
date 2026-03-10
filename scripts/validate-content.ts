@@ -6,7 +6,6 @@ import YAML from "yaml";
 type Issue = { severity: "error" | "warn"; file?: string; message: string };
 
 const ID_RE = /^[a-z0-9-]{2,80}$/;
-const NODE_ID_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
 const NOTE_ID_RE = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]{3,80}$/;
 
 function ok<T>(v: T): v is NonNullable<T> {
@@ -33,16 +32,12 @@ function coerceYmd(value: unknown): string {
   return "";
 }
 
-function pushIssue(issues: Issue[], issue: Issue) {
-  issues.push(issue);
-}
-
 function error(issues: Issue[], file: string, message: string) {
-  pushIssue(issues, { severity: "error", file, message });
+  issues.push({ severity: "error", file, message });
 }
 
 function warn(issues: Issue[], file: string, message: string) {
-  pushIssue(issues, { severity: "warn", file, message });
+  issues.push({ severity: "warn", file, message });
 }
 
 function formatIssue(i: Issue): string {
@@ -69,47 +64,14 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v);
 }
 
-function collectRoadmapNodeIds(node: any, out: Set<string>, issues: Issue[], file: string, pathHint: string) {
-  const id = typeof node?.id === "string" ? node.id.trim() : "";
-  if (!id) {
-    error(issues, file, `Roadmap node missing id (${pathHint}).`);
-    return;
-  }
-  if (!NODE_ID_RE.test(id)) {
-    error(issues, file, `Invalid roadmap node id: ${id} (${pathHint}).`);
-  }
-  if (out.has(id)) {
-    error(issues, file, `Duplicate roadmap node id: ${id}.`);
-  }
-  out.add(id);
-
-  const children = node?.children;
-  if (Array.isArray(children)) {
-    for (const child of children) collectRoadmapNodeIds(child, out, issues, file, `${pathHint}/${id}`);
-  } else if (children !== undefined && children !== null) {
-    error(issues, file, `Node children must be array (${id}).`);
-  }
-}
-
-function walkRoadmapNodes(node: any, fn: (node: any) => void) {
-  fn(node);
-  const children = node?.children;
-  if (Array.isArray(children)) {
-    for (const child of children) walkRoadmapNodes(child, fn);
-  }
-}
-
 async function main() {
   const root = process.cwd();
   const issues: Issue[] = [];
 
   const contentDir = path.join(root, "content");
   const notesDir = path.join(contentDir, "notes");
-  const roadmapsDir = path.join(contentDir, "roadmaps");
-  const mindmapsDir = path.join(contentDir, "mindmaps");
   const uploadsDir = path.join(root, "public", "uploads");
 
-  // profile
   const profilePath = path.join(contentDir, "profile.json");
   if (!(await exists(profilePath))) {
     warn(issues, "content/profile.json", "Missing file (will fall back to defaults).");
@@ -120,7 +82,9 @@ async function main() {
       if (!isRecord(parsed)) error(issues, "content/profile.json", "Profile must be a JSON object.");
       else {
         for (const key of ["name", "handle", "tagline"] as const) {
-          if (typeof parsed[key] !== "string" || !String(parsed[key]).trim()) error(issues, "content/profile.json", `Missing ${key}.`);
+          if (typeof parsed[key] !== "string" || !String(parsed[key]).trim()) {
+            error(issues, "content/profile.json", `Missing ${key}.`);
+          }
         }
       }
     } catch (e) {
@@ -128,7 +92,6 @@ async function main() {
     }
   }
 
-  // categories
   const categoriesPath = path.join(contentDir, "categories.yml");
   const categoryIds = new Set<string>();
   if (!(await exists(categoriesPath))) {
@@ -159,7 +122,6 @@ async function main() {
     }
   }
 
-  // projects
   const projectsPath = path.join(contentDir, "projects.json");
   const projectIds = new Set<string>();
   if (await exists(projectsPath)) {
@@ -181,118 +143,16 @@ async function main() {
           else if (projectIds.has(id)) error(issues, "content/projects.json", `Duplicate project id: ${id}.`);
           else projectIds.add(id);
           if (!name) error(issues, "content/projects.json", `Project ${id || idx} missing name.`);
-          if (typeof item.repoUrl !== "string" || !String(item.repoUrl).trim()) warn(issues, "content/projects.json", `Project ${id || idx} missing repoUrl.`);
-          if ((item as any).nodes !== undefined) {
-            error(issues, "content/projects.json", `Project ${id || idx} uses deprecated field "nodes" (Projects are decoupled from Roadmap nodes).`);
+          if (typeof item.repoUrl !== "string" || !String(item.repoUrl).trim()) {
+            warn(issues, "content/projects.json", `Project ${id || idx} missing repoUrl.`);
           }
         }
       }
     } catch (e) {
       error(issues, "content/projects.json", `Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
     }
-  } else {
-    // ok: empty is allowed
   }
 
-  // roadmaps
-  const roadmapIds = new Set<string>();
-  const nodeRefs = new Set<string>(); // "roadmapId/nodeId"
-  if (await exists(roadmapsDir)) {
-    const files = (await fs.readdir(roadmapsDir)).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml")).sort();
-    for (const file of files) {
-      const filePath = path.join(roadmapsDir, file);
-      const rel = path.posix.join("content/roadmaps", file);
-      try {
-        const raw = await fs.readFile(filePath, "utf8");
-        const parsed = YAML.parse(raw) as unknown;
-        if (!isRecord(parsed)) {
-          error(issues, rel, "Roadmap must be a YAML object.");
-          continue;
-        }
-        const id = typeof parsed.id === "string" ? parsed.id.trim() : "";
-        const title = typeof parsed.title === "string" ? parsed.title.trim() : "";
-        if (!id) error(issues, rel, "Roadmap missing id.");
-        else if (!ID_RE.test(id)) error(issues, rel, `Invalid roadmap id: ${id}.`);
-        else if (roadmapIds.has(id)) error(issues, rel, `Duplicate roadmap id: ${id}.`);
-        else roadmapIds.add(id);
-        if (!title) error(issues, rel, `Roadmap ${id || file} missing title.`);
-
-        const expectedId = file.replace(/\.ya?ml$/i, "");
-        if (id && expectedId !== id) warn(issues, rel, `Roadmap id (${id}) differs from filename (${expectedId}).`);
-
-        const nodes = (parsed as any).nodes;
-        if (!Array.isArray(nodes)) {
-          error(issues, rel, "Roadmap missing nodes array.");
-          continue;
-        }
-
-        const nodeIdsInRoadmap = new Set<string>();
-        for (const [idx, node] of nodes.entries()) collectRoadmapNodeIds(node, nodeIdsInRoadmap, issues, rel, `nodes[${idx}]`);
-
-        // edges / pinned validation
-        for (const node of nodes) {
-          walkRoadmapNodes(node, (n) => {
-            const nid = typeof n?.id === "string" ? n.id.trim() : "";
-            if (nid && id) nodeRefs.add(`${id}/${nid}`);
-
-            const edges = n?.edges;
-            if (edges !== undefined && edges !== null && !Array.isArray(edges)) {
-              error(issues, rel, `edges must be array (${id}/${nid}).`);
-            }
-            if (Array.isArray(edges)) {
-              for (const dep of edges) {
-                const depId = typeof dep === "string" ? dep.trim() : "";
-                if (!depId) continue;
-                if (!nodeIdsInRoadmap.has(depId)) error(issues, rel, `Unknown edge dependency: ${id}/${nid} -> ${depId}.`);
-              }
-            }
-            if (n?.projects !== undefined) {
-              error(issues, rel, `Roadmap node field "projects" is no longer supported (Projects are decoupled). Remove it (${id}/${nid}).`);
-            }
-          });
-        }
-      } catch (e) {
-        error(issues, rel, `Invalid YAML: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-  } else {
-    warn(issues, "content/roadmaps", "Missing roadmaps directory.");
-  }
-
-  // mindmaps
-  const mindmapIds = new Set<string>();
-  if (await exists(mindmapsDir)) {
-    const files = (await fs.readdir(mindmapsDir)).filter((f) => f.toLowerCase().endsWith(".json")).sort();
-    for (const file of files) {
-      const rel = path.posix.join("content/mindmaps", file);
-      const id = file.replace(/\.json$/i, "").toLowerCase();
-      if (!ID_RE.test(id)) {
-        error(issues, rel, `Invalid mindmap id: ${id}.`);
-        continue;
-      }
-      if (mindmapIds.has(id)) {
-        error(issues, rel, `Duplicate mindmap id: ${id}.`);
-        continue;
-      }
-      mindmapIds.add(id);
-      try {
-        const raw = await fs.readFile(path.join(mindmapsDir, file), "utf8");
-        const parsed = JSON.parse(raw) as unknown;
-        if (!isRecord(parsed)) {
-          error(issues, rel, "Mindmap must be a JSON object.");
-          continue;
-        }
-        if (parsed.title !== undefined && typeof parsed.title !== "string") error(issues, rel, "title must be string.");
-        if (parsed.format !== undefined && typeof parsed.format !== "string") error(issues, rel, "format must be string.");
-        if (parsed.nodes !== undefined && !Array.isArray(parsed.nodes)) error(issues, rel, "nodes must be array.");
-        if (parsed.edges !== undefined && !Array.isArray(parsed.edges)) error(issues, rel, "edges must be array.");
-      } catch (e) {
-        error(issues, rel, `Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-  }
-
-  // notes
   const noteIds = new Set<string>();
   if (await exists(notesDir)) {
     const files = (await fs.readdir(notesDir)).filter((f) => f.endsWith(".md")).sort();
@@ -339,53 +199,23 @@ async function main() {
       if (fm.cover !== undefined && typeof fm.cover !== "string") error(issues, rel, "cover must be string.");
       if (fm.draft !== undefined && typeof fm.draft !== "boolean") error(issues, rel, "draft must be boolean.");
 
-      // references
       const categories = normalizeList(fm.categories);
       for (const c of categories) {
-        if (!categoryIds.size) continue; // allow defaults
+        if (!categoryIds.size) continue;
         if (!categoryIds.has(c)) warn(issues, rel, `Unknown category: ${c}.`);
       }
 
-      const nodes = normalizeList(fm.nodes);
-      for (const ref of nodes) {
-        const [roadmapId, nodeId] = ref.split("/");
-        if (!roadmapId || !nodeId) {
-          error(issues, rel, `Invalid node ref: ${ref} (expected roadmapId/nodeId).`);
-          continue;
-        }
-        if (!roadmapIds.has(roadmapId)) warn(issues, rel, `Unknown roadmap in node ref: ${ref}.`);
-        if (nodeRefs.size && !nodeRefs.has(ref)) warn(issues, rel, `Unknown node ref: ${ref}.`);
-      }
-
-      const mindmaps = normalizeList(fm.mindmaps);
-      for (const mid of mindmaps) {
-        if (mindmapIds.size && !mindmapIds.has(mid)) warn(issues, rel, `Unknown mindmap id: ${mid}.`);
-      }
-
-      // internal link checks (best-effort)
       const body = parsed.content ?? "";
       const links = Array.from(body.matchAll(/\]\((\/[^)\s]+)\)/g)).map((m) => m[1]).filter(ok);
       for (const href of links) {
         if (href.startsWith("/notes/")) {
           const target = href.slice("/notes/".length).replace(/\/+$/, "");
           if (target && !noteIds.has(target)) warn(issues, rel, `Broken note link: ${href}.`);
-        } else if (href.startsWith("/roadmaps/")) {
-          const rest = href.slice("/roadmaps/".length);
-          const parts = rest.split("/").filter(Boolean);
-          const rid = parts[0] ?? "";
-          if (rid && !roadmapIds.has(rid)) warn(issues, rel, `Broken roadmap link: ${href}.`);
-          if (parts[1] === "node" && parts[2]) {
-            const ref = `${rid}/${parts[2]}`;
-            if (nodeRefs.size && !nodeRefs.has(ref)) warn(issues, rel, `Broken roadmap node link: ${href}.`);
-          }
-        } else if (href.startsWith("/mindmaps/")) {
-          const mid = href.slice("/mindmaps/".length).replace(/\/+$/, "");
-          if (mindmapIds.size && mid && !mindmapIds.has(mid)) warn(issues, rel, `Broken mindmap link: ${href}.`);
         } else if (href.startsWith("/uploads/")) {
           const name = href.slice("/uploads/".length);
           const filePath = path.join(uploadsDir, name);
-          if (await exists(uploadsDir)) {
-            if (!(await exists(filePath))) warn(issues, rel, `Missing upload asset: ${href}.`);
+          if (await exists(uploadsDir) && !(await exists(filePath))) {
+            warn(issues, rel, `Missing upload asset: ${href}.`);
           }
         }
       }
@@ -398,18 +228,15 @@ async function main() {
   const warns = issues.filter((i) => i.severity === "warn");
 
   for (const i of issues) {
-    // eslint-disable-next-line no-console
     console.log(formatIssue(i));
   }
 
-  // eslint-disable-next-line no-console
   console.log(`\nContent validation: ${errors.length} error(s), ${warns.length} warning(s).`);
 
   if (errors.length) process.exit(1);
 }
 
 main().catch((err) => {
-  // eslint-disable-next-line no-console
   console.error(err);
   process.exit(1);
 });

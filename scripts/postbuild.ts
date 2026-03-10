@@ -116,37 +116,6 @@ async function main() {
   // projects
   await writeJson(path.join(apiDir, "projects.json"), db.projects);
 
-  // mindmaps index + detail
-  const mindmapsIndex = db.mindmaps
-    .map((m) => ({
-      id: m.id,
-      title: m.title,
-      updated: m.updated,
-      format: m.format,
-      nodeCount: Array.isArray(m.nodes) ? m.nodes.length : 0,
-      edgeCount: Array.isArray(m.edges) ? m.edges.length : 0,
-    }))
-    .sort((a, b) => (a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : 0));
-  await writeJson(path.join(apiDir, "mindmaps.json"), mindmapsIndex);
-  for (const m of db.mindmaps) {
-    await writeJson(path.join(apiDir, "mindmaps", `${m.id}.json`), m);
-  }
-
-  // roadmaps index + roadmap detail
-  const roadmapsIndex = db.roadmaps.map((rm) => {
-    const all = [...db.nodesIndex.values()].filter((x) => x.roadmapId === rm.id);
-    const done = all.filter((x) => x.status === "solid" || x.status === "teach").length;
-    return { id: rm.id, title: rm.title, description: rm.description, theme: rm.theme, progress: { done, total: all.length } };
-  });
-  await writeJson(path.join(apiDir, "roadmaps.json"), roadmapsIndex);
-  for (const rm of db.roadmaps) {
-    await writeJson(path.join(apiDir, "roadmaps", `${rm.id}.json`), rm);
-  }
-
-  // nodes index (for roadmap node pages + global search)
-  const nodesIndex = [...db.nodesIndex.values()];
-  await writeJson(path.join(apiDir, "nodes.json"), nodesIndex);
-
   // GitHub Pages SPA fallback
   const indexPath = path.join(distDir, "index.html");
   const indexHtmlRaw = await fs.readFile(indexPath, "utf8");

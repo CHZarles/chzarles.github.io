@@ -48,79 +48,75 @@ export function TopNav() {
   const prefetch = React.useMemo(
     () => ({
       notes: () => void api.notes(),
-      roadmaps: () => void api.roadmaps(),
-      mindmaps: () => void api.mindmaps(),
       projects: () => void api.projects(),
     }),
     [],
   );
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))]">
+    <header className="fixed inset-x-0 top-0 z-50">
       <div className="container">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 py-4">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="group inline-flex items-center rounded-xl px-2 py-1 text-left transition"
-          >
-            <span className="text-sm font-display font-semibold leading-none tracking-[0.01em]">{navTitle}</span>
-          </button>
-
-          <nav className="hidden items-center gap-6 md:flex">
-            <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
-            <NavItem to="/roadmaps" label="Roadmaps" prefetch={prefetch.roadmaps} />
-            <NavItem to="/mindmaps" label="Mindmaps" prefetch={prefetch.mindmaps} />
-            <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />
-          </nav>
-
-          <div className="flex items-center justify-end gap-2">
-            {links.length ? (
-              <div className="hidden lg:flex items-center gap-2 pr-1">
-                {links.slice(0, 3).map((l) => (
-                  <a
-                    key={`${l.label}:${l.href}`}
-                    href={l.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={l.label}
-                    title={l.label}
-                    className="inline-flex items-center justify-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2.5 text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                  >
-                    {React.createElement(iconForLink(l), { className: "h-4 w-4 opacity-85" })}
-                  </a>
-                ))}
-              </div>
-            ) : null}
+        <div className="mx-auto max-w-[56rem] border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))]">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 py-4">
             <button
               type="button"
-              onClick={open}
-              className="hidden md:inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+              onClick={() => navigate("/")}
+              className="group inline-flex items-center rounded-xl px-2 py-1 text-left transition"
             >
-              <Search className="h-4 w-4 opacity-80" />
-              <span className="hidden lg:inline">Search</span>
-              <span className="kbd ml-2 hidden lg:inline">⌘K</span>
+              <span className="text-sm font-display font-semibold leading-none tracking-[0.01em]">{navTitle}</span>
             </button>
-            <button
-              type="button"
-              onClick={open}
-              className="inline-flex md:hidden items-center justify-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2.5 transition hover:text-[hsl(var(--fg))]"
-              aria-label="Search"
-            >
-              <Search className="h-4 w-4 opacity-85" />
-            </button>
-            <ThemeToggle />
+
+            <nav className="hidden items-center gap-6 md:flex">
+              <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
+              <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />
+            </nav>
+
+            <div className="flex items-center justify-end gap-2">
+              {links.length ? (
+                <div className="hidden lg:flex items-center gap-2 pr-1">
+                  {links.slice(0, 3).map((l) => (
+                    <a
+                      key={`${l.label}:${l.href}`}
+                      href={l.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={l.label}
+                      title={l.label}
+                      className="inline-flex items-center justify-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2.5 text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                    >
+                      {React.createElement(iconForLink(l), { className: "h-4 w-4 opacity-85" })}
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={open}
+                className="hidden md:inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+              >
+                <Search className="h-4 w-4 opacity-80" />
+                <span className="hidden lg:inline">Search</span>
+                <span className="kbd ml-2 hidden lg:inline">⌘K</span>
+              </button>
+              <button
+                type="button"
+                onClick={open}
+                className="inline-flex md:hidden items-center justify-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2.5 transition hover:text-[hsl(var(--fg))]"
+                aria-label="Search"
+              >
+                <Search className="h-4 w-4 opacity-85" />
+              </button>
+              <ThemeToggle />
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center justify-between gap-3 pb-3 md:hidden">
-          <nav className="flex items-center gap-5 overflow-x-auto pb-1 text-sm [-webkit-overflow-scrolling:touch]">
-            <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
-            <NavItem to="/roadmaps" label="Roadmaps" prefetch={prefetch.roadmaps} />
-            <NavItem to="/mindmaps" label="Mindmaps" prefetch={prefetch.mindmaps} />
-            <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />
-          </nav>
-          <span className="hidden sm:inline text-xs text-[hsl(var(--muted))]">索引即叙事</span>
+          <div className="flex items-center justify-between gap-3 pb-3 md:hidden">
+            <nav className="flex items-center gap-5 overflow-x-auto pb-1 text-sm [-webkit-overflow-scrolling:touch]">
+              <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
+              <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />
+            </nav>
+            <span className="hidden sm:inline text-xs text-[hsl(var(--muted))]">索引即叙事</span>
+          </div>
         </div>
       </div>
     </header>

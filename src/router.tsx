@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigate, createBrowserRouter, useParams } from "react-router-dom";
+import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./ui/shell/AppShell";
 import { ErrorPage } from "./ui/views/ErrorPage";
 import { HomePage } from "./ui/views/HomePage";
@@ -17,26 +17,11 @@ function Lazy(props: { label: string; tone?: "card" | "plain"; children: React.R
   return <React.Suspense fallback={<PageLoader label={props.label} tone={props.tone} />}>{props.children}</React.Suspense>;
 }
 
-function CategoryIndexRedirect() {
-  return <Navigate to="/notes" replace />;
-}
-
-function CategorySlugRedirect() {
-  const { slug } = useParams();
-  if (!slug) return <Navigate to="/notes" replace />;
-  return <Navigate to={`/notes?category=${encodeURIComponent(slug)}`} replace />;
-}
-
 const AuthCallbackPageLazy = React.lazy(() =>
   import("./ui/views/AuthCallbackPage").then((m) => ({ default: m.AuthCallbackPage })),
 );
 const NotesPageLazy = React.lazy(() => import("./ui/views/NotesPage").then((m) => ({ default: m.NotesPage })));
 const NotePageLazy = React.lazy(() => import("./ui/views/NotePage").then((m) => ({ default: m.NotePage })));
-const MindmapsPageLazy = React.lazy(() => import("./ui/views/MindmapsPage").then((m) => ({ default: m.MindmapsPage })));
-const MindmapPageLazy = React.lazy(() => import("./ui/views/MindmapPage").then((m) => ({ default: m.MindmapPage })));
-const RoadmapsPageLazy = React.lazy(() => import("./ui/views/RoadmapsPage").then((m) => ({ default: m.RoadmapsPage })));
-const RoadmapPageLazy = React.lazy(() => import("./ui/views/RoadmapPage").then((m) => ({ default: m.RoadmapPage })));
-const RoadmapNodePageLazy = React.lazy(() => import("./ui/views/RoadmapNodePage").then((m) => ({ default: m.RoadmapNodePage })));
 const ProjectsPageLazy = React.lazy(() => import("./ui/views/ProjectsPage").then((m) => ({ default: m.ProjectsPage })));
 const ProjectPageLazy = React.lazy(() => import("./ui/views/ProjectPage").then((m) => ({ default: m.ProjectPage })));
 
@@ -47,12 +32,6 @@ const StudioChangesPageLazy = React.lazy(() =>
 );
 const StudioAssetsPageLazy = React.lazy(() =>
   import("./studio/views/StudioAssetsPage").then((m) => ({ default: m.StudioAssetsPage })),
-);
-const StudioRoadmapsPageLazy = React.lazy(() =>
-  import("./studio/views/StudioRoadmapsPage").then((m) => ({ default: m.StudioRoadmapsPage })),
-);
-const StudioMindmapsPageLazy = React.lazy(() =>
-  import("./studio/views/StudioMindmapsPage").then((m) => ({ default: m.StudioMindmapsPage })),
 );
 const StudioConfigPageLazy = React.lazy(() =>
   import("./studio/views/StudioConfigPage").then((m) => ({ default: m.StudioConfigPage })),
@@ -89,26 +68,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "mindmaps",
-        element: (
-          <Lazy label="Loading mindmap editor…" tone="plain">
-            <StudioMindmapsPageLazy />
-          </Lazy>
-        ),
-      },
-      {
         path: "assets",
         element: (
           <Lazy label="Loading assets…" tone="plain">
             <StudioAssetsPageLazy />
-          </Lazy>
-        ),
-      },
-      {
-        path: "roadmaps",
-        element: (
-          <Lazy label="Loading roadmaps…" tone="plain">
-            <StudioRoadmapsPageLazy />
           </Lazy>
         ),
       },
@@ -162,53 +125,13 @@ export const router = createBrowserRouter([
       },
       {
         path: "categories",
-        element: <CategoryIndexRedirect />,
+        element: <Navigate to="/notes" replace />,
       },
       {
         path: "categories/:slug",
-        element: <CategorySlugRedirect />,
+        element: <Navigate to="/notes" replace />,
       },
       { path: "publish", element: <Navigate to="/studio/notes" replace /> },
-      {
-        path: "mindmaps",
-        element: (
-          <Lazy label="Loading mindmaps…" tone="plain">
-            <MindmapsPageLazy />
-          </Lazy>
-        ),
-      },
-      {
-        path: "mindmaps/:mindmapId",
-        element: (
-          <Lazy label="Loading mindmap…" tone="card">
-            <MindmapPageLazy />
-          </Lazy>
-        ),
-      },
-      {
-        path: "roadmaps",
-        element: (
-          <Lazy label="Loading roadmaps…" tone="plain">
-            <RoadmapsPageLazy />
-          </Lazy>
-        ),
-      },
-      {
-        path: "roadmaps/:roadmapId",
-        element: (
-          <Lazy label="Loading roadmap…" tone="plain">
-            <RoadmapPageLazy />
-          </Lazy>
-        ),
-      },
-      {
-        path: "roadmaps/:roadmapId/node/:nodeId",
-        element: (
-          <Lazy label="Loading node…" tone="plain">
-            <RoadmapNodePageLazy />
-          </Lazy>
-        ),
-      },
       {
         path: "projects",
         element: (

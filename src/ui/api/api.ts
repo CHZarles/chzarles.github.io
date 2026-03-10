@@ -1,15 +1,9 @@
 import type {
   Category,
-  Mindmap,
-  MindmapListItem,
   Note,
   NoteListItem,
   Profile,
   Project,
-  Roadmap,
-  RoadmapListItem,
-  RoadmapNodeDetail,
-  RoadmapNodeEntry,
   SearchHit,
 } from "../types";
 
@@ -145,28 +139,6 @@ function prefetchNote(id: string) {
     .catch(() => {});
 }
 
-let nodesIndexPromise: Promise<RoadmapNodeEntry[]> | null = null;
-function getNodesIndex(): Promise<RoadmapNodeEntry[]> {
-  if (!nodesIndexPromise) {
-    nodesIndexPromise = apiFetchCached<RoadmapNodeEntry[]>(apiUrl("/api/nodes.json")).catch((err) => {
-      nodesIndexPromise = null;
-      throw err;
-    });
-  }
-  return nodesIndexPromise;
-}
-
-let mindmapsIndexPromise: Promise<MindmapListItem[]> | null = null;
-function getMindmapsIndex(): Promise<MindmapListItem[]> {
-  if (!mindmapsIndexPromise) {
-    mindmapsIndexPromise = apiFetchCached<MindmapListItem[]>(apiUrl("/api/mindmaps.json")).catch((err) => {
-      mindmapsIndexPromise = null;
-      throw err;
-    });
-  }
-  return mindmapsIndexPromise;
-}
-
 function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
@@ -187,16 +159,12 @@ function primaryProjectUrl(p: Project): string | null {
   return normalizeExternalUrl(p.repoUrl) ?? normalizeExternalUrl(p.homepage);
 }
 
-function filterNotes(all: NoteListItem[], params?: { q?: string; category?: string; roadmap?: string; node?: string }) {
+function filterNotes(all: NoteListItem[], params?: { q?: string; category?: string }) {
   const q = params?.q ? normalize(params.q) : "";
   const category = params?.category ?? "";
-  const roadmap = params?.roadmap ?? "";
-  const node = params?.node ?? "";
 
   return all.filter((n) => {
     if (category && !n.categories.includes(category)) return false;
-    if (roadmap && !n.nodes.some((r) => r.roadmapId === roadmap)) return false;
-    if (node && !n.nodes.some((r) => r.nodeId === node)) return false;
     if (q) {
       const hay = `${n.title} ${n.excerpt} ${n.tags.join(" ")} ${n.categories.join(" ")}`.toLowerCase();
       if (!hay.includes(q)) return false;
@@ -214,7 +182,7 @@ export const api = {
   prefetchNote,
   peekNote,
   categories: () => apiFetchCached<Category[]>(apiUrl("/api/categories.json")),
-  notes: async (params?: { q?: string; category?: string; roadmap?: string; node?: string }) => {
+  notes: async (params?: { q?: string; category?: string }) => {
     const all = await getNotesIndex();
     return filterNotes(all, params);
   },
@@ -236,26 +204,12 @@ export const api = {
     if (!p) throw new Error("project_not_found");
     return p;
   },
-  roadmaps: () => apiFetchCached<RoadmapListItem[]>(apiUrl("/api/roadmaps.json")),
-  roadmap: (id: string) => apiFetchCached<Roadmap>(apiUrl(`/api/roadmaps/${id}.json`)),
-  node: async (roadmapId: string, nodeId: string) => {
-    const [nodes, notes] = await Promise.all([getNodesIndex(), getNotesIndex()]);
-    const node = nodes.find((n) => n.roadmapId === roadmapId && n.nodeId === nodeId);
-    if (!node) throw new Error("node_not_found");
-    const inNode = notes.filter((n) => n.nodes.some((r) => r.roadmapId === roadmapId && r.nodeId === nodeId));
-    return { node, notes: inNode } satisfies RoadmapNodeDetail;
-  },
-  mindmaps: () => getMindmapsIndex(),
-  mindmap: (id: string) => apiFetchCached<Mindmap>(apiUrl(`/api/mindmaps/${id}.json`)),
   search: async (q: string) => {
     const query = normalize(q);
-    const [notes, categories, roadmaps, nodes, projects, mindmaps] = await Promise.all([
+    const [notes, categories, projects] = await Promise.all([
       getNotesIndex(),
       apiFetchCached<Category[]>(apiUrl("/api/categories.json")),
-      apiFetchCached<RoadmapListItem[]>(apiUrl("/api/roadmaps.json")),
-      getNodesIndex(),
       apiFetchCached<Project[]>(apiUrl("/api/projects.json")),
-      getMindmapsIndex(),
     ]);
 
     if (!query) {
@@ -283,31 +237,13 @@ export const api = {
           type: "category",
           title: c.title,
           subtitle: "Category",
-          href: `/notes?category=${encodeURIComponent(c.id)}`,
-        });
-    }
-
-    for (const rm of roadmaps) {
-      if (hits.length >= 22) break;
-      const hay = `${rm.title} ${rm.id}`.toLowerCase();
-      if (hay.includes(query))
-        hits.push({ type: "roadmap", title: rm.title, subtitle: "Roadmap", href: `/roadmaps/${rm.id}` });
-    }
-
-    for (const node of nodes) {
-      if (hits.length >= 28) break;
-      const hay = `${node.title} ${node.nodeId}`.toLowerCase();
-      if (hay.includes(query))
-        hits.push({
-          type: "node",
-          title: node.title,
-          subtitle: `${node.roadmapTitle}`,
-          href: `/roadmaps/${node.roadmapId}/node/${node.nodeId}`,
+          href: `#category:${encodeURIComponent(c.id)}`,
+          categoryId: c.id,
         });
     }
 
     for (const p of projects) {
-      if (hits.length >= 34) break;
+      if (hits.length >= 24) break;
       const hay = `${p.name} ${p.description}`.toLowerCase();
       if (hay.includes(query))
         hits.push({
@@ -316,13 +252,6 @@ export const api = {
           subtitle: "Project",
           href: primaryProjectUrl(p) ?? `/projects/${p.id}`,
         });
-    }
-
-    for (const m of mindmaps) {
-      if (hits.length >= 40) break;
-      const hay = `${m.title} ${m.id}`.toLowerCase();
-      if (hay.includes(query))
-        hits.push({ type: "mindmap", title: m.title, subtitle: "Mindmap", href: `/mindmaps/${m.id}` });
     }
 
     return hits;

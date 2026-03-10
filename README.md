@@ -1,123 +1,282 @@
 # Hyperblog
 
-一个“可探索的个人技术空间”，更像一本可逛的技术杂志：目录清晰，也能把你的技术栈结构展示出来。
+一个文件驱动的个人站点模板。
 
-- **Notes** — 文章（不分长短）
-- **Categories** — 传统目录（叙事/专题）
-- **Roadmaps** — Roadmap-as-File（路线图目录；节点聚合 Notes）
-- **Mindmaps** — 思维导图（独立页；可在 Note 中引用）
-- **Projects** — 作品集（代码仓库/产品页风格）
-- **Studio** — 写作台（本地草稿；统一 Publish → 一次 GitHub commit）
-- **Publisher API（可选）** — Cloudflare Workers 写入后端（GitHub OAuth + Bearer Token；原子写 `main`）
+它现在的结构很简单：
 
-<p align="center">
-  <img src="public/uploads/hyperblog-home.webp" width="980" alt="Hyperblog Home" />
-</p>
+- 公开站点只有三块：主页、`Notes`、`Projects`
+- `Categories` 还在数据层里，但不再是单独页面，而是搜索面板里的筛选条件
+- `Studio` 是写作后台，草稿先存在浏览器本地，确认后一次性发布到 GitHub
+- `Publisher` 是可选写入后端，跑在 Cloudflare Workers 上
 
-<p align="center">
-  <img src="public/uploads/hyperblog-roadmap.webp" width="980" alt="Roadmap Graph" />
-</p>
+如果你只想把内容写进仓库然后生成静态站点，这个项目已经够用。  
+如果你还想在网页里编辑、上传资源、发布到远程，也可以把 `Studio + Publisher` 一起开起来。
 
----
+## 现在这套系统怎么工作
 
-## 核心理念
-
-- **Content as Files**：`content/*` + `public/uploads/*` 是唯一真相；没有数据库，Git 就是历史、diff 与回滚。
-- **两套目录并存**：同一批 Notes 同时被 `Categories`（叙事）与 `Roadmaps`（体系）索引。
-- **Public is static**：公开站点构建为静态 JSON API（`dist/api/*.json`），任何静态托管都能跑（本仓库默认 GitHub Pages）。
-- **Drafts are local**：Studio 的频繁保存只落在浏览器草稿；点 Publish 才写 GitHub，且会把所有改动合并成一次 commit。
-
----
-
-## 读 / 写链路（极简心智）
+公开读路径：
 
 ```text
-读（dev）   content/* ──> Vite 内置 mock (/api/*.json) ──> Public Site
-读（build） content/* ──> dist/api/*.json ──────────────> Static hosting (GitHub Pages)
+content/* + public/uploads/*
+  -> Vite dev mock API (/api/*)
+  -> 前台页面
 
-写（publish）Studio ──> Publisher API ──> GitHub commit(main) ──> GitHub Actions build ──> GitHub Pages
+build 时：
+content/*
+  -> dist/api/*.json
+  -> 静态托管
 ```
 
----
+写入路径：
 
-## 快速开始（只看公开站）
+```text
+Studio
+  -> 浏览器本地草稿
+  -> Changes 里统一确认
+  -> Publisher API
+  -> GitHub commit
+```
 
-> 不需要 Cloudflare / OAuth。只要写 `content/*` 就能预览。
+这意味着：
+
+- 内容的真实来源是仓库里的文件，不是数据库
+- 本地编辑很频繁也没关系，因为默认只写浏览器本地
+- 真正改远程仓库，只发生在你点击 `Publish` 的那一次
+
+## 当前包含的能力
+
+### 公开站点
+
+- 首页 Hero + 最近内容入口
+- Notes 列表页和文章页
+- Projects 列表页和详情页
+- 顶部搜索面板
+- 搜索面板里直接展示 category，并支持按 category 过滤 note 结果
+
+### Studio
+
+- Note 编辑
+- 本地草稿恢复
+- Markdown 预览
+- 资源上传与删除暂存
+- 配置文件编辑
+- Changes 页统一看 diff 并发布
+
+### 可选写入后端
+
+- GitHub OAuth 登录
+- 签发 Bearer Token
+- 原子写入 `content/*` 和 `public/uploads/*`
+- 单次发布合并成一个 GitHub commit
+
+## 目录结构
+
+最重要的是这几块：
+
+```text
+content/
+  notes/*.md
+  categories.yml
+  projects.json
+  profile.json
+  .trash/
+
+public/
+  uploads/*
+
+src/
+  ui/        # 公开站点
+  studio/    # Studio 后台
+
+mock/        # 本地 dev API
+publisher/   # 可选 Cloudflare Workers 写入后端
+scripts/     # 初始化、校验、build 后处理
+```
+
+## 内容文件说明
+
+### `content/notes/*.md`
+
+文章内容，Markdown + frontmatter。
+
+常用字段：
+
+- `title`
+- `date`
+- `updated`
+- `excerpt`
+- `categories`
+- `tags`
+- `cover`
+- `draft`
+
+### `content/categories.yml`
+
+分类数据源。  
+现在主要给搜索面板和 Studio 里的 category 选择器使用。
+
+### `content/projects.json`
+
+项目列表数据源。
+
+### `content/profile.json`
+
+站点配置入口。  
+这里会影响首页 Hero、站点文案、Publisher 基础地址等。
+
+### `public/uploads/*`
+
+图片和附件。前台统一按 `/uploads/...` 引用。
+
+## 本地启动
+
+先安装依赖：
 
 ```bash
 pnpm install
+```
+
+只看公开站点：
+
+```bash
 pnpm dev
 ```
 
-打开：`http://localhost:5173`
+默认地址：
 
-生产预览（最像线上 Pages 的产物）：
+```text
+http://localhost:5173
+```
+
+`pnpm dev` 会直接挂载本地 mock API，所以改完 `content/*` 基本立刻就能看到效果。
+
+如果要看最接近线上静态产物的结果：
 
 ```bash
 pnpm preview
 ```
 
----
+这个命令会先 build，再预览 `dist/`。
 
-## 写内容（文件驱动）
+## Studio 的实际用法
+
+访问：
 
 ```text
-content/
-  notes/*.md          # Notes（Markdown + frontmatter）
-  categories.yml      # Categories（目录）
-  roadmaps/*.yml      # Roadmaps（路线图）
-  mindmaps/*.json     # Mindmaps（ReactFlow JSON）
-  projects.json       # Projects（作品集）
-  profile.json        # 站点配置（含 Hero / Publisher URL）
-
-public/uploads/*      # 资产（图片/附件），前台统一用 /uploads/... 引用
+/studio/notes
 ```
 
-格式规范：[`docs/content-formats.md`](docs/content-formats.md)  
-站点配置：[`docs/configuration.md`](docs/configuration.md)
+Studio 的工作方式是这样的：
 
----
+1. 你在 `Notes` 页编辑内容
+2. 草稿自动存进浏览器本地存储
+3. `Assets` 页可以暂存上传和删除
+4. `Config` 页可以改 `profile / categories / projects`
+5. `Changes` 页统一查看待发布内容
+6. 点击 `Publish` 后，所有改动合并成一次提交
 
-## 初始化与自检（推荐）
+几个容易误会的点：
 
-首次部署/换仓库时（少踩坑）：
+- “保存本地”不是提交 GitHub，只是把草稿存进浏览器
+- `Publish` 是全局操作，不是只发当前这一个文件
+- 如果你在另一台机器发布过，本地仓库不会自动更新，还是要自己 `git pull`
+
+## 可选：本地启动 Publisher
+
+如果你只做静态站点，这部分可以跳过。  
+如果你要真的从 Studio 写回 GitHub，需要把 Publisher 跑起来。
+
+先复制环境变量模板：
 
 ```bash
-pnpm run init
-pnpm run doctor
+cp publisher/.dev.vars.example publisher/.dev.vars
 ```
 
----
+然后补这些值：
 
-## 上线（两步走）
+- `BASE_URL`
+- `ADMIN_GITHUB_LOGINS`
+- `CONTENT_REPO`
+- `CONTENT_BRANCH`
+- `ALLOWED_ORIGINS`
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `TOKEN_SECRET`
 
-1) **公开站点（纯静态）**：GitHub Pages  
-2) **线上发布（可选）**：部署 Publisher API 到 Cloudflare Workers → 用 Studio Publish 到 GitHub
+启动本地 Publisher：
 
-完整步骤：[`docs/deploy-guide.md`](docs/deploy-guide.md)
+```bash
+pnpm dev:publisher -- --port 8788
+```
 
----
+默认前台会优先读取：
 
-## 文档
+1. `VITE_PUBLISHER_BASE_URL`
+2. `content/profile.json` 里的 `publisherBaseUrl`
+3. 都没有时回退到 `http://localhost:8788`
 
-- 文档目录：[`docs/README.md`](docs/README.md)
-- Studio 使用：[`docs/studio-guide.md`](docs/studio-guide.md)
-- 内容格式：[`docs/content-formats.md`](docs/content-formats.md)
-- 配置说明：[`docs/configuration.md`](docs/configuration.md)
-- 部署指南：[`docs/deploy-guide.md`](docs/deploy-guide.md)
-- Publisher API 契约：[`docs/backend-contract-v0.md`](docs/backend-contract-v0.md)
+## 常用命令
 
----
+```bash
+pnpm dev                # 前台开发 + 本地 mock API
+pnpm preview            # build 后预览静态产物
+pnpm build              # 生成 dist/ 和 dist/api/*
+pnpm typecheck          # TypeScript 检查
+pnpm validate:content   # 校验内容文件
+pnpm init               # 初始化辅助脚本
+pnpm doctor             # 环境检查
+pnpm dev:publisher      # 本地跑 Cloudflare Publisher
+pnpm test:publisher     # Publisher smoke test
+```
 
-## FAQ
+## build 会产出什么
 
-### 为什么 `dev` / `preview` / Pages 看起来可能不一样？
+`pnpm build` 会做两件事：
 
-- 浏览器的主题/强调色/缩放等状态是按「域名 + 端口」隔离存的：`localhost:5173`、`localhost:4173`、`<user>.github.io` 各存一份。
-- `pnpm dev` 直接读 `content/*`；`pnpm preview` 跑的是 build 产物（更接近 Pages）。
+1. 用 Vite 打包前台
+2. 读取 `content/*`，生成 `dist/api/*.json`
 
-### 我在 Studio Publish 了，但本地仓库内容没变？
+另外还会顺手处理几件静态部署相关的事：
 
-Studio 写入的是 **GitHub main**，不会自动同步到你的本机目录。
+- 把 `profile` 和 build id 注入 `index.html`
+- 生成 `404.html`
+- 写入 `.nojekyll`
 
-- 本地想看到最新内容：在仓库里 `git pull`
+所以这个仓库的静态部署目标很直接：把 `dist/` 扔到 GitHub Pages 或任何静态托管都可以。
+
+## 这个版本不再包含什么
+
+这点值得单独写一下，免得看旧文档时混淆。
+
+当前主站和 Studio 已经去掉了这些公开结构：
+
+- 独立 `category` 页面
+- `mindmaps`
+- `roadmaps`
+
+仓库里还可能留着一些历史文件或 `.trash` 数据，但它们已经不是当前产品结构的一部分。
+
+## 建议的工作流
+
+如果你是内容维护者：
+
+1. 先写 `content/*`
+2. 用 `pnpm dev` 看公开效果
+3. 用 `pnpm validate:content` 做一次校验
+4. 需要网页编辑时再打开 Studio
+
+如果你是站点维护者：
+
+1. 先确认 `content/profile.json` 和 `projects/categories` 配置
+2. 用 `pnpm build` 检查静态产物
+3. 需要在线发布时再配 Publisher
+
+## 还有哪些文件值得先看
+
+- `vite.config.ts`
+- `src/router.tsx`
+- `src/studio/state/StudioWorkspace.tsx`
+- `scripts/postbuild.ts`
+- `publisher/src/routes/admin.ts`
+
+如果你第一次接手这个项目，从这几个文件开始，基本就能把读链路、写链路和 build 过程串起来。

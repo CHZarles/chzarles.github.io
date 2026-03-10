@@ -2,7 +2,6 @@ import { ArrowUpRight, Code2, ExternalLink, Github } from "lucide-react";
 import React from "react";
 import { api } from "../api/api";
 import { EmptyStatePanel } from "../components/EmptyStatePanel";
-import { SectionHeader } from "../components/SectionHeader";
 import type { Project } from "../types";
 
 function normalizeUrl(input: string | undefined): string | null {
@@ -76,8 +75,6 @@ export function ProjectsPage() {
 
   return (
     <div className="grid gap-6">
-      <SectionHeader title="Projects" desc="作品集入口：像产品页一样看项目——Repo / Demo / Stack 一眼可读。" />
-
       {error ? (
         <div className="card p-8 text-sm text-[hsl(var(--muted))]">
           <div className="text-base font-semibold tracking-tight text-[hsl(var(--fg))]">加载失败</div>

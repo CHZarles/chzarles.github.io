@@ -10,7 +10,11 @@
   "hero": {
     "variant": "mimo",
     "spotlightRadiusPx": 120,
-    "textScale": 1.15
+    "textScale": 1.15,
+    "spotlightSceneUrl": "https://i.pinimg.com/control1/736x/0e/01/ca/0e01ca79782706f0b5409243073db882.jpg",
+    "spotlightScenePosition": "center 42%",
+    "spotlightSceneOpacity": 0.9,
+    "spotlightSceneScale": 1.08
   },
   "links": [
     {

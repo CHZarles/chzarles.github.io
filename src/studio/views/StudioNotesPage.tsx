@@ -17,7 +17,7 @@ import remarkMath from "remark-math";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
-import type { Category, MindmapListItem, RoadmapNodeEntry } from "../../ui/types";
+import type { Category } from "../../ui/types";
 import { normalizeMathDelimiters } from "../../ui/markdown/normalizeMathDelimiters";
 import { useStudioState } from "../state/StudioState";
 import { emitWorkspaceChanged } from "../state/StudioWorkspace";
@@ -30,8 +30,6 @@ type NoteInput = {
   excerpt?: string;
   categories?: string[];
   tags?: string[];
-  nodes?: string[];
-  mindmaps?: string[];
   cover?: string;
   draft?: boolean;
   slug?: string;
@@ -65,8 +63,6 @@ type EditorState = {
   excerpt: string;
   categories: string[];
   tags: string[];
-  nodes: string[];
-  mindmaps: string[];
   cover: string;
   draft: boolean;
   content: string;
@@ -88,8 +84,6 @@ type LocalNoteDraftV1 = {
     excerpt: string;
     categories: string[];
     tags: string[];
-    nodes: string[];
-    mindmaps: string[];
     cover: string;
     draft: boolean;
     content: string;
@@ -288,8 +282,6 @@ function emptyEditor(): EditorState {
     excerpt: "",
     categories: [],
     tags: [],
-    nodes: [],
-    mindmaps: [],
     cover: "",
     draft: false,
     content: "",
@@ -406,14 +398,6 @@ function renderNoteMarkdownFromEditor(args: { editor: EditorState; updatedYmd: s
   if (tags.length) fm.tags = tags;
   else delete fm.tags;
 
-  const nodes = normalizeIdList(args.editor.nodes);
-  if (nodes.length) fm.nodes = nodes;
-  else delete fm.nodes;
-
-  const mindmaps = normalizeIdList(args.editor.mindmaps);
-  if (mindmaps.length) fm.mindmaps = mindmaps;
-  else delete fm.mindmaps;
-
   const cover = args.editor.cover.trim();
   if (cover) fm.cover = cover;
   else delete fm.cover;
@@ -433,8 +417,6 @@ export function StudioNotesPage() {
   const [allCategories, setAllCategories] = React.useState<Category[]>(
     () => readStudioDataCache<Category[]>(ADMIN_CATEGORIES_CACHE_KEY)?.value ?? [],
   );
-  const [nodesIndex, setNodesIndex] = React.useState<RoadmapNodeEntry[]>([]);
-  const [mindmapsIndex, setMindmapsIndex] = React.useState<MindmapListItem[]>([]);
 
   const [notes, setNotes] = React.useState<NotesListResponse["notes"]>(
     () => readStudioDataCache<NotesListCacheV1>(NOTES_LIST_CACHE_KEY)?.value.notes ?? [],
@@ -520,11 +502,7 @@ export function StudioNotesPage() {
       const cachedAdmin = readStudioDataCache<Category[]>(ADMIN_CATEGORIES_CACHE_KEY)?.value ?? null;
       if (cachedAdmin && !cancelled) setAllCategories(cachedAdmin);
 
-      const [catsStatic, nodes, mindmaps] = await Promise.all([
-        fetchLocalJson<Category[]>("/api/categories.json").catch(() => [] as Category[]),
-        fetchLocalJson<RoadmapNodeEntry[]>("/api/nodes.json").catch(() => [] as RoadmapNodeEntry[]),
-        fetchLocalJson<MindmapListItem[]>("/api/mindmaps.json").catch(() => [] as MindmapListItem[]),
-      ]);
+      const catsStatic = await fetchLocalJson<Category[]>("/api/categories.json").catch(() => [] as Category[]);
 
       let cats = cachedAdmin ?? catsStatic;
       if (studio.token) {
@@ -541,8 +519,6 @@ export function StudioNotesPage() {
 
       if (cancelled) return;
       setAllCategories(cats);
-      setNodesIndex(nodes);
-      setMindmapsIndex(mindmaps);
     })();
     return () => {
       cancelled = true;
@@ -607,8 +583,6 @@ export function StudioNotesPage() {
           excerpt: input.excerpt ?? "",
           categories: Array.isArray(input.categories) ? input.categories : [],
           tags: Array.isArray(input.tags) ? input.tags : [],
-          nodes: Array.isArray(input.nodes) ? input.nodes : [],
-          mindmaps: Array.isArray(input.mindmaps) ? input.mindmaps : [],
           cover: input.cover ?? "",
           draft: Boolean(input.draft),
           content: input.content ?? "",
@@ -629,8 +603,6 @@ export function StudioNotesPage() {
             excerpt: "",
             categories: [],
             tags: [],
-            nodes: [],
-            mindmaps: [],
             cover: "",
             draft: false,
             content: "",
@@ -645,8 +617,6 @@ export function StudioNotesPage() {
           excerpt: typeof le.excerpt === "string" ? le.excerpt : "",
           categories: Array.isArray(le.categories) ? le.categories : [],
           tags: Array.isArray(le.tags) ? le.tags : [],
-          nodes: Array.isArray(le.nodes) ? le.nodes : [],
-          mindmaps: Array.isArray(le.mindmaps) ? le.mindmaps : [],
           cover: typeof le.cover === "string" ? le.cover : "",
           draft: Boolean(le.draft),
           content: typeof le.content === "string" ? le.content : "",
@@ -685,8 +655,6 @@ export function StudioNotesPage() {
           excerpt: input.excerpt ?? "",
           categories: Array.isArray(input.categories) ? input.categories : [],
           tags: Array.isArray(input.tags) ? input.tags : [],
-          nodes: Array.isArray(input.nodes) ? input.nodes : [],
-          mindmaps: Array.isArray(input.mindmaps) ? input.mindmaps : [],
           cover: input.cover ?? "",
           draft: Boolean(input.draft),
           content: input.content ?? "",
@@ -763,8 +731,6 @@ export function StudioNotesPage() {
         excerpt: typeof le.excerpt === "string" ? le.excerpt : "",
         categories: Array.isArray(le.categories) ? le.categories : [],
         tags: Array.isArray(le.tags) ? le.tags : [],
-        nodes: Array.isArray(le.nodes) ? le.nodes : [],
-        mindmaps: Array.isArray(le.mindmaps) ? le.mindmaps : [],
         cover: typeof le.cover === "string" ? le.cover : "",
         draft: Boolean(le.draft),
         content: typeof le.content === "string" ? le.content : "",
@@ -802,8 +768,6 @@ export function StudioNotesPage() {
           excerpt: editor.excerpt,
           categories: editor.categories,
           tags: editor.tags,
-          nodes: editor.nodes,
-          mindmaps: editor.mindmaps,
           cover: editor.cover,
           draft: editor.draft,
           content: editor.content,
@@ -936,9 +900,17 @@ export function StudioNotesPage() {
     if (!q) return notes;
     return notes.filter((n) => {
       const title = (n.meta?.title ?? "").toLowerCase();
-      return n.id.toLowerCase().includes(q) || title.includes(q);
+      const excerpt = (n.meta?.excerpt ?? "").toLowerCase();
+      const date = (n.meta?.date ?? "").toLowerCase();
+      return n.id.toLowerCase().includes(q) || title.includes(q) || excerpt.includes(q) || date.includes(q);
     });
   }, [notes, filter]);
+
+  const librarySummary = React.useMemo(() => {
+    const shown = filter.trim() ? `${filtered.length}/${notes.length} shown` : `${notes.length} remote`;
+    const local = `${localDrafts.length} local`;
+    return listRefreshing ? `${shown} · ${local} · syncing` : `${shown} · ${local}`;
+  }, [filter, filtered.length, notes.length, localDrafts.length, listRefreshing]);
 
   const noteIdPreview = React.useMemo(() => {
     if (editor.mode === "none") {
@@ -954,6 +926,32 @@ export function StudioNotesPage() {
   }, [editor.mode, editor.id, editor.title, editor.date, editor.slug]);
 
   const hasSelection = editor.mode !== "none";
+  const editorHeading = editor.mode === "create" ? "New note" : editor.title.trim() || editor.id || "Untitled note";
+  const editorSubline = noteIdPreview.ok ? `content/notes/${noteIdPreview.noteId}.md` : noteIdPreview.error;
+  const editorStatus =
+    pendingDelete
+      ? {
+          label: "Delete staged",
+          detail: "Publish will move this note into content/.trash.",
+          tone: "danger" as const,
+        }
+      : dirty
+        ? {
+            label: "Unsaved changes",
+            detail: "Auto-save runs in your browser. Cmd/Ctrl+S saves immediately.",
+            tone: "neutral" as const,
+          }
+        : localSavedAt
+          ? {
+              label: `Saved ${fmtRelative(localSavedAt)} ago`,
+              detail: "Local draft is stored in this browser until you publish.",
+              tone: "success" as const,
+            }
+          : {
+              label: editor.mode === "create" ? "New draft" : "Loaded",
+              detail: "No local changes yet.",
+              tone: "muted" as const,
+            };
 
   return (
     <div
@@ -964,7 +962,10 @@ export function StudioNotesPage() {
     >
       <aside className="min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between gap-2 px-4 py-3">
-          <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">LIBRARY</div>
+          <div className="min-w-0">
+            <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">LIBRARY</div>
+            <div className="mt-1 truncate text-[11px] text-[hsl(var(--muted))]">{librarySummary}</div>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -982,8 +983,8 @@ export function StudioNotesPage() {
               className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
               title="Refresh list"
             >
-              <RefreshCw className="h-3.5 w-3.5 opacity-85" />
-              Refresh
+              <RefreshCw className={["h-3.5 w-3.5 opacity-85", listRefreshing ? "animate-spin" : ""].join(" ")} />
+              {listRefreshing ? "Syncing" : "Refresh"}
             </button>
           </div>
         </div>
@@ -992,7 +993,7 @@ export function StudioNotesPage() {
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Search by id or title…"
+            placeholder="Search title, id, excerpt…"
             className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
           />
           {listError ? <div className="mt-2 text-xs text-red-600">{listError}</div> : null}
@@ -1068,6 +1069,17 @@ export function StudioNotesPage() {
               <div className="mt-3 h-px bg-[hsl(var(--border))]" />
             </div>
           ) : null}
+          <div className="flex items-center justify-between px-3 pb-1">
+            <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">
+              NOTES <span className="opacity-70">· {filter.trim() ? `${filtered.length}/${notes.length}` : notes.length}</span>
+            </div>
+            {listRefreshing ? (
+              <div className="inline-flex items-center gap-1 text-[10px] text-[hsl(var(--muted))]">
+                <RefreshCw className="h-3 w-3 animate-spin opacity-80" />
+                Syncing
+              </div>
+            ) : null}
+          </div>
           <ul className="grid gap-1">
             {filtered.map((n) => {
               const active = editor.id === n.id;
@@ -1090,6 +1102,11 @@ export function StudioNotesPage() {
               );
             })}
           </ul>
+          {!filtered.length && !listBusy ? (
+            <div className="mt-2 rounded-xl border border-dashed border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-3 text-xs text-[hsl(var(--muted))]">
+              {filter.trim() ? `No notes match "${filter.trim()}".` : "No notes loaded yet."}
+            </div>
+          ) : null}
 
           {paging.nextAfter ? (
             <button
@@ -1110,9 +1127,6 @@ export function StudioNotesPage() {
             <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
               <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">EDITOR</div>
               <div className="mt-0.5 text-sm font-semibold tracking-tight">Select a note</div>
-              <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">
-                Local drafts auto-save in your browser. Publish (Changes tab) creates a single GitHub commit.
-              </div>
             </div>
 
             <div className="flex flex-1 items-center justify-center px-6 py-10">
@@ -1124,6 +1138,11 @@ export function StudioNotesPage() {
                     Choose a note from <span className="font-medium text-[hsl(var(--fg))]">Library</span>, or start a new
                     draft. This page stays quiet until you pick a file.
                   </p>
+                  <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-[hsl(var(--muted))]">
+                    <InlinePill>{notes.length} remote</InlinePill>
+                    <InlinePill>{localDrafts.length} local drafts</InlinePill>
+                    <InlinePill>Cmd/Ctrl+S saves local</InlinePill>
+                  </div>
 
                   {listError ? (
                     <div className="mt-4 rounded-xl border border-[color-mix(in_oklab,red_40%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] px-4 py-3 text-sm text-red-700">
@@ -1188,89 +1207,67 @@ export function StudioNotesPage() {
       {hasSelection ? (
         <>
           <section className="min-h-0 min-w-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))] lg:border-b-0 lg:border-r">
-        <div className="flex items-center justify-between gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="truncate text-sm font-semibold tracking-tight">{editor.mode === "create" ? "New note" : editor.id}</div>
-              {pendingDelete ? (
-                <span className="rounded-full bg-[color-mix(in_oklab,red_14%,transparent)] px-2 py-0.5 text-[10px] font-medium text-red-700">
-                  delete staged
-                </span>
-              ) : null}
-              {dirty ? (
-                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
-              ) : localSavedAt ? (
-                <span
-                  className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium"
-                  title={`Saved locally ${fmtRelative(localSavedAt)} ago`}
-                >
-                  saved local
-                </span>
-              ) : null}
-            </div>
-            {studio.me ? (
-              <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">
-                @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
+            <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="truncate text-sm font-semibold tracking-tight">{editorHeading}</div>
+                    <StatusBadge tone={editorStatus.tone}>{editorStatus.label}</StatusBadge>
+                    {editor.draft ? <StatusBadge tone="muted">Draft hidden on site</StatusBadge> : null}
+                  </div>
+                  <div className="mt-1 truncate font-mono text-[11px] text-[hsl(var(--muted))]" title={editorSubline}>
+                    {editorSubline}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <ViewModeToggle value={viewMode} onChange={setViewMode} />
+
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]">
+                    <ImagePlus className="h-3.5 w-3.5 opacity-85" />
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void uploadAsset(f);
+                        e.currentTarget.value = "";
+                      }}
+                      disabled={!studio.token || busy || pendingDelete}
+                    />
+                  </label>
+
+                  {editor.mode === "edit" ? (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteStaged(!pendingDelete)}
+                      disabled={!editor.id || busy}
+                      className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+                    >
+                      {pendingDelete ? <X className="h-3.5 w-3.5 opacity-85" /> : <Trash2 className="h-3.5 w-3.5 opacity-85" />}
+                      {pendingDelete ? "Unstage delete" : "Stage delete"}
+                    </button>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => saveLocal()}
+                    disabled={busy}
+                    className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+                    title="Save locally (browser only; no GitHub commit) (⌘S / Ctrl+S)"
+                  >
+                    <Check className="h-3.5 w-3.5 opacity-85" />
+                    Save local
+                  </button>
+                </div>
               </div>
-            ) : null}
-            <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">
-              Local drafts auto-save in your browser. Publish (Changes tab) creates a single GitHub commit.
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[hsl(var(--muted))]">
+                <InlinePill>{editorStatus.detail}</InlinePill>
+                <InlinePill>Publish from Changes creates one GitHub commit</InlinePill>
+              </div>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="hidden items-center gap-1 sm:flex">
-              <IconToggle active={viewMode === "edit"} onClick={() => setViewMode("edit")} title="Edit">
-                <PencilLine className="h-4 w-4" />
-              </IconToggle>
-              <IconToggle active={viewMode === "split"} onClick={() => setViewMode("split")} title="Split">
-                <SplitSquareHorizontal className="h-4 w-4" />
-              </IconToggle>
-              <IconToggle active={viewMode === "preview"} onClick={() => setViewMode("preview")} title="Preview">
-                <Eye className="h-4 w-4" />
-              </IconToggle>
-            </div>
-
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]">
-              <ImagePlus className="h-3.5 w-3.5 opacity-85" />
-              Upload
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void uploadAsset(f);
-                  e.currentTarget.value = "";
-                }}
-                disabled={!studio.token || busy || pendingDelete}
-              />
-            </label>
-
-            {editor.mode === "edit" ? (
-              <button
-                type="button"
-                onClick={() => setDeleteStaged(!pendingDelete)}
-                disabled={!editor.id || busy}
-                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
-              >
-                {pendingDelete ? <X className="h-3.5 w-3.5 opacity-85" /> : <Trash2 className="h-3.5 w-3.5 opacity-85" />}
-                {pendingDelete ? "Unstage delete" : "Stage delete"}
-              </button>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={() => saveLocal()}
-              disabled={busy}
-              className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
-              title="Save locally (browser only; no GitHub commit) (⌘S / Ctrl+S)"
-            >
-              <Check className="h-3.5 w-3.5 opacity-85" />
-              Save local
-            </button>
-          </div>
-        </div>
 
         {notice ? (
           <div
@@ -1349,9 +1346,6 @@ export function StudioNotesPage() {
                 content/notes/{noteIdPreview.noteId}.md
               </div>
             ) : null}
-            <div className="mt-2 text-[10px] text-[hsl(var(--muted))]">
-              Local saves stay in your browser. Publish (Changes tab) creates a single GitHub commit.
-            </div>
           </div>
 
           <Field label="Title">
@@ -1497,29 +1491,6 @@ export function StudioNotesPage() {
             />
           </Field>
 
-          <Field label="Roadmap nodes">
-            <NodePicker
-              nodes={nodesIndex}
-              value={editor.nodes}
-              onChange={(next) => {
-                setDirty(true);
-                setEditor((prev) => ({ ...prev, nodes: next }));
-              }}
-            />
-          </Field>
-
-          <Field label="Mindmaps">
-            <IdPicker
-              options={mindmapsIndex.map((m) => ({ id: m.id, label: m.title || m.id }))}
-              value={editor.mindmaps}
-              placeholder={mindmapsIndex.length ? "Search mindmaps…" : "No mindmaps yet."}
-              onChange={(next) => {
-                setDirty(true);
-                setEditor((prev) => ({ ...prev, mindmaps: next }));
-              }}
-            />
-          </Field>
-
           <Field label="Cover URL">
             <input
               value={editor.cover}
@@ -1569,21 +1540,54 @@ function Field(props: { label: string; children: React.ReactNode }) {
   );
 }
 
-function IconToggle(props: { active: boolean; onClick: () => void; title: string; children: React.ReactNode }) {
+function ViewModeToggle(props: { value: ViewMode; onChange: (next: ViewMode) => void }) {
+  const options = [
+    { value: "edit" as const, label: "Edit", icon: <PencilLine className="h-3.5 w-3.5" /> },
+    { value: "split" as const, label: "Split", icon: <SplitSquareHorizontal className="h-3.5 w-3.5" /> },
+    { value: "preview" as const, label: "Preview", icon: <Eye className="h-3.5 w-3.5" /> },
+  ];
+
   return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      className={[
-        "inline-flex items-center justify-center rounded-full border px-2.5 py-2 transition",
-        props.active
-          ? "border-[color-mix(in_oklab,hsl(var(--accent))_45%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_10%,hsl(var(--card)))] text-[hsl(var(--fg))]"
-          : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
-      ].join(" ")}
-      title={props.title}
-    >
+    <div className="inline-flex items-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-1">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => props.onChange(option.value)}
+          className={[
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition",
+            props.value === option.value
+              ? "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,hsl(var(--card)))] text-[hsl(var(--fg))]"
+              : "text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
+          ].join(" ")}
+          title={option.label}
+        >
+          {option.icon}
+          <span>{option.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StatusBadge(props: { tone: "success" | "danger" | "neutral" | "muted"; children: React.ReactNode }) {
+  const toneClass =
+    props.tone === "success"
+      ? "border-[color-mix(in_oklab,hsl(var(--accent))_32%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_10%,hsl(var(--card)))] text-[hsl(var(--fg))]"
+      : props.tone === "danger"
+        ? "border-[color-mix(in_oklab,red_30%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_10%,hsl(var(--card)))] text-red-700"
+        : props.tone === "neutral"
+          ? "border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--fg))]"
+          : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))]";
+
+  return <span className={["inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium", toneClass].join(" ")}>{props.children}</span>;
+}
+
+function InlinePill(props: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-1 text-[11px] text-[hsl(var(--muted))]">
       {props.children}
-    </button>
+    </span>
   );
 }
 
@@ -1640,133 +1644,6 @@ function ChipInput(props: { value: string[]; placeholder?: string; onChange: (ne
           className="min-w-[8ch] flex-1 bg-transparent px-2 py-1 text-xs outline-none placeholder:text-[hsl(var(--muted))]"
         />
       </div>
-    </div>
-  );
-}
-
-function IdPicker(props: {
-  options: Array<{ id: string; label: string }>;
-  value: string[];
-  placeholder?: string;
-  onChange: (next: string[]) => void;
-}) {
-  const [q, setQ] = React.useState("");
-  const normalizedValue = React.useMemo(() => new Set(props.value.map((x) => x.toLowerCase())), [props.value]);
-  const suggestions = React.useMemo(() => {
-    const query = q.trim().toLowerCase();
-    if (!query) return [];
-    return props.options
-      .filter((o) => !normalizedValue.has(o.id.toLowerCase()))
-      .filter((o) => o.id.toLowerCase().includes(query) || o.label.toLowerCase().includes(query))
-      .slice(0, 8);
-  }, [props.options, q, normalizedValue]);
-
-  return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap gap-2">
-        {props.value.map((id) => (
-          <span
-            key={id}
-            className="inline-flex items-center gap-1 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-2.5 py-1 text-xs"
-          >
-            {id}
-            <button
-              type="button"
-              onClick={() => props.onChange(props.value.filter((x) => x !== id))}
-              className="text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-              title="Remove"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </span>
-        ))}
-      </div>
-
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={props.placeholder} className={inputClass} />
-
-      {suggestions.length ? (
-        <div className="grid gap-1 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] p-1">
-          {suggestions.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className="rounded-lg px-2 py-1 text-left text-xs transition hover:bg-[hsl(var(--card))]"
-              onClick={() => {
-                props.onChange(normalizeIdList([...props.value, s.id]));
-                setQ("");
-              }}
-            >
-              <div className="truncate font-medium">{s.label}</div>
-              <div className="truncate text-[10px] text-[hsl(var(--muted))]">{s.id}</div>
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function NodePicker(props: { nodes: RoadmapNodeEntry[]; value: string[]; onChange: (next: string[]) => void }) {
-  const [q, setQ] = React.useState("");
-  const normalizedValue = React.useMemo(() => new Set(props.value.map((x) => x.toLowerCase())), [props.value]);
-  const suggestions = React.useMemo(() => {
-    const query = q.trim().toLowerCase();
-    if (!query) return [];
-    return props.nodes
-      .map((n) => ({
-        id: `${n.roadmapId}/${n.nodeId}`,
-        label: n.title,
-        subtitle: `${n.roadmapTitle} · ${n.crumbs.map((c) => c.title).join(" / ")}`,
-      }))
-      .filter((o) => !normalizedValue.has(o.id.toLowerCase()))
-      .filter((o) => {
-        const hay = `${o.id} ${o.label} ${o.subtitle}`.toLowerCase();
-        return hay.includes(query);
-      })
-      .slice(0, 8);
-  }, [props.nodes, q, normalizedValue]);
-
-  return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap gap-2">
-        {props.value.map((id) => (
-          <span
-            key={id}
-            className="inline-flex items-center gap-1 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-2.5 py-1 text-xs"
-          >
-            {id}
-            <button
-              type="button"
-              onClick={() => props.onChange(props.value.filter((x) => x !== id))}
-              className="text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-              title="Remove"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </span>
-        ))}
-      </div>
-
-      <input value={q} onChange={(e) => setQ(e.target.value)} className={inputClass} placeholder="Search nodes…" />
-
-      {suggestions.length ? (
-        <div className="grid gap-1 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] p-1">
-          {suggestions.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className="rounded-lg px-2 py-1 text-left text-xs transition hover:bg-[hsl(var(--card))]"
-              onClick={() => {
-                props.onChange(normalizeIdList([...props.value, s.id]));
-                setQ("");
-              }}
-            >
-              <div className="truncate font-medium">{s.label}</div>
-              <div className="truncate text-[10px] text-[hsl(var(--muted))]">{s.subtitle}</div>
-            </button>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }

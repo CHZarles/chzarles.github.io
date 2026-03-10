@@ -117,12 +117,19 @@ export function HeroMimoBackdrop(props: {
   patternOpacity?: number;
   patternScale?: number;
   patternMotion?: PatternMotion;
+  spotlightSceneUrl?: string;
+  spotlightScenePosition?: string;
+  spotlightSceneOpacity?: number;
+  spotlightSceneScale?: number;
 }) {
   const token = React.useMemo(() => spacedToken(props.patternText) || "H Y P E R B L O G", [props.patternText]);
   const overlayOpacity = clamp(props.overlayOpacity ?? 1, 0, 1);
   const patternOpacity = clamp(props.patternOpacity ?? 1, 0, 1.6);
   const patternScale = clamp(props.patternScale ?? 1, 0.7, 1.4);
   const patternMotion: PatternMotion = props.patternMotion ?? "drift";
+  const sceneOpacity = clamp(props.spotlightSceneOpacity ?? 0.88, 0, 1);
+  const sceneScale = clamp(props.spotlightSceneScale ?? 1.06, 1, 1.3);
+  const scenePosition = props.spotlightScenePosition?.trim() || "center";
 
   return (
     <div
@@ -153,7 +160,37 @@ export function HeroMimoBackdrop(props: {
               "radial-gradient(420px 260px at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%), color-mix(in oklab, hsl(var(--accent)) 16%, transparent), transparent 62%), hsl(var(--fg))",
           }}
         />
-        <PatternLayer token={token} tone="inverted" opacity={patternOpacity * 0.95} scale={patternScale} motion={patternMotion} />
+        {props.spotlightSceneUrl ? (
+          <div className="absolute inset-0 overflow-hidden">
+            <div
+              className="absolute inset-[-6%]"
+              style={{
+                backgroundImage: `url("${props.spotlightSceneUrl}")`,
+                backgroundPosition: scenePosition,
+                backgroundRepeat: "no-repeat",
+                backgroundSize: "cover",
+                opacity: sceneOpacity,
+                transform: `scale(${sceneScale})`,
+                filter: "saturate(1.06) contrast(1.04) brightness(0.9)",
+              }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(320px 220px at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%), transparent 0%, color-mix(in oklab, hsl(var(--bg)) 6%, transparent) 54%, color-mix(in oklab, hsl(var(--bg)) 32%, transparent) 100%)",
+              }}
+            />
+          </div>
+        ) : null}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(250px 180px at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%), color-mix(in oklab, white 18%, transparent), transparent 72%)",
+          }}
+        />
+        <PatternLayer token={token} tone="inverted" opacity={patternOpacity * 0.34} scale={patternScale} motion={patternMotion} />
       </div>
     </div>
   );

@@ -36,23 +36,15 @@ function cssColor(raw: string) {
 }
 
 export function HomePage() {
-  const { profile, theme, categories } = useAppState();
+  const { profile, theme } = useAppState();
   const [notes, setNotes] = React.useState<NoteListItem[]>([]);
-
-  const categoryTitleById = React.useMemo(() => {
-    const m = new Map(categories.map((c) => [c.id, c.title] as const));
-    return (id: string) => m.get(id) ?? null;
-  }, [categories]);
 
   React.useEffect(() => {
     let cancelled = false;
-    api
-      .notes()
-      .then((n) => {
-        if (cancelled) return;
-        setNotes(n.slice(0, 10));
-      })
-      .catch(() => {});
+    void api.notes().then((allNotes) => {
+      if (cancelled) return;
+      setNotes(allNotes.slice(0, 5));
+    });
     return () => {
       cancelled = true;
     };
@@ -63,7 +55,7 @@ export function HomePage() {
 
   const heroTitleText = profile?.hero?.title ?? profile?.name ?? "Hyperblog";
   const heroTaglineText =
-    profile?.hero?.tagline ?? profile?.tagline ?? "把 Notes、Categories 与 Roadmaps 三套入口合一：可读、可索引、可证明。";
+    profile?.hero?.tagline ?? profile?.tagline ?? "把笔记、分类与索引收回到一个更轻的入口里。";
 
   const heroFg = (() => {
     if (heroVariant === "mimo") return "hsl(var(--fg))";
@@ -81,21 +73,11 @@ export function HomePage() {
     heroVariant === "mimo"
       ? `clamp(${(1.00 * heroScale).toFixed(3)}rem, ${(1.25 * heroScale).toFixed(3)}vw, ${(1.18 * heroScale).toFixed(3)}rem)`
       : `clamp(${(0.95 * heroScale).toFixed(3)}rem, ${(1.15 * heroScale).toFixed(3)}vw, ${(1.06 * heroScale).toFixed(3)}rem)`;
-  const heroHandleSize =
-    heroVariant === "mimo"
-      ? `clamp(${(0.95 * heroScale).toFixed(3)}rem, ${(1.45 * heroScale).toFixed(3)}vw, ${(1.15 * heroScale).toFixed(3)}rem)`
-      : undefined;
 
   const heroTaglineClass =
     heroVariant === "mimo"
-      ? "mt-6 mx-auto max-w-[62ch] font-serif font-medium leading-[1.95] tracking-[-0.018em]"
-      : "mt-5 mx-auto max-w-[64ch] leading-relaxed tracking-[-0.01em]";
-
-  const mimoHandleClass = [
-    "mt-6 inline-flex items-center justify-center",
-    "border-b border-[color-mix(in_oklab,hsl(var(--accent))_58%,transparent)] pb-1",
-    "font-mono font-semibold tracking-[0.14em] text-[hsl(var(--accent))]",
-  ].join(" ");
+      ? "mt-4 mx-auto max-w-[54ch] font-serif font-medium leading-[1.85] tracking-[-0.018em]"
+      : "mt-4 mx-auto max-w-[58ch] leading-relaxed tracking-[-0.01em]";
 
   const heroRef = React.useRef<HTMLElement | null>(null);
   const heroBackdropRef = React.useRef<HTMLDivElement | null>(null);
@@ -245,17 +227,17 @@ export function HomePage() {
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}
         className={[
-          "relative flex overflow-hidden",
+          "relative mx-auto flex w-full max-w-[56rem] overflow-hidden",
           heroVariant === "mimo"
-            ? "h-[420px] sm:h-[470px] md:h-[500px] cursor-crosshair"
-            : "min-h-[440px] md:min-h-[clamp(560px,64vh,860px)]",
+            ? "h-[300px] sm:h-[320px] md:h-[340px] cursor-crosshair"
+            : "min-h-[400px] md:min-h-[clamp(500px,58vh,720px)]",
         ].join(" ")}
       >
         <div
           aria-hidden="true"
           ref={heroBackdropRef}
           className={[
-            "absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 overflow-hidden border-y",
+            "absolute inset-0 overflow-hidden border-y",
             heroVariant === "mimo"
               ? "border-[hsl(var(--fg))] bg-[hsl(var(--bg))]"
               : "border-[color-mix(in_oklab,hsl(var(--fg))_22%,hsl(var(--border)))] bg-[hsl(var(--card))]",
@@ -267,6 +249,10 @@ export function HomePage() {
               patternOpacity={profile?.hero?.patternOpacity}
               patternScale={profile?.hero?.patternScale}
               patternMotion={profile?.hero?.patternMotion}
+              spotlightSceneUrl={profile?.hero?.spotlightSceneUrl}
+              spotlightScenePosition={profile?.hero?.spotlightScenePosition}
+              spotlightSceneOpacity={profile?.hero?.spotlightSceneOpacity}
+              spotlightSceneScale={profile?.hero?.spotlightSceneScale}
             />
           ) : (
             <HeroBackdrop
@@ -285,12 +271,12 @@ export function HomePage() {
         <div
           className={[
             "relative z-10 flex flex-1 flex-col items-center justify-center",
-            heroVariant === "mimo" ? "" : "py-12 md:py-16",
+            heroVariant === "mimo" ? "py-7 md:py-8" : "py-10 md:py-14",
           ].join(" ")}
         >
           <div className="w-full">
-            <div className="mx-auto flex max-w-[72rem] flex-col items-center px-1 text-center">
-              <div ref={titleSpotRef} className="relative w-full max-w-[78ch]">
+            <div className="mx-auto flex max-w-[56rem] flex-col items-center px-3 text-center">
+              <div ref={titleSpotRef} className="relative w-full max-w-[56ch]">
                 <h1
                   className={[
                     heroVariant === "mimo"
@@ -301,15 +287,6 @@ export function HomePage() {
                 >
                   {heroTitleText}
                 </h1>
-                {heroVariant === "mimo" ? (
-                  <div className={mimoHandleClass} style={{ fontSize: heroHandleSize }}>
-                    {profile?.handle ?? "@you"}
-                  </div>
-                ) : (
-                  <div className="mt-4 font-mono font-medium tracking-[-0.02em] text-[hsl(var(--accent))]">
-                    {profile?.handle ?? "@you"}
-                  </div>
-                )}
                 <p
                   className={heroTaglineClass}
                   style={{
@@ -334,9 +311,6 @@ export function HomePage() {
                     >
                       {heroTitleText}
                     </h1>
-                    <div className={mimoHandleClass} style={{ fontSize: heroHandleSize }}>
-                      {profile?.handle ?? "@you"}
-                    </div>
                     <p
                       className={heroTaglineClass}
                       style={{ color: "color-mix(in oklab, hsl(var(--bg)) 86%, transparent)", fontSize: heroTaglineSize }}
@@ -346,7 +320,6 @@ export function HomePage() {
                   </div>
                 ) : null}
               </div>
-
             </div>
           </div>
         </div>
@@ -357,9 +330,9 @@ export function HomePage() {
           aria-hidden="true"
           className="absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 border-y border-[color-mix(in_oklab,hsl(var(--fg))_18%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--bg))_72%,transparent)]"
         />
-        <Reveal className="relative z-10 py-10" yPx={12}>
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-0 lg:divide-x lg:divide-[color:var(--border-soft)]">
-            <div className="min-w-0 lg:pr-10">
+        <Reveal className="relative z-10 py-8 md:py-10" yPx={12}>
+          <div className="mx-auto max-w-[56rem]">
+            <div className="min-w-0">
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <div className="text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
@@ -377,37 +350,11 @@ export function HomePage() {
 
               {notes.length ? (
                 <div className="mt-5">
-                  <Link
-                    to={`/notes/${notes[0]!.id}`}
-                    onMouseEnter={() => api.prefetchNote(notes[0]!.id)}
-                    onFocus={() => api.prefetchNote(notes[0]!.id)}
-                    className="group block rounded-2xl px-1 py-2 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
-                  >
-                    <div className="flex items-baseline justify-between gap-4">
-                      <div className="font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
-                        {fmtYmd(notes[0]!.updated).slice(0, 10)}
-                      </div>
-                      <ArrowUpRight className="h-4 w-4 shrink-0 opacity-40 transition group-hover:opacity-70" />
-                    </div>
-                    <div className="mt-3 font-serif text-2xl font-semibold leading-[1.12] tracking-tight md:text-3xl">
-                      {notes[0]!.title}
-                    </div>
-                    <div className="mt-3 line-clamp-3 text-sm leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_72%,hsl(var(--muted)))] md:text-base">
-                      {notes[0]!.excerpt}
-                    </div>
-                  </Link>
-
-                  <div className="mt-6 hairline" />
-
                   <div className="divide-y divide-[color:var(--border-soft)]">
-                    {notes.slice(1, 9).map((n, idx) => {
-                      const index = String(idx + 2).padStart(2, "0");
+                    {notes.slice(0, 5).map((n, idx) => {
+                      const index = String(idx + 1).padStart(2, "0");
                       const md = fmtYmd(n.updated).slice(5);
                       const date = md.length === 5 ? md.replace("-", ".") : md;
-                      const catTitle = n.categories[0] ? categoryTitleById(n.categories[0]) : null;
-                      const cat = catTitle ? `#${catTitle}` : null;
-                      const node = n.nodes[0] ? `${n.nodes[0].roadmapTitle} / ${n.nodes[0].title}` : null;
-                      const meta = [cat, node].filter(Boolean).join(" · ");
 
                       return (
                         <Link
@@ -428,11 +375,6 @@ export function HomePage() {
                               </div>
                               <ArrowUpRight className="h-4 w-4 shrink-0 translate-y-px opacity-0 transition group-hover:opacity-60" />
                             </div>
-                            {meta ? (
-                              <div className="mt-1 hidden line-clamp-1 text-[11px] text-[color-mix(in_oklab,hsl(var(--fg))_60%,hsl(var(--muted)))] md:block">
-                                {meta}
-                              </div>
-                            ) : null}
                           </div>
                           <div className="pt-0.5 font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
                             {date}
@@ -444,57 +386,6 @@ export function HomePage() {
                 </div>
               ) : (
                 <div className="mt-5 text-sm text-[hsl(var(--muted))]">暂无 Notes。</div>
-              )}
-            </div>
-
-            <div className="min-w-0 lg:pl-10">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <div className="text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
-                    INDEX
-                  </div>
-                  <div className="mt-1 font-serif text-xl font-semibold tracking-tight">Categories</div>
-                </div>
-                <Link
-                  to="/notes"
-                  className="font-mono text-xs font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-                >
-                  ALL →
-                </Link>
-              </div>
-
-              {categories.length ? (
-                <div className="mt-5">
-                  <div className="hairline" />
-                  <div className="divide-y divide-[color:var(--border-soft)]">
-                    {categories.slice(0, 10).map((c) => (
-                      <Link
-                        key={c.id}
-                        to={`/notes?category=${encodeURIComponent(c.id)}`}
-                        className="group relative -mx-1 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 rounded-xl px-1 py-3.5 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
-                      >
-                        <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-[hsl(var(--accent))] opacity-0 transition group-hover:opacity-35" />
-                        <div className="min-w-0">
-                          <div className="flex min-w-0 items-baseline gap-2">
-                            <div className="truncate font-serif text-sm font-semibold tracking-tight md:text-base">
-                              {c.title}
-                            </div>
-                          </div>
-                          {c.description ? (
-                            <div className="mt-1 hidden line-clamp-1 text-[11px] text-[hsl(var(--muted))] md:block">
-                              {c.description}
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className="font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
-                          {(c.noteCount ?? 0).toString().padStart(2, "0")}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-5 text-sm text-[hsl(var(--muted))]">暂无 Categories。</div>
               )}
             </div>
           </div>

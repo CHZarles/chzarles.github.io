@@ -36,15 +36,9 @@ export function PublisherPage() {
   const [excerpt, setExcerpt] = React.useState("");
   const [categories, setCategories] = React.useState("");
   const [tags, setTags] = React.useState("");
-  const [nodes, setNodes] = React.useState("");
-  const [mindmaps, setMindmaps] = React.useState("");
   const [cover, setCover] = React.useState("");
   const [draft, setDraft] = React.useState(false);
   const [content, setContent] = React.useState("");
-
-  const [mindmapId, setMindmapId] = React.useState("");
-  const [mindmapTitle, setMindmapTitle] = React.useState("");
-  const [mindmapJson, setMindmapJson] = React.useState(`{\n  "nodes": [],\n  "edges": [],\n  "viewport": { "x": 0, "y": 0, "zoom": 1 }\n}`);
 
   const [busy, setBusy] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -114,8 +108,6 @@ export function PublisherPage() {
           excerpt: excerpt.trim() || undefined,
           categories: parseCsvList(categories),
           tags: parseCsvList(tags),
-          nodes: parseCsvList(nodes),
-          mindmaps: parseCsvList(mindmaps),
           cover: cover.trim() || undefined,
           draft,
           content,
@@ -129,46 +121,7 @@ export function PublisherPage() {
     } finally {
       setBusy(false);
     }
-  }, [token, title, slug, date, excerpt, categories, tags, nodes, mindmaps, cover, draft, content]);
-
-  const publishMindmap = React.useCallback(async () => {
-    if (!token) return;
-    const id = mindmapId.trim();
-    if (!id) {
-      setNotice("Mindmap failed: missing id");
-      return;
-    }
-
-    setBusy(true);
-    setNotice(null);
-    setCommitUrl(null);
-    try {
-      const parsed = (mindmapJson.trim() ? JSON.parse(mindmapJson) : {}) as Record<string, unknown>;
-      const res = await publisherFetchJson<{
-        mindmap: { id: string; path: string };
-        commit: { sha: string; url: string };
-      }>({
-        path: "/api/admin/mindmaps",
-        method: "POST",
-        token,
-        body: {
-          id,
-          title: mindmapTitle.trim() || undefined,
-          format: typeof parsed.format === "string" ? parsed.format : undefined,
-          nodes: Array.isArray(parsed.nodes) ? parsed.nodes : undefined,
-          edges: Array.isArray(parsed.edges) ? parsed.edges : undefined,
-          viewport: parsed.viewport ?? undefined,
-        },
-      });
-      setNotice(`Mindmap published: ${res.mindmap.id}`);
-      setCommitUrl(res.commit.url);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setNotice(`Mindmap failed: ${msg}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [token, mindmapId, mindmapTitle, mindmapJson]);
+  }, [token, title, slug, date, excerpt, categories, tags, cover, draft, content]);
 
   const uploadImage = React.useCallback(
     async (file: File) => {
@@ -343,20 +296,6 @@ export function PublisherPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Roadmap nodes (comma)">
-                <input
-                  value={nodes}
-                  onChange={(e) => setNodes(e.target.value)}
-                  className={inputClass}
-                  placeholder="ai-infra/otel, ai-infra/k8s"
-                />
-              </Field>
-              <Field label="Mindmaps (comma)">
-                <input value={mindmaps} onChange={(e) => setMindmaps(e.target.value)} className={inputClass} placeholder="otel-context" />
-              </Field>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Cover URL (optional)">
                 <input value={cover} onChange={(e) => setCover(e.target.value)} className={inputClass} placeholder="/uploads/..." />
               </Field>
@@ -421,62 +360,12 @@ export function PublisherPage() {
             <div className="text-sm font-semibold tracking-tight">Tips</div>
             <ul className="mt-3 grid list-disc gap-2 pl-5 text-sm text-[hsl(var(--muted))]">
               <li>
-                Nodes use the format <code>roadmapId/nodeId</code>, e.g. <code>ai-infra/otel</code>.
-              </li>
-              <li>
                 Uploaded assets are committed to <code>public/uploads/</code> and referenced via <code>/uploads/…</code>.
               </li>
               <li>
                 If you publish to a remote repo, pull locally to see changes in this dev UI.
               </li>
             </ul>
-          </div>
-
-          <div className="card p-6">
-            <div className="text-sm font-semibold tracking-tight">Mindmap</div>
-            <div className="mt-1 text-sm text-[hsl(var(--muted))]">Optional: store ReactFlow JSON in the repo.</div>
-
-            <div className="mt-5 grid gap-4">
-              <Field label="Mindmap id">
-                <input
-                  value={mindmapId}
-                  onChange={(e) => setMindmapId(e.target.value)}
-                  className={inputClass}
-                  placeholder="otel-context"
-                />
-              </Field>
-              <Field label="Title (optional)">
-                <input
-                  value={mindmapTitle}
-                  onChange={(e) => setMindmapTitle(e.target.value)}
-                  className={inputClass}
-                  placeholder="OTel Context"
-                />
-              </Field>
-              <Field label="JSON payload">
-                <textarea
-                  value={mindmapJson}
-                  onChange={(e) => setMindmapJson(e.target.value)}
-                  className={textareaClass}
-                  rows={10}
-                />
-              </Field>
-
-              <button
-                type="button"
-                onClick={() => void publishMindmap()}
-                disabled={!token || busy}
-                className={[
-                  "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition",
-                  !token || busy
-                    ? "cursor-not-allowed border border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))]"
-                    : "border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))] hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]",
-                ].join(" ")}
-              >
-                <Check className="h-4 w-4 opacity-85" />
-                Publish mindmap
-              </button>
-            </div>
           </div>
         </div>
       </div>

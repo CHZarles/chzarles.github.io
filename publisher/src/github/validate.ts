@@ -2,11 +2,7 @@ import { HttpError } from "../http/errors";
 
 const ALLOWED_PREFIXES = [
   "content/notes/",
-  "content/mindmaps/",
   "content/.trash/notes/",
-  "content/.trash/mindmaps/",
-  "content/roadmaps/",
-  "content/.trash/roadmaps/",
   "public/uploads/",
 ];
 
@@ -14,11 +10,6 @@ const ALLOWED_EXACT = ["content/profile.json", "content/categories.yml", "conten
 
 function hasAllowedExtension(path: string): boolean {
   if (path.startsWith("content/notes/") || path.startsWith("content/.trash/notes/")) return path.toLowerCase().endsWith(".md");
-  if (path.startsWith("content/mindmaps/") || path.startsWith("content/.trash/mindmaps/")) return path.toLowerCase().endsWith(".json");
-  if (path.startsWith("content/roadmaps/") || path.startsWith("content/.trash/roadmaps/")) {
-    const p = path.toLowerCase();
-    return p.endsWith(".yml") || p.endsWith(".yaml");
-  }
   if (path.startsWith("public/uploads/")) return true;
   return true;
 }

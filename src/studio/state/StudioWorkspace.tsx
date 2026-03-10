@@ -8,8 +8,6 @@ import { useStudioState } from "./StudioState";
 export type WorkspaceStats = {
   total: number;
   notes: number;
-  roadmaps: number;
-  mindmaps: number;
   config: number;
   assetsUploads: number;
   assetsDeletes: number;
@@ -22,8 +20,6 @@ export type NoteDraftEditor = {
   excerpt: string;
   categories: string[];
   tags: string[];
-  nodes: string[];
-  mindmaps: string[];
   cover: string;
   draft: boolean;
   content: string;
@@ -38,27 +34,6 @@ export type WorkspaceChange =
       pendingDelete: boolean;
       baseMarkdown: string | null;
       editor: NoteDraftEditor;
-    }
-  | {
-      kind: "roadmap";
-      key: string;
-      savedAt: number;
-      roadmapId: string;
-      title: string;
-      yaml: string;
-      pendingDelete: boolean;
-      pathHint: string | null;
-    }
-  | {
-      kind: "mindmap";
-      key: string;
-      savedAt: number;
-      mindmapId: string;
-      title: string;
-      nodes: unknown[];
-      edges: unknown[];
-      viewport: { x: number; y: number; zoom: number };
-      pendingDelete: boolean;
     }
   | {
       kind: "config";
@@ -152,27 +127,6 @@ type NoteDraftV1 = {
   editor: NoteDraftEditor;
 };
 
-type RoadmapDraftV1 = {
-  v: 1;
-  savedAt: number;
-  roadmapId: string;
-  title: string;
-  yaml: string;
-  pendingDelete?: boolean;
-  pathHint?: string;
-};
-
-type MindmapDraftV1 = {
-  v: 1;
-  savedAt: number;
-  mindmapId: string;
-  title: string;
-  nodes: unknown[];
-  edges: unknown[];
-  viewport: { x: number; y: number; zoom: number };
-  pendingDelete?: boolean;
-};
-
 type ConfigDraftV1 = { v: 1; savedAt: number; raw: string };
 
 type AssetsDraftV1 = {
@@ -184,8 +138,6 @@ type AssetsDraftV1 = {
 
 const DRAFT_NOTE_PREFIX = "hyperblog.studio.draft.note:";
 const DRAFT_NEW_PREFIX = "hyperblog.studio.draft.new:";
-const DRAFT_ROADMAP_PREFIX = "hyperblog.studio.draft.roadmap:";
-const DRAFT_MINDMAP_PREFIX = "hyperblog.studio.draft.mindmap:";
 const CONFIG_DRAFT_PREFIX = "hyperblog.studio.draft.config:v1:";
 const ASSETS_DRAFT_PREFIX = "hyperblog.studio.draft.assets:v1:";
 
@@ -210,39 +162,6 @@ function readNoteDraft(key: string): NoteDraftV1 | null {
   const e = (v as any).editor as NoteDraftEditor;
   if (typeof e.title !== "string") return null;
   if (typeof e.content !== "string") return null;
-  return v;
-}
-
-function readRoadmapDraft(key: string): RoadmapDraftV1 | null {
-  const raw = safeLocalStorageGet(key);
-  if (!raw) return null;
-  const v = parseJsonSafe(raw) as RoadmapDraftV1 | null;
-  if (!v || typeof v !== "object") return null;
-  if (v.v !== 1) return null;
-  if (typeof v.savedAt !== "number") return null;
-  if (typeof v.roadmapId !== "string") return null;
-  if (typeof v.title !== "string") return null;
-  if (typeof v.yaml !== "string") return null;
-  if (typeof (v as any).pendingDelete !== "undefined" && typeof (v as any).pendingDelete !== "boolean") return null;
-  if (typeof (v as any).pathHint !== "undefined" && typeof (v as any).pathHint !== "string") return null;
-  return v;
-}
-
-function readMindmapDraft(key: string): MindmapDraftV1 | null {
-  const raw = safeLocalStorageGet(key);
-  if (!raw) return null;
-  const v = parseJsonSafe(raw) as MindmapDraftV1 | null;
-  if (!v || typeof v !== "object") return null;
-  if (v.v !== 1) return null;
-  if (typeof v.savedAt !== "number") return null;
-  if (typeof v.mindmapId !== "string") return null;
-  if (typeof v.title !== "string") return null;
-  if (!Array.isArray(v.nodes)) return null;
-  if (!Array.isArray(v.edges)) return null;
-  const vp = (v as any).viewport;
-  if (!vp || typeof vp !== "object") return null;
-  for (const k of ["x", "y", "zoom"]) if (typeof (vp as any)[k] !== "number") return null;
-  if (typeof (v as any).pendingDelete !== "undefined" && typeof (v as any).pendingDelete !== "boolean") return null;
   return v;
 }
 
@@ -289,39 +208,6 @@ function listWorkspaceChanges(baseUrl: string): WorkspaceChange[] {
       continue;
     }
 
-    if (key.startsWith(DRAFT_ROADMAP_PREFIX)) {
-      const d = readRoadmapDraft(key);
-      if (!d) continue;
-      out.push({
-        kind: "roadmap",
-        key,
-        savedAt: d.savedAt,
-        roadmapId: d.roadmapId,
-        title: d.title,
-        yaml: d.yaml,
-        pendingDelete: Boolean(d.pendingDelete),
-        pathHint: typeof d.pathHint === "string" ? d.pathHint : null,
-      });
-      continue;
-    }
-
-    if (key.startsWith(DRAFT_MINDMAP_PREFIX)) {
-      const d = readMindmapDraft(key);
-      if (!d) continue;
-      out.push({
-        kind: "mindmap",
-        key,
-        savedAt: d.savedAt,
-        mindmapId: d.mindmapId,
-        title: d.title,
-        nodes: d.nodes,
-        edges: d.edges,
-        viewport: d.viewport,
-        pendingDelete: Boolean(d.pendingDelete),
-      });
-      continue;
-    }
-
     if (key.startsWith(CONFIG_DRAFT_PREFIX)) {
       if (!key.includes(baseUrl)) continue;
       const fileKey = key.split(":").at(-1) as "profile" | "categories" | "projects" | undefined;
@@ -346,15 +232,11 @@ function listWorkspaceChanges(baseUrl: string): WorkspaceChange[] {
 
 function calcStats(changes: WorkspaceChange[]): WorkspaceStats {
   let notes = 0;
-  let roadmaps = 0;
-  let mindmaps = 0;
   let config = 0;
   let assetsUploads = 0;
   let assetsDeletes = 0;
   for (const c of changes) {
     if (c.kind === "note") notes += 1;
-    else if (c.kind === "roadmap") roadmaps += 1;
-    else if (c.kind === "mindmap") mindmaps += 1;
     else if (c.kind === "config") config += 1;
     else if (c.kind === "assets") {
       assetsUploads += c.uploads.length;
@@ -364,8 +246,6 @@ function calcStats(changes: WorkspaceChange[]): WorkspaceStats {
   return {
     total: changes.length,
     notes,
-    roadmaps,
-    mindmaps,
     config,
     assetsUploads,
     assetsDeletes,
@@ -391,8 +271,6 @@ function clearCommitMessage(baseUrl: string): void {
 function defaultCommitMessage(stats: WorkspaceStats): string {
   const pieces: string[] = [];
   if (stats.notes) pieces.push(`notes: ${stats.notes}`);
-  if (stats.roadmaps) pieces.push(`roadmaps: ${stats.roadmaps}`);
-  if (stats.mindmaps) pieces.push(`mindmaps: ${stats.mindmaps}`);
   if (stats.config) pieces.push(`config: ${stats.config}`);
   if (stats.assetsUploads || stats.assetsDeletes) pieces.push(`assets: +${stats.assetsUploads} -${stats.assetsDeletes}`);
   const subject = pieces.length ? `studio: publish (${pieces.join(", ")})` : "studio: publish";
@@ -585,14 +463,6 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
           if (tags.length) fm.tags = tags;
           else delete fm.tags;
 
-          const nodes = normalizeIdList(args.editor.nodes);
-          if (nodes.length) fm.nodes = nodes;
-          else delete fm.nodes;
-
-          const mindmaps = normalizeIdList(args.editor.mindmaps);
-          if (mindmaps.length) fm.mindmaps = mindmaps;
-          else delete fm.mindmaps;
-
           const cover = args.editor.cover.trim();
           if (cover) fm.cover = cover;
           else delete fm.cover;
@@ -672,76 +542,6 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
               continue;
             }
             addFile({ path, encoding: "utf8", content: JSON.stringify(parsed, null, 2) + "\n" });
-            continue;
-          }
-
-          if (c.kind === "roadmap") {
-            const srcRel = c.pathHint?.trim() || `content/roadmaps/${c.roadmapId}.yml`;
-            const content = c.yaml.trimEnd() + "\n";
-            if (c.pendingDelete) {
-              const filename = srcRel.split("/").pop() ?? `${c.roadmapId}.yml`;
-              const trashRel = `content/.trash/roadmaps/${filename}`;
-              addFile({ path: trashRel, encoding: "utf8", content });
-              addDelete(srcRel);
-              continue;
-            }
-
-            let parsed: unknown;
-            try {
-              parsed = YAML.parse(content);
-            } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : String(err);
-              errors.push(`roadmap: ${c.roadmapId} YAML error: ${msg}`);
-              continue;
-            }
-            if (!parsed || typeof parsed !== "object") {
-              errors.push(`roadmap: ${c.roadmapId} YAML must be an object.`);
-              continue;
-            }
-            const obj = parsed as Record<string, unknown>;
-            const parsedId = typeof obj.id === "string" ? obj.id.trim().toLowerCase() : null;
-            if (parsedId && parsedId !== c.roadmapId) {
-              errors.push(`roadmap: ${c.roadmapId} id mismatch (got ${parsedId}).`);
-              continue;
-            }
-            if (!Array.isArray(obj.nodes)) {
-              errors.push(`roadmap: ${c.roadmapId} missing nodes array.`);
-              continue;
-            }
-            addFile({ path: srcRel, encoding: "utf8", content });
-            continue;
-          }
-
-          if (c.kind === "mindmap") {
-            const id = String(c.mindmapId ?? "").trim().toLowerCase();
-            if (!/^[a-z0-9-]{2,80}$/.test(id)) {
-              errors.push(`mindmap: invalid id (${c.mindmapId})`);
-              continue;
-            }
-
-            const srcRel = `content/mindmaps/${id}.json`;
-            const json =
-              JSON.stringify(
-                {
-                  id,
-                  title: c.title?.trim() || id,
-                  updated: new Date().toISOString(),
-                  format: "reactflow",
-                  nodes: Array.isArray(c.nodes) ? c.nodes : [],
-                  edges: Array.isArray(c.edges) ? c.edges : [],
-                  viewport: c.viewport ?? { x: 0, y: 0, zoom: 1 },
-                },
-                null,
-                2,
-              ) + "\n";
-
-            if (c.pendingDelete) {
-              const trashRel = `content/.trash/mindmaps/${id}.json`;
-              addFile({ path: trashRel, encoding: "utf8", content: json });
-              addDelete(srcRel);
-            } else {
-              addFile({ path: srcRel, encoding: "utf8", content: json });
-            }
             continue;
           }
 

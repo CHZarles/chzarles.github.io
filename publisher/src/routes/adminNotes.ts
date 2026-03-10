@@ -166,8 +166,6 @@ adminNotesRoutes.get("/:id", async (c) => {
     excerpt: typeof fm.excerpt === "string" ? fm.excerpt : undefined,
     categories: Array.isArray(fm.categories) ? (fm.categories as string[]) : undefined,
     tags: Array.isArray(fm.tags) ? (fm.tags as string[]) : undefined,
-    nodes: Array.isArray(fm.nodes) ? (fm.nodes as string[]) : undefined,
-    mindmaps: Array.isArray(fm.mindmaps) ? (fm.mindmaps as string[]) : undefined,
     cover: typeof fm.cover === "string" ? fm.cover : undefined,
     draft: typeof fm.draft === "boolean" ? fm.draft : undefined,
     content: parsed.body ?? "",
@@ -239,15 +237,18 @@ adminNotesRoutes.patch("/:id", async (c) => {
   if (typeof patch.excerpt === "string") nextFm.excerpt = patch.excerpt;
   if (Array.isArray(patch.categories)) nextFm.categories = patch.categories;
   if (Array.isArray(patch.tags)) nextFm.tags = patch.tags;
-  if (Array.isArray(patch.nodes)) nextFm.nodes = patch.nodes;
-  if (Array.isArray(patch.mindmaps)) nextFm.mindmaps = patch.mindmaps;
   if (typeof patch.cover === "string") nextFm.cover = patch.cover;
   if (typeof patch.draft === "boolean") nextFm.draft = patch.draft;
 
   if (!nextFm.title || typeof nextFm.title !== "string") throw new HttpError(422, "VALIDATION_FAILED", "Missing title.");
   if (!nextFm.date || typeof nextFm.date !== "string") throw new HttpError(422, "VALIDATION_FAILED", "Missing date.");
 
-  const yaml = YAML.stringify(nextFm).trimEnd();
+  const cleanFm: Record<string, unknown> = {};
+  for (const key of ["title", "date", "updated", "excerpt", "categories", "tags", "cover", "draft"] as const) {
+    if (typeof nextFm[key] !== "undefined") cleanFm[key] = nextFm[key];
+  }
+
+  const yaml = YAML.stringify(cleanFm).trimEnd();
   const md = `---\n${yaml}\n---\n\n${nextBody}\n`;
 
   const commit = await commitAtomic({

@@ -236,8 +236,11 @@ html[data-hb-mounted="1"] #root {
   letter-spacing: 0.02em;
   font-feature-settings: "palt" 1;
   white-space: nowrap;
-  transform: translateY(0.02em) scale(1.08, 1.01);
-  text-shadow: 0.01em 0 currentColor, -0.01em 0 currentColor;
+  transform: translateY(0.02em) scale(1.1, 1.02);
+  text-shadow:
+    0.012em 0 currentColor,
+    -0.012em 0 currentColor,
+    0 0.008em currentColor;
 }
 
 .hero-seal-title {

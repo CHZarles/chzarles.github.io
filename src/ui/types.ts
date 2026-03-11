@@ -1,7 +1,7 @@
 export type Profile = {
   name: string;
   handle: string;
-  tagline: string;
+  tagline?: string;
   nav?: {
     title?: string;
   };
@@ -11,6 +11,7 @@ export type Profile = {
   links?: Array<{ label: string; href: string }>;
   hero?: {
     title?: string;
+    titleStyle?: "text" | "seal" | "cursive";
     tagline?: string;
     variant?: "image" | "mimo"; // homepage hero style: image cover vs MiMo-style pattern + spotlight
     imageUrl?: string;
@@ -25,6 +26,7 @@ export type Profile = {
     textColor?: { light?: string; dark?: string }; // HSL string like "0 0% 100%"
     textScale?: number; // font scale multiplier; clamped (mimo: 0.85..1.6, image: 0.85..1.25)
     patternText?: string;
+    patternStyle?: "text" | "seal" | "clerical" | "essay";
     patternOpacity?: number; // 0..1.5 (mimo only) overall visibility multiplier for background pattern
     patternScale?: number; // 0.7..1.4 (mimo only) scales pattern font sizes
     patternMotion?: "none" | "drift"; // (mimo only) subtle background drift animation

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/api";
 import { HeroBackdrop } from "../components/HeroBackdrop";
 import { HeroMimoBackdrop } from "../components/HeroMimoBackdrop";
+import { HeroTitleVisual } from "../components/HeroTitleVisual";
 import { Reveal } from "../components/Reveal";
 import { useAppState } from "../state/AppState";
 import type { NoteListItem } from "../types";
@@ -54,8 +55,26 @@ export function HomePage() {
     profile?.hero?.variant === "mimo" ? "mimo" : profile?.hero?.imageUrl ? "image" : "mimo";
 
   const heroTitleText = profile?.hero?.title ?? profile?.name ?? "Hyperblog";
-  const heroTaglineText =
-    profile?.hero?.tagline ?? profile?.tagline ?? "把笔记、分类与索引收回到一个更轻的入口里。";
+  const heroTitleVariant =
+    profile?.hero?.titleStyle === "seal" ? "seal" : profile?.hero?.titleStyle === "cursive" ? "cursive" : "text";
+  const heroPatternVariant =
+    profile?.hero?.patternStyle === "seal"
+      ? "seal"
+      : profile?.hero?.patternStyle === "clerical"
+        ? "clerical"
+        : profile?.hero?.patternStyle === "essay"
+          ? "essay"
+        : "text";
+  const heroTaglineText = profile?.hero?.tagline?.trim() ?? profile?.tagline?.trim() ?? "";
+  const heroTitleFrameClass = heroVariant === "mimo" ? "leading-none" : "hero-ink leading-[0.98]";
+  const heroTitleInnerClass =
+    heroTitleVariant === "seal"
+      ? undefined
+      : heroTitleVariant === "cursive"
+        ? undefined
+        : heroVariant === "mimo"
+          ? "font-sans font-bold tracking-[0.01em]"
+          : "font-serif font-semibold tracking-tight";
 
   const heroFg = (() => {
     if (heroVariant === "mimo") return "hsl(var(--fg))";
@@ -69,16 +88,6 @@ export function HomePage() {
     heroVariant === "mimo"
       ? `clamp(${(3.2 * heroScale).toFixed(3)}rem, ${(7.2 * heroScale).toFixed(3)}vw, ${(6.0 * heroScale).toFixed(3)}rem)`
       : `clamp(${(2.25 * heroScale).toFixed(3)}rem, ${(4.4 * heroScale).toFixed(3)}vw, ${(3.25 * heroScale).toFixed(3)}rem)`;
-  const heroTaglineSize =
-    heroVariant === "mimo"
-      ? `clamp(${(1.00 * heroScale).toFixed(3)}rem, ${(1.25 * heroScale).toFixed(3)}vw, ${(1.18 * heroScale).toFixed(3)}rem)`
-      : `clamp(${(0.95 * heroScale).toFixed(3)}rem, ${(1.15 * heroScale).toFixed(3)}vw, ${(1.06 * heroScale).toFixed(3)}rem)`;
-
-  const heroTaglineClass =
-    heroVariant === "mimo"
-      ? "mt-4 mx-auto max-w-[54ch] font-serif font-medium leading-[1.85] tracking-[-0.018em]"
-      : "mt-4 mx-auto max-w-[58ch] leading-relaxed tracking-[-0.01em]";
-
   const heroRef = React.useRef<HTMLElement | null>(null);
   const heroBackdropRef = React.useRef<HTMLDivElement | null>(null);
   const titleSpotRef = React.useRef<HTMLDivElement | null>(null);
@@ -229,7 +238,7 @@ export function HomePage() {
         className={[
           "relative mx-auto flex w-full max-w-[56rem] overflow-hidden",
           heroVariant === "mimo"
-            ? "h-[300px] sm:h-[320px] md:h-[340px] cursor-crosshair"
+            ? "h-[264px] sm:h-[280px] md:h-[296px] cursor-crosshair"
             : "min-h-[400px] md:min-h-[clamp(500px,58vh,720px)]",
         ].join(" ")}
       >
@@ -245,7 +254,8 @@ export function HomePage() {
         >
           {heroVariant === "mimo" ? (
             <HeroMimoBackdrop
-              patternText={profile?.hero?.patternText ?? profile?.handle ?? profile?.hero?.title ?? profile?.name ?? "HYPERBLOG"}
+              patternText={profile?.hero?.patternText ?? profile?.hero?.title ?? profile?.name ?? profile?.handle ?? "HYPERBLOG"}
+              patternStyle={heroPatternVariant}
               patternOpacity={profile?.hero?.patternOpacity}
               patternScale={profile?.hero?.patternScale}
               patternMotion={profile?.hero?.patternMotion}
@@ -271,32 +281,43 @@ export function HomePage() {
         <div
           className={[
             "relative z-10 flex flex-1 flex-col items-center justify-center",
-            heroVariant === "mimo" ? "py-7 md:py-8" : "py-10 md:py-14",
+            heroVariant === "mimo" ? "py-5 md:py-6" : "py-10 md:py-14",
           ].join(" ")}
         >
           <div className="w-full">
             <div className="mx-auto flex max-w-[56rem] flex-col items-center px-3 text-center">
-              <div ref={titleSpotRef} className="relative w-full max-w-[56ch]">
+              <div ref={titleSpotRef} className="relative mx-auto flex w-full max-w-[56ch] flex-col items-center">
                 <h1
-                  className={[
-                    heroVariant === "mimo"
-                      ? "font-sans font-bold leading-none tracking-[0.01em]"
-                      : "hero-ink font-serif font-semibold leading-[0.98] tracking-tight",
-                  ].join(" ")}
+                  className={[heroTitleFrameClass, "mx-auto flex w-full justify-center text-center"].join(" ")}
                   style={{ color: heroFg, fontSize: heroTitleSize }}
                 >
-                  {heroTitleText}
+                  {heroTitleVariant === "seal" ? <span className="sr-only">{heroTitleText}</span> : null}
+                  <HeroTitleVisual
+                    text={heroTitleText}
+                    variant={heroTitleVariant}
+                    className={heroTitleInnerClass}
+                    ariaHidden={heroTitleVariant === "seal"}
+                  />
                 </h1>
-                <p
-                  className={heroTaglineClass}
-                  style={{
-                    color: heroVariant === "mimo" ? "hsl(var(--muted))" : heroFg,
-                    opacity: heroVariant === "mimo" ? 0.92 : 0.82,
-                    fontSize: heroTaglineSize,
-                  }}
-                >
-                  {heroTaglineText}
-                </p>
+                {heroTaglineText ? (
+                  <p
+                    className={
+                      heroVariant === "mimo"
+                        ? "mt-4 mx-auto max-w-[54ch] font-serif font-medium leading-[1.85] tracking-[-0.018em]"
+                        : "mt-4 mx-auto max-w-[58ch] leading-relaxed tracking-[-0.01em]"
+                    }
+                    style={{
+                      color: heroVariant === "mimo" ? "hsl(var(--muted))" : heroFg,
+                      opacity: heroVariant === "mimo" ? 0.92 : 0.82,
+                      fontSize:
+                        heroVariant === "mimo"
+                          ? `clamp(${(1.00 * heroScale).toFixed(3)}rem, ${(1.25 * heroScale).toFixed(3)}vw, ${(1.18 * heroScale).toFixed(3)}rem)`
+                          : `clamp(${(0.95 * heroScale).toFixed(3)}rem, ${(1.15 * heroScale).toFixed(3)}vw, ${(1.06 * heroScale).toFixed(3)}rem)`,
+                    }}
+                  >
+                    {heroTaglineText}
+                  </p>
+                ) : null}
 
                 {heroVariant === "mimo" ? (
                   <div
@@ -305,18 +326,28 @@ export function HomePage() {
                       clipPath: "circle(var(--hb-spot-r, 0px) at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%))",
                     }}
                   >
-                    <h1
-                      className="font-sans font-bold leading-none tracking-[0.01em]"
+                    <div
+                      className={[heroTitleFrameClass, "mx-auto flex w-full justify-center text-center"].join(" ")}
                       style={{ color: "hsl(var(--bg))", fontSize: heroTitleSize }}
                     >
-                      {heroTitleText}
-                    </h1>
-                    <p
-                      className={heroTaglineClass}
-                      style={{ color: "color-mix(in oklab, hsl(var(--bg)) 86%, transparent)", fontSize: heroTaglineSize }}
-                    >
-                      {heroTaglineText}
-                    </p>
+                      <HeroTitleVisual
+                        text={heroTitleText}
+                        variant={heroTitleVariant}
+                        className={heroTitleInnerClass}
+                        ariaHidden
+                      />
+                    </div>
+                    {heroTaglineText ? (
+                      <p
+                        className="mt-4 mx-auto max-w-[54ch] font-serif font-medium leading-[1.85] tracking-[-0.018em]"
+                        style={{
+                          color: "color-mix(in oklab, hsl(var(--bg)) 86%, transparent)",
+                          fontSize: `clamp(${(1.00 * heroScale).toFixed(3)}rem, ${(1.25 * heroScale).toFixed(3)}vw, ${(1.18 * heroScale).toFixed(3)}rem)`,
+                        }}
+                      >
+                        {heroTaglineText}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -362,7 +393,7 @@ export function HomePage() {
                           to={`/notes/${n.id}`}
                           onMouseEnter={() => api.prefetchNote(n.id)}
                           onFocus={() => api.prefetchNote(n.id)}
-                          className="group relative -mx-1 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] gap-4 rounded-xl px-1 py-3.5 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
+                          className="group relative -mx-1 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] gap-4 rounded-xl px-1 py-4 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
                         >
                           <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-[hsl(var(--accent))] opacity-0 transition group-hover:opacity-45" />
                           <div className="pt-0.5 font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">

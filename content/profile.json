@@ -1,14 +1,15 @@
 {
   "name": "朝花夕拾",
   "handle": "@charles",
-  "tagline": "CS / Observability / 写作系统化",
   "accent": "270 85% 45%",
   "nav": {
     "title": "BLOG"
   },
   "publisherBaseUrl": "https://hyperblog-publisher.chzarles.workers.dev",
   "hero": {
+    "titleStyle": "cursive",
     "variant": "mimo",
+    "patternStyle": "essay",
     "spotlightRadiusPx": 120,
     "textScale": 1.15,
     "spotlightSceneUrl": "https://i.pinimg.com/control1/736x/0e/01/ca/0e01ca79782706f0b5409243073db882.jpg",

@@ -17,7 +17,6 @@ export type NoteDraftEditor = {
   title: string;
   date: string;
   slug: string;
-  excerpt: string;
   categories: string[];
   tags: string[];
   cover: string;
@@ -39,7 +38,7 @@ export type WorkspaceChange =
       kind: "config";
       key: string;
       savedAt: number;
-      fileKey: "profile" | "categories" | "projects";
+      fileKey: "profile" | "categories";
       raw: string;
     }
   | {
@@ -210,8 +209,8 @@ function listWorkspaceChanges(baseUrl: string): WorkspaceChange[] {
 
     if (key.startsWith(CONFIG_DRAFT_PREFIX)) {
       if (!key.includes(baseUrl)) continue;
-      const fileKey = key.split(":").at(-1) as "profile" | "categories" | "projects" | undefined;
-      if (fileKey !== "profile" && fileKey !== "categories" && fileKey !== "projects") continue;
+      const fileKey = key.split(":").at(-1) as "profile" | "categories" | undefined;
+      if (fileKey !== "profile" && fileKey !== "categories") continue;
       const d = readConfigDraft(key);
       if (!d) continue;
       out.push({ kind: "config", key, savedAt: d.savedAt, fileKey, raw: d.raw });
@@ -451,9 +450,7 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
           if (args.updatedYmd !== date) fm.updated = args.updatedYmd;
           else delete fm.updated;
 
-          const excerpt = args.editor.excerpt.trim();
-          if (excerpt) fm.excerpt = excerpt;
-          else delete fm.excerpt;
+          delete fm.excerpt;
 
           const categories = normalizeIdList(args.editor.categories);
           if (categories.length) fm.categories = categories;
@@ -498,12 +495,7 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
           }
 
           if (c.kind === "config") {
-            const path =
-              c.fileKey === "profile"
-                ? "content/profile.json"
-                : c.fileKey === "projects"
-                  ? "content/projects.json"
-                  : "content/categories.yml";
+            const path = c.fileKey === "profile" ? "content/profile.json" : "content/categories.yml";
 
             if (c.fileKey === "categories") {
               const trimmed = c.raw.trim();
@@ -535,10 +527,6 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
             }
             if (c.fileKey === "profile" && (!parsed || typeof parsed !== "object" || Array.isArray(parsed))) {
               errors.push("config: profile must be a JSON object.");
-              continue;
-            }
-            if (c.fileKey === "projects" && !Array.isArray(parsed)) {
-              errors.push("config: projects must be a JSON array.");
               continue;
             }
             addFile({ path, encoding: "utf8", content: JSON.stringify(parsed, null, 2) + "\n" });
@@ -633,18 +621,32 @@ export function StudioWorkspaceProvider(props: { children: React.ReactNode }) {
     [studio.token, studio.me?.repo.headSha, commitMessage],
   );
 
-  const value: StudioWorkspaceState = {
-    changes,
-    stats,
-    publishing,
-    lastCommitUrl,
-    publishError,
-    refresh,
-    publishAll,
-    commitMessage: commitMessage.trim() || defaultCommitMessage(stats),
-    setCommitMessage,
-    clearCommitMessage: clearCommitMessageFn,
-  };
+  const value = React.useMemo<StudioWorkspaceState>(
+    () => ({
+      changes,
+      stats,
+      publishing,
+      lastCommitUrl,
+      publishError,
+      refresh,
+      publishAll,
+      commitMessage: commitMessage.trim() || defaultCommitMessage(stats),
+      setCommitMessage,
+      clearCommitMessage: clearCommitMessageFn,
+    }),
+    [
+      changes,
+      stats,
+      publishing,
+      lastCommitUrl,
+      publishError,
+      refresh,
+      publishAll,
+      commitMessage,
+      setCommitMessage,
+      clearCommitMessageFn,
+    ],
+  );
 
   return <StudioWorkspaceContext.Provider value={value}>{props.children}</StudioWorkspaceContext.Provider>;
 }

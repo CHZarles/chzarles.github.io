@@ -8,8 +8,9 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isLight ? "dark" : "light")}
-      className="inline-flex items-center justify-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2.5 text-[hsl(var(--fg))] transition hover:bg-[hsl(var(--card2))]"
+      className="inline-flex size-8 items-center justify-center text-[hsl(var(--fg))] transition hover:text-[hsl(var(--accent))]"
       aria-label="Toggle theme"
+      title="Toggle theme"
     >
       {isLight ? <Moon className="h-4 w-4 opacity-90" /> : <Sun className="h-4 w-4 opacity-90" />}
     </button>

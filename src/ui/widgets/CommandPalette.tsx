@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type CommandPaletteState = {
   open: () => void;
@@ -12,33 +13,27 @@ export function useCommandPalette(): CommandPaletteState {
   return ctx;
 }
 
-const CommandPaletteOverlayLazy = React.lazy(() =>
-  import("./CommandPaletteOverlay").then((m) => ({ default: m.CommandPaletteOverlay })),
-);
-
 export function CommandPaletteProvider(props: { children: React.ReactNode }) {
-  const [openKey, setOpenKey] = React.useState(0);
-  const [isOpen, setIsOpen] = React.useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const open = React.useCallback(() => {
-    setOpenKey((k) => k + 1);
-    setIsOpen(true);
-  }, []);
+    if (location.pathname === "/search") {
+      window.dispatchEvent(new CustomEvent("hb:focus-search"));
+      return;
+    }
+    navigate("/search");
+  }, [location.pathname, navigate]);
 
   return (
     <CommandPaletteContext.Provider value={{ open }}>
       {props.children}
-      {isOpen ? (
-        <React.Suspense fallback={null}>
-          <CommandPaletteOverlayLazy key={openKey} onClose={() => setIsOpen(false)} />
-        </React.Suspense>
-      ) : null}
-      <KeyBridge onOpen={open} onClose={() => setIsOpen(false)} />
+      <KeyBridge onOpen={open} />
     </CommandPaletteContext.Provider>
   );
 }
 
-function KeyBridge(props: { onOpen: () => void; onClose: () => void }) {
+function KeyBridge(props: { onOpen: () => void }) {
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
@@ -46,7 +41,6 @@ function KeyBridge(props: { onOpen: () => void; onClose: () => void }) {
         e.preventDefault();
         props.onOpen();
       }
-      if (e.key === "Escape") props.onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

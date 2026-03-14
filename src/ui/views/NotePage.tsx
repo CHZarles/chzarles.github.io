@@ -1,15 +1,36 @@
-import { Check, ChevronUp, Copy, Link2, Search, X } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Copy,
+  Facebook,
+  Hash,
+  Linkedin,
+  Link2,
+  Mail,
+  MessageCircle,
+  Pin,
+  Send,
+  X,
+} from "lucide-react";
 import React from "react";
 import ReactMarkdown from "react-markdown";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { api } from "../api/api";
-import { Reveal } from "../components/Reveal";
-import { ThemeToggle } from "../widgets/ThemeToggle";
-import { useCommandPalette } from "../widgets/CommandPalette";
+import {
+  getPostTransitionTitle,
+  getPostTitleTransitionName,
+  isPostTransitionState,
+  noteDetailTransitionState,
+  noteTitleTransitionName,
+  preparePostTransitionOnClick,
+} from "../navigation/transitions";
 import { normalizeMathDelimiters } from "../markdown/normalizeMathDelimiters";
 import type { Note, NoteListItem } from "../types";
 
@@ -39,30 +60,13 @@ function fmtMdDots(iso: string) {
   return s;
 }
 
-const MONTHS_EN = [
-  "JANUARY",
-  "FEBRUARY",
-  "MARCH",
-  "APRIL",
-  "MAY",
-  "JUNE",
-  "JULY",
-  "AUGUST",
-  "SEPTEMBER",
-  "OCTOBER",
-  "NOVEMBER",
-  "DECEMBER",
-];
-
-function fmtNazhaDate(iso: string): string {
+function fmtLongDate(iso: string): string {
   try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    const month = MONTHS_EN[d.getMonth()] ?? "";
-    const day = String(d.getDate()).padStart(2, "0");
-    const year = String(d.getFullYear());
-    if (!month) return fmtYmdDots(iso);
-    return `${month} ${day}, ${year}`;
+    const dt = new Date(`${fmtYmdDots(iso).replace(/\./g, "-")}T00:00:00Z`);
+    const day = new Intl.DateTimeFormat("en-GB", { day: "numeric", timeZone: "UTC" }).format(dt);
+    const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(dt);
+    const year = new Intl.DateTimeFormat("en-GB", { year: "numeric", timeZone: "UTC" }).format(dt);
+    return `${day} ${month}, ${year}`;
   } catch {
     return iso;
   }
@@ -156,6 +160,24 @@ async function tryCopy(text: string): Promise<boolean> {
   }
 }
 
+function BrandXIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M4 4l11.733 16h4.267l-11.733 -16z" />
+      <path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" />
+    </svg>
+  );
+}
+
+function BlueskyIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 11.5c-.87-1.69-3.24-4.84-5.44-6.4-2.1-1.48-2.89-1.24-3.42-1.01-.62.27-.72 1.17-.72 1.72 0 .55.3 4.52.5 5.18.65 2.19 2.97 2.93 5.1 2.69.11-.02.22-.03.33-.04-.11.01-.22.03-.33.04-3.13.47-5.91 1.61-2.26 5.67 4.01 4.15 5.5-.89 6.26-3.45.76 2.56 1.64 7.42 6.19 3.45 3.41-3.45.94-5.2-2.19-5.67-.11-.01-.22-.03-.33-.04.11.01.22.02.33.04 2.14.24 4.45-.5 5.1-2.69.2-.66.5-4.63.5-5.18 0-.55-.11-1.49-.72-1.77-.53-.24-1.33-.5-3.44.99-2.2 1.56-4.57 3.71-5.44 6.4Z" strokeWidth="1.815" />
+    </svg>
+  );
+}
+
 function CodeBlockCard(props: {
   code: string;
   lang?: string | null;
@@ -207,42 +229,57 @@ function CodeBlockCard(props: {
   );
 }
 
-function NoteLoadingSkeleton() {
+function NoteLoadingSkeleton(props: { transitionTitle?: string | null; titleTransitionName?: string | null }) {
+  const transitionTitle = props.transitionTitle?.trim() || "";
+  const titleTransitionName = props.titleTransitionName?.trim() || "none";
+
   return (
     <div className="grid gap-10">
       <div aria-hidden="true" className="fixed inset-x-0 top-0 z-50 h-[2px] hb-skel hb-skel-sheen" />
       <div className="min-w-0">
-        <header className="mx-auto max-w-[85ch] pt-10">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))] xl:hidden"
-          >
-            <span aria-hidden="true">↩</span>
-            <span>Index</span>
-          </Link>
+        <header className="pt-8">
+          {transitionTitle ? (
+            <>
+              <h1
+                className="inline-block text-2xl font-bold text-[hsl(var(--accent))] sm:text-3xl"
+                style={{ viewTransitionName: titleTransitionName }}
+              >
+                {transitionTitle}
+              </h1>
+              <div className="mb-6 mt-2 flex flex-wrap items-center gap-3 sm:gap-4">
+                <div className="flex items-center gap-2 opacity-80">
+                  <CalendarDays className="h-4 w-4 min-w-[1rem] opacity-40" />
+                  <div className="hb-skel h-4 w-24 rounded-full" />
+                </div>
+                <span className="text-[hsl(var(--muted))]">•</span>
+                <div className="hb-skel h-4 w-20 rounded-full" />
+              </div>
+              <div className="grid gap-2">
+                <div className="hb-skel h-4 w-[min(46rem,92%)] rounded-xl" />
+                <div className="hb-skel h-4 w-[min(40rem,84%)] rounded-xl" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid gap-3">
+                <div className="hb-skel hb-skel-sheen h-10 w-[min(32rem,92%)] rounded-2xl" />
+                <div className="hb-skel h-10 w-[min(24rem,78%)] rounded-2xl" />
+              </div>
+              <div className="mt-6 grid gap-2">
+                <div className="hb-skel h-4 w-[min(46rem,92%)] rounded-xl" />
+                <div className="hb-skel h-4 w-[min(40rem,84%)] rounded-xl" />
+              </div>
+            </>
+          )}
 
-          <div className="mt-8 grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-            <div className="grid gap-3">
-              <div className="hb-skel hb-skel-sheen h-10 w-[min(32rem,92%)] rounded-2xl" />
-              <div className="hb-skel h-10 w-[min(24rem,78%)] rounded-2xl" />
-            </div>
-            <div className="flex flex-col gap-2 md:items-end md:pb-1">
-              <div className="hb-skel h-3 w-44 rounded-full" />
-              <div className="hb-skel h-3 w-52 rounded-full opacity-80" />
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-2">
-            <div className="hb-skel h-4 w-[min(46rem,92%)] rounded-xl" />
-            <div className="hb-skel h-4 w-[min(40rem,84%)] rounded-xl" />
-          </div>
-
-          <div className="mt-10 flex justify-center" aria-hidden="true">
-            <div className="h-px w-64 bg-[var(--border-soft)]" />
+          <div className="mt-6">
+            <details className="pointer-events-none opacity-65">
+              <summary className="cursor-default text-xs font-medium tracking-wide text-[hsl(var(--muted))]">On this page</summary>
+            </details>
           </div>
         </header>
 
-        <div className="mx-auto mt-10 max-w-[85ch]">
+        <div className="mt-8">
           <div className="grid gap-4">
             {Array.from({ length: 10 }).map((_, idx) => (
               <div
@@ -294,10 +331,7 @@ function Lightbox(props: { src: string; alt?: string; onClose: () => void }) {
       className="fixed inset-0 z-[80] flex items-center justify-center bg-[color-mix(in_oklab,black_65%,transparent)] p-4"
       onClick={onClose}
     >
-      <div
-        className="relative w-full max-w-[1100px]"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="relative w-full max-w-[1100px]" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
           onClick={onClose}
@@ -308,18 +342,11 @@ function Lightbox(props: { src: string; alt?: string; onClose: () => void }) {
         </button>
 
         <div className="overflow-hidden rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[hsl(var(--bg))] shadow-[var(--shadow-float)]">
-          <img
-            src={src}
-            alt={alt ?? ""}
-            className="max-h-[84vh] w-full object-contain"
-            decoding="async"
-          />
+          <img src={src} alt={alt ?? ""} className="max-h-[84vh] w-full object-contain" decoding="async" />
         </div>
 
         {alt ? (
-          <div className="mt-3 text-center text-xs text-[color-mix(in_oklab,hsl(var(--fg))_60%,hsl(var(--muted)))]">
-            {alt}
-          </div>
+          <div className="mt-3 text-center text-xs text-[color-mix(in_oklab,hsl(var(--fg))_60%,hsl(var(--muted)))]">{alt}</div>
         ) : null}
       </div>
     </div>
@@ -328,14 +355,19 @@ function Lightbox(props: { src: string; alt?: string; onClose: () => void }) {
 
 export function NotePage() {
   const { noteId } = useParams();
+  const location = useLocation();
   const [note, setNote] = React.useState<Note | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [index, setIndex] = React.useState<NoteListItem[] | null>(null);
   const [lightbox, setLightbox] = React.useState<{ src: string; alt?: string } | null>(null);
   const [scrollProgress, setScrollProgress] = React.useState(0);
-  const [copiedPermalink, setCopiedPermalink] = React.useState(false);
   const [copiedAnchorId, setCopiedAnchorId] = React.useState<string | null>(null);
-  const { open } = useCommandPalette();
+  const [bodyVisible, setBodyVisible] = React.useState(true);
+  const isPostTransition = isPostTransitionState(location.state);
+
+  React.useLayoutEffect(() => {
+    setBodyVisible(!isPostTransition);
+  }, [isPostTransition, location.key, noteId]);
 
   React.useEffect(() => {
     if (!noteId) return;
@@ -357,6 +389,20 @@ export function NotePage() {
       cancelled = true;
     };
   }, [noteId]);
+
+  React.useEffect(() => {
+    if (!isPostTransition) {
+      setBodyVisible(true);
+      return;
+    }
+    if (!note) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setBodyVisible(true);
+    }, 118);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isPostTransition, location.key, note]);
 
   React.useEffect(() => {
     if (!noteId) return;
@@ -461,23 +507,11 @@ export function NotePage() {
     }
   }, []);
 
-  const copiedPermalinkTimerRef = React.useRef<number | null>(null);
   const copiedAnchorTimerRef = React.useRef<number | null>(null);
   React.useEffect(() => {
     return () => {
-      if (copiedPermalinkTimerRef.current) window.clearTimeout(copiedPermalinkTimerRef.current);
       if (copiedAnchorTimerRef.current) window.clearTimeout(copiedAnchorTimerRef.current);
     };
-  }, []);
-
-  const onCopyPermalink = React.useCallback(() => {
-    void (async () => {
-      const ok = await tryCopy(window.location.href);
-      if (!ok) return;
-      setCopiedPermalink(true);
-      if (copiedPermalinkTimerRef.current) window.clearTimeout(copiedPermalinkTimerRef.current);
-      copiedPermalinkTimerRef.current = window.setTimeout(() => setCopiedPermalink(false), 900);
-    })();
   }, []);
 
   const onCopyAnchor = React.useCallback((id: string) => {
@@ -586,13 +620,7 @@ export function NotePage() {
               onClick={() => setLightbox({ src, alt })}
               className="group block w-full overflow-hidden rounded-[var(--radius-card)] border border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] p-0 text-left transition hover:border-[color:var(--border-hover)] hover:bg-[var(--surface-muted-strong)]"
             >
-              <img
-                src={src}
-                alt={alt}
-                className="block h-auto w-full"
-                loading="lazy"
-                decoding="async"
-              />
+              <img src={src} alt={alt} className="block h-auto w-full" loading="lazy" decoding="async" />
             </button>
             {alt ? (
               <figcaption className="mt-3 text-center text-xs text-[color-mix(in_oklab,hsl(var(--fg))_58%,hsl(var(--muted)))]">
@@ -616,33 +644,6 @@ export function NotePage() {
     return { newer, older };
   }, [index, note]);
 
-  const related = React.useMemo(() => {
-    if (!note || !index) return [] as NoteListItem[];
-    const baseCats = new Set(note.categories);
-    const baseTags = new Set(note.tags);
-
-    const scored: Array<{ score: number; note: NoteListItem }> = [];
-    for (const n of index) {
-      if (n.id === note.id) continue;
-      let score = 0;
-      for (const c of n.categories) if (baseCats.has(c)) score += 2;
-      for (const t of n.tags) if (baseTags.has(t)) score += 1;
-      if (score > 0) scored.push({ score, note: n });
-    }
-
-    scored.sort((a, b) => (b.score !== a.score ? b.score - a.score : b.note.updated.localeCompare(a.note.updated)));
-    const out = scored.slice(0, 4).map((s) => s.note);
-    if (out.length < 4) {
-      for (const n of index) {
-        if (out.length >= 4) break;
-        if (n.id === note.id) continue;
-        if (out.some((x) => x.id === n.id)) continue;
-        out.push(n);
-      }
-    }
-    return out;
-  }, [index, note]);
-
   if (error) {
     return (
       <div className="card p-8 text-sm text-[hsl(var(--muted))]">
@@ -662,20 +663,97 @@ export function NotePage() {
   }
 
   if (!note) {
-    return <NoteLoadingSkeleton />;
+    return (
+      <NoteLoadingSkeleton
+        transitionTitle={getPostTransitionTitle(location.state)}
+        titleTransitionName={getPostTitleTransitionName(location.state) ?? (noteId ? noteTitleTransitionName(noteId) : null)}
+      />
+    );
   }
 
   const markdown = normalizeMathDelimiters(note.content);
+  const titleTransitionName = getPostTitleTransitionName(location.state) ?? noteTitleTransitionName(note.id);
   const publishedKey = fmtYmdDots(note.date);
   const updatedKey = fmtYmdDots(note.updated);
-  const published = fmtNazhaDate(note.date);
-  const updated = fmtNazhaDate(note.updated);
+  const published = fmtLongDate(note.date);
+  const updated = fmtLongDate(note.updated);
   const readMinutes = estimateReadMinutes(note.content);
-  const metaPrimary = `${published} · ${readMinutes} MIN`;
-  const metaSecondary = updatedKey !== publishedKey ? `LAST UPDATE · ${updated}` : null;
+  const metaSecondary = updatedKey !== publishedKey ? `Updated ${updated}` : null;
+  const canonicalUrl = typeof window !== "undefined" ? `${window.location.origin}${location.pathname}` : location.pathname;
+  const encodedUrl = encodeURIComponent(canonicalUrl);
+  const encodedTitle = encodeURIComponent(note.title);
+  const categoryLinks = note.categories.slice(0, 12);
+  const shareLinks = [
+    {
+      label: "X",
+      href: `https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
+      title: "Share this post on X",
+      icon: <BrandXIcon className="size-full fill-transparent stroke-current" />,
+    },
+    {
+      label: "BlueSky",
+      href: `https://bsky.app/intent/compose?text=${encodeURIComponent(`${note.title} ${canonicalUrl}`)}`,
+      title: "Share this post on BlueSky",
+      icon: <BlueskyIcon className="size-full fill-transparent stroke-current" />,
+    },
+    {
+      label: "LinkedIn",
+      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      title: "Share this post on LinkedIn",
+      icon: <Linkedin className="size-full stroke-[2px]" />,
+    },
+    {
+      label: "WhatsApp",
+      href: `https://wa.me/?text=${encodeURIComponent(`${note.title} ${canonicalUrl}`)}`,
+      title: "Share this post via WhatsApp",
+      icon: <MessageCircle className="size-full stroke-[2px]" />,
+    },
+    {
+      label: "Facebook",
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      title: "Share this post on Facebook",
+      icon: <Facebook className="size-full stroke-[2px]" />,
+    },
+    {
+      label: "Telegram",
+      href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
+      title: "Share this post via Telegram",
+      icon: <Send className="size-full stroke-[2px]" />,
+    },
+    {
+      label: "Pinterest",
+      href: `https://pinterest.com/pin/create/button/?url=${encodedUrl}&description=${encodedTitle}`,
+      title: "Share this post on Pinterest",
+      icon: <Pin className="size-full stroke-[2px]" />,
+    },
+    {
+      label: "Email",
+      href: `mailto:?subject=${encodedTitle}&body=${encodeURIComponent(`${note.title}\n\n${canonicalUrl}`)}`,
+      title: "Share this post via email",
+      icon: <Mail className="size-full stroke-[2px]" />,
+    },
+  ];
 
   return (
     <div className="grid gap-10">
+      <style>{`
+        ::view-transition-group(${titleTransitionName}) {
+          animation-duration: var(--motion-enter-duration);
+          animation-timing-function: var(--motion-standard-ease);
+        }
+        ::view-transition-old(${titleTransitionName}),
+        ::view-transition-new(${titleTransitionName}) {
+          animation-duration: var(--motion-enter-duration);
+          animation-timing-function: var(--motion-standard-ease);
+          animation-fill-mode: both;
+        }
+        ::view-transition-old(${titleTransitionName}) {
+          animation-name: hb-view-fade-out;
+        }
+        ::view-transition-new(${titleTransitionName}) {
+          animation-name: hb-view-fade-in;
+        }
+      `}</style>
       <div aria-hidden="true" className="fixed inset-x-0 top-0 z-50 h-[2px] bg-[color-mix(in_oklab,hsl(var(--border))_40%,transparent)]">
         <div
           className="h-full bg-[color-mix(in_oklab,hsl(var(--accent))_70%,transparent)]"
@@ -683,235 +761,41 @@ export function NotePage() {
         />
       </div>
       {lightbox ? <Lightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} /> : null}
-      <Reveal key={note.id} yPx={8}>
-        <div className="min-w-0">
-          <header className="mx-auto max-w-[85ch] pt-10">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))] xl:hidden"
-            >
-              <span aria-hidden="true">↩</span>
-              <span>Index</span>
-            </Link>
-            <div className="mt-8 grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-              <h1 className="text-balance font-display text-[clamp(1.95rem,3.2vw,2.65rem)] font-semibold leading-[1.06] tracking-[var(--tracking-tight)]">
-                {note.title}
-              </h1>
-              <div className="flex flex-col gap-2 font-mono text-[10px] font-semibold leading-[1.35] tracking-[0.22em] text-[color-mix(in_oklab,hsl(var(--fg))_55%,hsl(var(--muted)))] md:pb-1 md:text-right">
-                <time dateTime={note.date} className="tabular-nums uppercase">
-                  {metaPrimary}
-                </time>
-                {metaSecondary ? (
-                  <div className="tabular-nums uppercase text-[color-mix(in_oklab,hsl(var(--fg))_45%,hsl(var(--muted)))]">
-                    {metaSecondary}
-                  </div>
-                ) : null}
+      <div className="min-w-0">
+        <header className="pt-8">
+          <h1 className="inline-block text-2xl font-bold text-[hsl(var(--accent))] sm:text-3xl" style={{ viewTransitionName: titleTransitionName }}>
+            {note.title}
+          </h1>
+
+          <div className="mb-6 mt-2 flex flex-wrap items-center gap-3 sm:gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 opacity-80">
+                <CalendarDays className="h-4 w-4 min-w-[1rem]" />
+                <span className="text-sm italic sm:text-base">{published}</span>
               </div>
+              <span className="text-[hsl(var(--muted))]">•</span>
+              <span className="text-sm text-[color-mix(in_oklab,hsl(var(--fg))_60%,hsl(var(--muted)))]">{readMinutes} min read</span>
+              {metaSecondary ? (
+                <span className="text-sm text-[color-mix(in_oklab,hsl(var(--fg))_52%,hsl(var(--muted)))]">{metaSecondary}</span>
+              ) : null}
             </div>
-            {note.excerpt ? (
-              <p className="mt-6 text-base leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_76%,hsl(var(--muted)))] md:text-lg">
-                {note.excerpt}
-              </p>
-            ) : null}
-
-            {toc.items.length ? (
-              <details ref={tocDetailsRef} className="mt-8 xl:hidden">
-                <summary className="cursor-pointer text-xs font-medium tracking-wide text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]">
-                  On this page
-                </summary>
-                <nav className="mt-3 border-l border-[color:var(--border-soft)] pl-3">
-                  {toc.items.map((t) => (
-                    <a
-                      key={t.id}
-                      href={`#${t.id}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        scrollToId(t.id);
-                        if (tocDetailsRef.current) tocDetailsRef.current.open = false;
-                      }}
-                      className={[
-                        "block rounded-lg px-2 py-1.5 text-sm transition",
-                        activeHeadingId === t.id
-                          ? "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)] text-[hsl(var(--fg))]"
-                          : "text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]",
-                      ].join(" ")}
-                      style={{ marginLeft: `${Math.max(0, t.depth - toc.baseDepth) * 10}px` }}
-                    >
-                      {t.text}
-                    </a>
-                  ))}
-                </nav>
-              </details>
-            ) : null}
-
-            <div className="mt-10 flex justify-center" aria-hidden="true">
-              <div className="h-px w-64 bg-[var(--border-soft)]" />
-            </div>
-          </header>
-
-          <div ref={contentRef} className="mx-auto mt-10 max-w-[85ch]">
-            <div className="prose max-w-none text-[16px] leading-[1.85] md:text-[17px] prose-headings:font-display prose-headings:font-semibold prose-headings:text-balance prose-headings:tracking-[var(--tracking-tight)] prose-headings:leading-[1.15] prose-h1:text-2xl md:prose-h1:text-3xl prose-h2:text-xl md:prose-h2:text-2xl prose-h2:mt-14 prose-h3:text-lg md:prose-h3:text-xl prose-h3:mt-10 prose-p:leading-[1.85]">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeKatex, [rehypeHighlight, { detect: false }]]}
-                components={markdownComponents}
-              >
-                {markdown}
-              </ReactMarkdown>
-            </div>
-
-            {note.tags.length ? (
-              <section className="mt-14">
-                <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
-                  META
-                </div>
-                <div className="mt-4 grid gap-3 text-sm leading-relaxed text-[hsl(var(--muted))]">
-                  {note.tags.length ? (
-                    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-4">
-                      <div className="pt-0.5 text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)]">
-                        TAGS
-                      </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-2">
-                        {note.tags.slice(0, 12).map((t) => (
-                          <span key={t} className="text-[color-mix(in_oklab,hsl(var(--fg))_58%,hsl(var(--muted)))]">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </section>
-            ) : null}
-
-            <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--border-soft)] pt-7">
-              <div className="text-xs font-medium tracking-wide text-[hsl(var(--muted))]">Permalink</div>
-              <button
-                type="button"
-                onClick={onCopyPermalink}
-                className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-soft)] bg-transparent px-4 py-2 text-sm text-[hsl(var(--fg))] transition hover:bg-[var(--surface-muted-weak)]"
-              >
-                {copiedPermalink ? <Check className="h-4 w-4 opacity-85" /> : <Link2 className="h-4 w-4 opacity-75" />}
-                {copiedPermalink ? "Copied" : "Copy link"}
-              </button>
-            </div>
-
-            {nav?.newer || nav?.older ? (
-              <section className="mt-10 grid gap-6 md:grid-cols-2">
-                {nav.newer ? (
-                  <Link
-                    to={`/notes/${nav.newer.id}`}
-                    onMouseEnter={() => api.prefetchNote(nav.newer!.id)}
-                    onFocus={() => api.prefetchNote(nav.newer!.id)}
-                    className="group -mx-2 rounded-xl px-2 py-3 transition hover:bg-[var(--surface-muted-weak)]"
-                  >
-                    <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
-                      NEWER
-                    </div>
-                    <div className="mt-2 font-serif text-lg font-semibold tracking-tight text-[hsl(var(--fg))]">
-                      {nav.newer.title}
-                    </div>
-                    <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-[hsl(var(--muted))]">
-                      {nav.newer.excerpt}
-                    </div>
-                  </Link>
-                ) : (
-                  <div />
-                )}
-                {nav.older ? (
-                  <Link
-                    to={`/notes/${nav.older.id}`}
-                    onMouseEnter={() => api.prefetchNote(nav.older!.id)}
-                    onFocus={() => api.prefetchNote(nav.older!.id)}
-                    className="group -mx-2 rounded-xl px-2 py-3 transition hover:bg-[var(--surface-muted-weak)]"
-                  >
-                    <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
-                      OLDER
-                    </div>
-                    <div className="mt-2 font-serif text-lg font-semibold tracking-tight text-[hsl(var(--fg))]">
-                      {nav.older.title}
-                    </div>
-                    <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-[hsl(var(--muted))]">
-                      {nav.older.excerpt}
-                    </div>
-                  </Link>
-                ) : (
-                  <div />
-                )}
-              </section>
-            ) : null}
-
-            {related.length ? (
-              <section className="mt-12">
-                <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
-                  CONTINUE
-                </div>
-                <div className="mt-4 divide-y divide-[color:var(--border-soft)]">
-                  {related.map((n) => (
-                    <Link
-                      key={n.id}
-                      to={`/notes/${n.id}`}
-                      onMouseEnter={() => api.prefetchNote(n.id)}
-                      onFocus={() => api.prefetchNote(n.id)}
-                      className="group -mx-1 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 rounded-xl px-1 py-3.5 transition hover:bg-[var(--surface-muted-weak)]"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-serif text-sm font-semibold tracking-tight text-[hsl(var(--fg))] md:text-base">
-                          {n.title}
-                        </div>
-                        <div className="mt-1 line-clamp-1 text-xs text-[hsl(var(--muted))]">{n.excerpt}</div>
-                      </div>
-                      <div className="shrink-0 font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
-                        {fmtMdDots(n.updated)}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-          </div>
-        </div>
-
-      </Reveal>
-
-      <aside className="hidden xl:block">
-        <div className="fixed right-7 top-24 w-[260px]">
-          <div className="flex items-center gap-2">
-            <Link
-              to="/"
-              aria-label="Index"
-              title="Index"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
-            >
-              <span aria-hidden="true">↩</span>
+            <Link to="/notes" className="text-sm text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]">
+              Notes
             </Link>
-            <button
-              type="button"
-              onClick={open}
-              aria-label="Search"
-              title="Search"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
-            >
-              <Search className="h-4 w-4 opacity-85" />
-            </button>
-            <button
-              type="button"
-              onClick={onCopyPermalink}
-              aria-label={copiedPermalink ? "Copied" : "Copy permalink"}
-              title={copiedPermalink ? "Copied" : "Copy link"}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
-            >
-              {copiedPermalink ? <Check className="h-4 w-4 opacity-85" /> : <Link2 className="h-4 w-4 opacity-85" />}
-            </button>
-            <ThemeToggle />
           </div>
+
+          {note.excerpt ? (
+            <p className="text-base leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_76%,hsl(var(--muted)))] md:text-lg">
+              {note.excerpt}
+            </p>
+          ) : null}
 
           {toc.items.length ? (
-            <div className="mt-5 border-l border-[color:var(--border-soft)] pl-4">
-              <div className="text-[var(--text-kicker)] font-semibold tracking-[var(--tracking-kicker)] text-[hsl(var(--muted))]">
-                ON THIS PAGE
-              </div>
-              <nav className="mt-4 max-h-[calc(100vh-240px)] overflow-auto pr-2 [-webkit-overflow-scrolling:touch]">
+            <details ref={tocDetailsRef} className="mt-6">
+              <summary className="cursor-pointer text-xs font-medium tracking-wide text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]">
+                On this page
+              </summary>
+              <nav className="mt-3 border-l border-[color:var(--border-soft)] pl-3">
                 {toc.items.map((t) => (
                   <a
                     key={t.id}
@@ -919,35 +803,145 @@ export function NotePage() {
                     onClick={(e) => {
                       e.preventDefault();
                       scrollToId(t.id);
+                      if (tocDetailsRef.current) tocDetailsRef.current.open = false;
                     }}
                     className={[
-                      "relative block rounded-lg py-1.5 pl-3 pr-2 text-[13px] leading-snug transition",
-                      "before:absolute before:left-[0.5px] before:top-[0.85em] before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full before:border before:border-[color:var(--border-soft)] before:bg-[hsl(var(--bg))]",
+                      "block rounded-lg px-2 py-1.5 text-sm transition",
                       activeHeadingId === t.id
-                        ? "text-[hsl(var(--fg))] before:border-[hsl(var(--accent))] before:bg-[hsl(var(--accent))]"
-                        : "text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))] hover:before:border-[color:var(--border-hover)]",
+                        ? "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,transparent)] text-[hsl(var(--fg))]"
+                        : "text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]",
                     ].join(" ")}
-                    style={{ marginLeft: `${Math.max(0, t.depth - toc.baseDepth) * 8}px` }}
+                    style={{ marginLeft: `${Math.max(0, t.depth - toc.baseDepth) * 10}px` }}
                   >
                     {t.text}
                   </a>
                 ))}
               </nav>
-            </div>
+            </details>
           ) : null}
+        </header>
 
-          {scrollProgress > 0.1 ? (
-            <button
-              type="button"
-              onClick={onScrollTop}
-              className="mt-4 inline-flex items-center gap-2 text-xs font-medium tracking-wide text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+        <div
+          ref={contentRef}
+          className="mt-8"
+          style={
+            isPostTransition
+              ? {
+                  opacity: bodyVisible ? 1 : 0,
+                  transform: bodyVisible ? "translateY(0)" : "translateY(6px)",
+                  transition:
+                    "opacity var(--motion-enter-duration) var(--motion-standard-ease), transform var(--motion-enter-duration) var(--motion-standard-ease)",
+                }
+              : undefined
+          }
+        >
+          <div className="prose max-w-none text-[16px] leading-[1.85] md:text-[17px] prose-headings:font-display prose-headings:font-semibold prose-headings:text-balance prose-headings:tracking-[var(--tracking-tight)] prose-headings:leading-[1.15] prose-h1:text-2xl md:prose-h1:text-3xl prose-h2:text-xl md:prose-h2:text-2xl prose-h2:mt-14 prose-h3:text-lg md:prose-h3:text-xl prose-h3:mt-10 prose-p:leading-[1.85]">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex, [rehypeHighlight, { detect: false }]]}
+              components={markdownComponents}
             >
-              <ChevronUp className="h-4 w-4 opacity-80" />
-              Top
-            </button>
-          ) : null}
+              {markdown}
+            </ReactMarkdown>
+          </div>
+
+          <footer className="mt-14">
+            {categoryLinks.length ? (
+              <ul className="mt-4 mb-8 sm:my-8">
+                {categoryLinks.map((category) => (
+                  <li key={category} className="group inline-block group-hover:cursor-pointer my-1 underline-offset-4">
+                    <Link
+                      to={`/search?category=${encodeURIComponent(category)}`}
+                      className="relative inline-flex items-center gap-1 pr-2 text-lg underline decoration-dashed transition group-hover:-top-0.5 group-hover:text-[hsl(var(--accent))] focus-visible:p-1"
+                    >
+                      <Hash className="size-4 shrink-0 opacity-80" />
+                      <span>{category}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            <div className={[categoryLinks.length ? "" : "mt-4 ", "flex flex-col items-center justify-between gap-6 sm:flex-row sm:items-end sm:gap-4"].join("")}>
+              <div className="flex flex-col flex-wrap items-center justify-center gap-2 sm:gap-1 sm:items-start">
+                <span className="italic">Share this post on:</span>
+                <div className="flex flex-wrap gap-1 text-center">
+                  {shareLinks.map((share) => (
+                    <a
+                      key={share.label}
+                      href={share.href}
+                      target={share.href.startsWith("mailto:") ? undefined : "_blank"}
+                      rel={share.href.startsWith("mailto:") ? undefined : "noreferrer"}
+                      className="group inline-block p-3 transition hover:rotate-6 hover:text-[hsl(var(--accent))] sm:p-2"
+                      title={share.title}
+                    >
+                      <span className="inline-flex size-8 items-center justify-center opacity-90 sm:size-6">{share.icon}</span>
+                      <span className="sr-only">{share.title}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={onScrollTop}
+                className="inline-flex items-center gap-1 whitespace-nowrap py-1 transition hover:opacity-75"
+              >
+                <ChevronLeft className="inline-block rotate-90" />
+                <span>Back to Top</span>
+              </button>
+            </div>
+
+            {nav?.newer || nav?.older ? (
+              <>
+                <hr className="my-6 border-dashed border-[color:var(--border-soft)]" />
+                <section className="flex flex-col justify-between gap-6 sm:flex-row">
+                  {nav.newer ? (
+                    <Link
+                      to={`/notes/${nav.newer.id}`}
+                      state={noteDetailTransitionState(nav.newer.id, { title: nav.newer.title })}
+                      viewTransition
+                      onClickCapture={preparePostTransitionOnClick}
+                      onMouseEnter={() => api.prefetchNote(nav.newer!.id)}
+                      onFocus={() => api.prefetchNote(nav.newer!.id)}
+                      className="flex items-start gap-2 transition hover:opacity-75"
+                    >
+                      <ChevronLeft className="mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="block text-sm text-[color-mix(in_oklab,hsl(var(--fg))_70%,hsl(var(--muted)))]">Previous Post</span>
+                        <div className="text-[color-mix(in_oklab,hsl(var(--accent))_85%,hsl(var(--fg)))]">
+                          <span style={{ viewTransitionName: `note-title-${nav.newer.id}` }}>{nav.newer.title}</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ) : null}
+                  {nav.older ? (
+                    <Link
+                      to={`/notes/${nav.older.id}`}
+                      state={noteDetailTransitionState(nav.older.id, { title: nav.older.title })}
+                      viewTransition
+                      onClickCapture={preparePostTransitionOnClick}
+                      onMouseEnter={() => api.prefetchNote(nav.older!.id)}
+                      onFocus={() => api.prefetchNote(nav.older!.id)}
+                      className="ml-auto flex items-start justify-end gap-2 text-right transition hover:opacity-75"
+                    >
+                      <div className="min-w-0">
+                        <span className="block text-sm text-[color-mix(in_oklab,hsl(var(--fg))_70%,hsl(var(--muted)))]">Next Post</span>
+                        <div className="text-[color-mix(in_oklab,hsl(var(--accent))_85%,hsl(var(--fg)))]">
+                          <span style={{ viewTransitionName: `note-title-${nav.older.id}` }}>{nav.older.title}</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="mt-0.5 shrink-0" />
+                    </Link>
+                  ) : null}
+                </section>
+              </>
+            ) : (
+              <hr className="my-6 border-dashed border-[color:var(--border-soft)]" />
+            )}
+          </footer>
         </div>
-      </aside>
+      </div>
     </div>
   );
 }

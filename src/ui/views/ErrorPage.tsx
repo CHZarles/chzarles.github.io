@@ -38,7 +38,7 @@ export function ErrorPage() {
   const showStack = Boolean(import.meta.env.DEV && stack);
 
   return (
-    <div className="card p-10">
+    <div className="hb-route-stage card p-10">
       <div className="text-sm text-[hsl(var(--muted))]">Error</div>
       <div className="mt-2 text-2xl font-semibold tracking-tight">{title}</div>
       <p className="mt-3 text-sm text-[color-mix(in_oklab,hsl(var(--fg))_72%,hsl(var(--muted)))]">{message}</p>
@@ -69,4 +69,3 @@ export function ErrorPage() {
     </div>
   );
 }
-

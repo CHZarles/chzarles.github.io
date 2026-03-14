@@ -9,7 +9,7 @@ import { useStudioState } from "../state/StudioState";
 import { emitWorkspaceChanged } from "../state/StudioWorkspace";
 import { formatStudioError } from "../util/errors";
 
-type FileKey = "profile" | "categories" | "projects";
+type FileKey = "profile" | "categories";
 type FileMode = "json" | "yaml";
 
 type FileInfo = {
@@ -37,14 +37,6 @@ const FILES: FileInfo[] = [
     contentPath: "content/categories.yml",
     getPath: "/api/admin/categories",
     putPath: "/api/admin/categories",
-  },
-  {
-    key: "projects",
-    label: "Projects",
-    mode: "json",
-    contentPath: "content/projects.json",
-    getPath: "/api/admin/projects",
-    putPath: "/api/admin/projects",
   },
 ];
 
@@ -194,7 +186,7 @@ export function StudioConfigPage() {
 
   const [searchParams] = useSearchParams();
   const initial = searchParams.get("file");
-  const initialKey = (initial === "profile" || initial === "categories" || initial === "projects" ? initial : null) as FileKey | null;
+  const initialKey = (initial === "profile" || initial === "categories" ? initial : null) as FileKey | null;
   const initialActive = initialKey ?? "profile";
   const [active, setActive] = React.useState<FileKey>(initialActive);
   const file = React.useMemo(() => FILES.find((f) => f.key === active)!, [active]);
@@ -276,6 +268,7 @@ export function StudioConfigPage() {
   const saveLocal = React.useCallback(
     (opts?: { quiet?: boolean }): boolean => {
       const fileKey = activeRef.current;
+      const existing = readConfigDraft(fileKey);
       const out = writeConfigDraft(fileKey, { raw });
       if (!out.ok) {
         setNotice(out.error);
@@ -283,7 +276,7 @@ export function StudioConfigPage() {
       }
       setLocalSavedAt(out.savedAt);
       setDirty(false);
-      emitWorkspaceChanged();
+      if (!opts?.quiet || !existing) emitWorkspaceChanged();
       if (!opts?.quiet) setNotice("Saved locally.");
       return true;
     },

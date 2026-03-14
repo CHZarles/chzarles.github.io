@@ -99,10 +99,13 @@ export function StudioStateProvider(props: { children: React.ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  const value = React.useMemo(
+    () => ({ token, me, meError, syncNonce, login, logout, refreshMe, forceSync }),
+    [token, me, meError, syncNonce, login, logout, refreshMe, forceSync],
+  );
+
   return (
-    <StudioStateContext.Provider value={{ token, me, meError, syncNonce, login, logout, refreshMe, forceSync }}>
-      {props.children}
-    </StudioStateContext.Provider>
+    <StudioStateContext.Provider value={value}>{props.children}</StudioStateContext.Provider>
   );
 }
 

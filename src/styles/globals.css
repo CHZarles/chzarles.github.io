@@ -28,35 +28,39 @@
     "MiSans VF", "HarmonyOS Sans SC", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC",
     "Source Han Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", ui-serif, Georgia, Cambria, "Times New Roman",
     serif;
-  --font-mono: "JetBrains Mono", "Cascadia Mono", "Cascadia Code", "Fira Code", ui-monospace, SFMono-Regular, Menlo,
-    Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", "Cascadia Code", "Fira Code", "Sarasa Mono SC",
+    "Noto Sans Mono CJK SC", "LXGW WenKai Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 
-  --text-base: 15px;
-  --text-sm: 13px;
-  --text-xs: 11px;
+  --text-base: 16px;
+  --text-sm: 14px;
+  --text-xs: 12px;
   --text-kicker: 10px;
   --leading-base: 1.75;
   --leading-tight: 1.12;
   --tracking-tight: -0.015em;
   --tracking-wide: 0.18em;
   --tracking-kicker: 0.22em;
+  --motion-enter-duration: 180ms;
+  --motion-enter-distance: 0px;
+  --motion-standard-ease: cubic-bezier(0.76, 0, 0.24, 1);
 
-  /* Editorial / paper theme */
-  --bg: 42 33% 98%;
-  --fg: 240 12% 10%;
-  --muted: 240 5% 42%;
+  /* Clean editorial theme */
+  --bg: 0 0% 99%;
+  --fg: 20 3% 16%;
+  --muted: 218 8% 43%;
   --card: 0 0% 100%;
-  --card2: 240 9% 96%;
-  --border: 240 8% 88%;
-  --accent: 270 85% 45%;
+  --card2: 0 0% 98%;
+  --border: 20 9% 92%;
+  --accent: 202 100% 33.7%;
 
-  --radius-card: 16px;
+  --radius-card: 12px;
   --radius-control: 999px;
-  --border-soft: color-mix(in oklab, hsl(var(--border)) 72%, transparent);
-  --border-hover: color-mix(in oklab, hsl(var(--accent)) 22%, hsl(var(--border)));
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.38) inset, 0 18px 50px rgba(0, 0, 0, 0.06);
-  --shadow-float: 0 26px 90px rgba(0, 0, 0, 0.24);
-  --bg-grad-to: color-mix(in oklab, hsl(var(--bg)) 92%, white);
+  --border-soft: color-mix(in oklab, hsl(var(--border)) 92%, transparent);
+  --border-hover: color-mix(in oklab, hsl(var(--accent)) 14%, hsl(var(--border)));
+  --shadow-card: 0 0 0 rgba(0, 0, 0, 0);
+  --shadow-float: 0 0 0 rgba(0, 0, 0, 0);
+  --bg-grad-to: hsl(var(--bg));
   --surface-glass: color-mix(in oklab, hsl(var(--card)) 72%, transparent);
   --surface-muted: color-mix(in oklab, hsl(var(--card2)) 60%, transparent);
   --surface-muted-strong: color-mix(in oklab, hsl(var(--card2)) 76%, transparent);
@@ -81,13 +85,13 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: 240 10% 7%;
-  --fg: 0 0% 98%;
-  --muted: 240 6% 67%;
-  --card: 240 7% 11%;
-  --card2: 240 7% 13%;
-  --border: 240 8% 22%;
-  --accent: 270 95% 65%;
+  --bg: 223 24% 17%;
+  --fg: 220 24% 94%;
+  --muted: 221 9% 70%;
+  --card: 223 23% 19%;
+  --card2: 223 22% 21%;
+  --border: 23 92% 36%;
+  --accent: 26 100% 50%;
 
   --hero-fg: 240 12% 10%;
   --hero-muted: 240 8% 22%;
@@ -127,7 +131,7 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-base);
-  background: linear-gradient(180deg, hsl(var(--bg)), var(--bg-grad-to));
+  background: hsl(var(--bg));
   color: hsl(var(--fg));
   font-kerning: normal;
   text-rendering: optimizeLegibility;
@@ -141,13 +145,75 @@ html[data-hb-mounted="0"] #root {
 
 html[data-hb-mounted="1"] #root {
   opacity: 1;
-  transition: opacity 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity var(--motion-enter-duration) var(--motion-standard-ease);
 }
 
 @media (prefers-reduced-motion: reduce) {
   html[data-hb-mounted] #root {
     opacity: 1;
     transition: none;
+  }
+}
+
+@keyframes hb-route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-enter-distance));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hb-route-stage {
+  animation: hb-route-enter var(--motion-enter-duration) var(--motion-standard-ease);
+  animation-fill-mode: both;
+  will-change: opacity, transform;
+}
+
+@keyframes hb-view-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes hb-view-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-enter-duration);
+  animation-timing-function: var(--motion-standard-ease);
+  animation-fill-mode: both;
+}
+
+::view-transition-old(root) {
+  animation-name: hb-view-fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: hb-view-fade-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-route-stage {
+    animation: none;
+    will-change: auto;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
   }
 }
 
@@ -193,20 +259,8 @@ html[data-hb-mounted="1"] #root {
 }
 
 .container {
-  width: min(980px, calc(100% - 36px));
+  width: min(100%, calc(100% - 2rem));
   margin-inline: auto;
-}
-
-@media (min-width: 1280px) {
-  .container {
-    width: min(1100px, calc(100% - 56px));
-  }
-}
-
-@media (min-width: 1536px) {
-  .container {
-    width: min(1180px, calc(100% - 64px));
-  }
 }
 
 .card {
@@ -241,6 +295,21 @@ html[data-hb-mounted="1"] #root {
     0.012em 0 currentColor,
     -0.012em 0 currentColor,
     0 0.008em currentColor;
+}
+
+.hero-stele-title {
+  display: inline-block;
+  font-family: "Noto Serif SC", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", var(--font-serif);
+  font-weight: 900;
+  line-height: 0.88;
+  letter-spacing: 0.14em;
+  font-feature-settings: "palt" 1;
+  white-space: nowrap;
+  text-rendering: geometricPrecision;
+  transform: translateY(-0.01em) scale(1.02, 0.98);
+  text-shadow:
+    0 1px 0 color-mix(in oklab, currentColor 16%, transparent),
+    0 14px 38px color-mix(in oklab, hsl(var(--fg)) 10%, transparent);
 }
 
 .hero-seal-title {
@@ -286,8 +355,9 @@ html[data-hb-mounted="1"] #root {
 }
 
 .hero-essay-pattern {
-  font-family: "HeroBackdropClerical", var(--font-serif);
-  font-weight: 400;
+  font-family: "Noto Serif SC", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", var(--font-serif);
+  font-weight: 500;
+  letter-spacing: 0.02em;
   font-feature-settings: "palt" 1;
   text-rendering: geometricPrecision;
 }
@@ -358,7 +428,17 @@ html[data-hb-mounted="1"] #root {
 .prose .katex-display {
   overflow-x: auto;
   overflow-y: hidden;
+  max-width: 100%;
   padding: 0.25rem 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .hljs {

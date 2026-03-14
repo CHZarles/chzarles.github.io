@@ -42,7 +42,6 @@ function subtitleForChange(c: WorkspaceChange): string {
   if (c.kind === "note") return c.noteId ? `content/notes/${c.noteId}.md` : "New note draft";
   if (c.kind === "config") {
     if (c.fileKey === "profile") return "content/profile.json";
-    if (c.fileKey === "projects") return "content/projects.json";
     return "content/categories.yml";
   }
   return c.uploads.length || c.deletes.length ? "public/uploads/*" : "No staged asset changes";
@@ -152,9 +151,7 @@ function renderNoteMarkdown(args: { baseMarkdown: string | null; editor: any; up
   if (args.updatedYmd !== date) fm.updated = args.updatedYmd;
   else delete fm.updated;
 
-  const excerpt = String(args.editor.excerpt ?? "").trim();
-  if (excerpt) fm.excerpt = excerpt;
-  else delete fm.excerpt;
+  delete fm.excerpt;
 
   const categories = normalizeIdList(Array.isArray(args.editor.categories) ? args.editor.categories : []);
   if (categories.length) fm.categories = categories;
@@ -270,12 +267,7 @@ async function readRemoteOldText(args: { change: WorkspaceChange; token: string 
 
   if (c.kind === "config") {
     const res = await publisherFetchJson<{ file: { raw: string } }>({
-      path:
-        c.fileKey === "profile"
-          ? "/api/admin/config/profile"
-          : c.fileKey === "projects"
-            ? "/api/admin/config/projects"
-            : "/api/admin/config/categories",
+      path: c.fileKey === "profile" ? "/api/admin/config/profile" : "/api/admin/config/categories",
       token: args.token,
     });
     return typeof res.file?.raw === "string" ? res.file.raw : "";
@@ -300,12 +292,34 @@ async function readRemoteOldText(args: { change: WorkspaceChange; token: string 
   return "";
 }
 
-async function createUnifiedDiff(args: { name: string; oldText: string; newText: string }): Promise<string> {
-  const mod = await import("diff");
-  const patch = mod.createTwoFilesPatch(`a/${args.name}`, `b/${args.name}`, args.oldText ?? "", args.newText ?? "", "", "", {
-    context: 3,
-  });
-  return patch.trimEnd() + "\n";
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatSigned(value: number, unit: string): string {
+  if (!Number.isFinite(value) || value === 0) return `0 ${unit}`;
+  return `${value > 0 ? "+" : ""}${value} ${unit}`;
+}
+
+function summarizeText(text: string): { lines: number; nonEmptyLines: number; chars: number; bytes: number } {
+  const normalized = text ?? "";
+  if (!normalized) return { lines: 0, nonEmptyLines: 0, chars: 0, bytes: 0 };
+  const lines = normalized.split(/\r?\n/);
+  let bytes = normalized.length;
+  try {
+    bytes = new TextEncoder().encode(normalized).length;
+  } catch {
+    // fall back to string length
+  }
+  return {
+    lines: lines.length,
+    nonEmptyLines: lines.filter((line) => line.trim()).length,
+    chars: normalized.length,
+    bytes,
+  };
 }
 
 function EmptyState() {
@@ -415,32 +429,47 @@ export function StudioChangesPage() {
   }, [compareMode, selected, remoteLoaded, remoteOldText]);
 
   const baseline = compareMode === "remote" ? remoteBaseline : cachedBaseline;
-
-  const [diffText, setDiffText] = React.useState<string>("");
-  const [diffError, setDiffError] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!baseline) {
-        setDiffText("");
-        setDiffError(null);
-        return;
-      }
-      try {
-        const patch = await createUnifiedDiff(baseline);
-        if (cancelled) return;
-        setDiffText(patch);
-        setDiffError(null);
-      } catch (err: unknown) {
-        if (cancelled) return;
-        setDiffText("");
-        setDiffError(formatStudioError(err).message);
-      }
-    })();
-    return () => {
-      cancelled = true;
+  const comparisonSummary = React.useMemo(() => {
+    if (!baseline) return null;
+    const previous = summarizeText(baseline.oldText);
+    const current = summarizeText(baseline.newText);
+    return {
+      previous,
+      current,
+      deltaLines: current.lines - previous.lines,
+      deltaNonEmptyLines: current.nonEmptyLines - previous.nonEmptyLines,
+      deltaChars: current.chars - previous.chars,
+      deltaBytes: current.bytes - previous.bytes,
     };
   }, [baseline?.name, baseline?.oldText, baseline?.newText]);
+
+  const selectedDraftSummary = React.useMemo(() => {
+    if (!selected) return null;
+    if (selected.kind === "note") {
+      const body = summarizeText(selected.editor.content);
+      return {
+        rows: [
+          { label: "Action", value: selected.pendingDelete ? "Delete" : selected.noteId ? "Update" : "Create" },
+          { label: "Draft", value: selected.editor.draft ? "Hidden on site" : "Visible on site" },
+          { label: "Body", value: `${body.nonEmptyLines} non-empty lines` },
+          { label: "Categories", value: selected.editor.categories.length ? selected.editor.categories.join(", ") : "None" },
+          { label: "Tags", value: selected.editor.tags.length ? selected.editor.tags.join(", ") : "None" },
+          { label: "Cover", value: selected.editor.cover.trim() || "None" },
+        ],
+      };
+    }
+
+    if (selected.kind === "config") {
+      return {
+        rows: [
+          { label: "File", value: selected.fileKey === "profile" ? "Profile JSON" : "Categories YAML" },
+          { label: "Action", value: "Update config" },
+        ],
+      };
+    }
+
+    return null;
+  }, [selected]);
 
   const discardSelected = React.useCallback(() => {
     if (!selected) return;
@@ -613,71 +642,118 @@ export function StudioChangesPage() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">DIFF</div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCompareMode("cached")}
-                        className={[
-                          "rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase transition",
-                          compareMode === "cached"
-                            ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
-                            : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
-                        ].join(" ")}
-                        title="Compare with last synced baseline (cached)"
-                      >
-                        Cached
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCompareMode("remote")}
-                        className={[
-                          "rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase transition",
-                          compareMode === "remote"
-                            ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
-                            : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
-                        ].join(" ")}
-                        title="Compare with current GitHub main (live)"
-                      >
-                        Remote
-                      </button>
-                      {compareMode === "remote" ? (
-                        <button
-                          type="button"
-                          onClick={refreshRemote}
-                          className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                          title="Refresh remote baseline"
-                        >
-                          <RefreshCw className="h-3.5 w-3.5 opacity-85" />
-                          Refresh
-                        </button>
-                      ) : null}
-                    </div>
+                <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
+                  <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
+                    <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">DRAFT SUMMARY</div>
+                    {selectedDraftSummary ? (
+                      <div className="mt-3 grid gap-2">
+                        {selectedDraftSummary.rows.map((row) => (
+                          <div
+                            key={`${selected.key}:${row.label}`}
+                            className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2"
+                          >
+                            <div className="text-xs font-medium text-[hsl(var(--muted))]">{row.label}</div>
+                            <div className="max-w-full break-all text-right text-sm text-[hsl(var(--fg))]">{row.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-3 text-sm text-[hsl(var(--muted))]">No local summary available.</div>
+                    )}
                   </div>
 
-                  {compareMode === "remote" ? (
-                    <div className="mt-2 text-xs text-[hsl(var(--muted))]">
-                      Remote HEAD:{" "}
-                      <span className="font-mono">{studio.me?.repo.headSha ? studio.me.repo.headSha.slice(0, 7) : "—"}</span>
-                      {remoteBusy ? " · Loading…" : null}
+                  <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">COMPARE</div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setCompareMode("cached")}
+                          className={[
+                            "rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase transition",
+                            compareMode === "cached"
+                              ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
+                              : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
+                          ].join(" ")}
+                          title="Compare with last synced baseline (cached)"
+                        >
+                          Cached
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCompareMode("remote")}
+                          className={[
+                            "rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase transition",
+                            compareMode === "remote"
+                              ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
+                              : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
+                          ].join(" ")}
+                          title="Compare with current GitHub main (live)"
+                        >
+                          Remote
+                        </button>
+                        {compareMode === "remote" ? (
+                          <button
+                            type="button"
+                            onClick={refreshRemote}
+                            className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                            title="Refresh remote baseline"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5 opacity-85" />
+                            Refresh
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="mt-2 text-xs text-[hsl(var(--muted))]">Cached baseline (last synced).</div>
-                  )}
 
-                  {remoteBaselineError ? <div className="mt-2 text-xs text-red-700">{remoteBaselineError}</div> : null}
+                    {compareMode === "remote" ? (
+                      <div className="mt-2 text-xs text-[hsl(var(--muted))]">
+                        Remote HEAD:{" "}
+                        <span className="font-mono">{studio.me?.repo.headSha ? studio.me.repo.headSha.slice(0, 7) : "—"}</span>
+                        {remoteBusy ? " · Loading…" : null}
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-xs text-[hsl(var(--muted))]">Cached baseline (last synced).</div>
+                    )}
 
-                  {diffError ? (
-                    <div className="mt-2 text-xs text-red-700">{diffError}</div>
-                  ) : !baseline ? (
-                    <div className="mt-2 text-xs text-[hsl(var(--muted))]">{compareMode === "remote" && remoteBusy ? "Loading remote diff…" : "No diff available."}</div>
-                  ) : (
-                    <pre className="mt-2 max-h-[60vh] overflow-auto rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 text-xs leading-relaxed text-[hsl(var(--fg))]">
-                      {diffText}
-                    </pre>
-                  )}
+                    {remoteBaselineError ? <div className="mt-2 text-xs text-red-700">{remoteBaselineError}</div> : null}
+
+                    {!baseline || !comparisonSummary ? (
+                      <div className="mt-3 text-sm text-[hsl(var(--muted))]">
+                        {compareMode === "remote" && remoteBusy ? "Loading remote summary…" : "No comparison summary available."}
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid gap-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <MetricCard
+                            label="Previous"
+                            value={`${comparisonSummary.previous.nonEmptyLines} lines`}
+                            detail={`${formatBytes(comparisonSummary.previous.bytes)} · ${comparisonSummary.previous.chars} chars`}
+                          />
+                          <MetricCard
+                            label="Current"
+                            value={`${comparisonSummary.current.nonEmptyLines} lines`}
+                            detail={`${formatBytes(comparisonSummary.current.bytes)} · ${comparisonSummary.current.chars} chars`}
+                          />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <MetricCard
+                            label="Delta"
+                            value={formatSigned(comparisonSummary.deltaNonEmptyLines, "lines")}
+                            detail={`${formatSigned(comparisonSummary.deltaChars, "chars")}`}
+                          />
+                          <MetricCard
+                            label="File Size"
+                            value={formatSigned(comparisonSummary.deltaBytes, "bytes")}
+                            detail={`${formatBytes(comparisonSummary.current.bytes)} current`}
+                          />
+                        </div>
+                        <div className="text-[11px] text-[hsl(var(--muted))]">
+                          Studio no longer renders full article/code diff here. This panel stays at summary level for speed.
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -717,7 +793,7 @@ export function StudioChangesPage() {
                             </>
                           ) : null}
                           {" "}
-                          · Switch DIFF to <span className="font-semibold">Remote</span> to see what will be overwritten.
+                          · Switch compare to <span className="font-semibold">Remote</span> before retrying.
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <button
@@ -726,7 +802,7 @@ export function StudioChangesPage() {
                             className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] px-3 py-2 text-xs font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]"
                           >
                             <FileDiff className="h-3.5 w-3.5 opacity-85" />
-                            Review diff
+                            Review summary
                           </button>
                           <button
                             type="button"
@@ -806,5 +882,15 @@ function TinyPill(props: { children: React.ReactNode; active?: boolean }) {
     >
       {props.children}
     </span>
+  );
+}
+
+function MetricCard(props: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-3">
+      <div className="text-[10px] font-semibold tracking-[0.18em] text-[hsl(var(--muted))]">{props.label}</div>
+      <div className="mt-2 text-lg font-semibold tracking-tight">{props.value}</div>
+      {props.detail ? <div className="mt-1 text-xs text-[hsl(var(--muted))]">{props.detail}</div> : null}
+    </div>
   );
 }

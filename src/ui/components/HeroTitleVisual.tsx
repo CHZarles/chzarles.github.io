@@ -22,11 +22,23 @@ export function supportsSealGlyphs(text: string): boolean {
 
 export function HeroTitleVisual(props: {
   text: string;
-  variant: "text" | "seal" | "cursive";
+  variant: "text" | "seal" | "cursive" | "stele";
   className?: string;
   style?: React.CSSProperties;
   ariaHidden?: boolean;
 }) {
+  if (props.variant === "stele") {
+    return (
+      <span
+        className={["hero-stele-title", props.className].filter(Boolean).join(" ")}
+        style={props.style}
+        aria-hidden={props.ariaHidden || undefined}
+      >
+        {props.text}
+      </span>
+    );
+  }
+
   if (props.variant === "cursive") {
     return (
       <span

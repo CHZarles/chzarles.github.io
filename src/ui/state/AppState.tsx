@@ -37,10 +37,6 @@ function readTheme(): Theme {
   return "light";
 }
 
-function readAccent(): string | null {
-  return safeStorageGetItem("hyperblog.accent");
-}
-
 function readEmbeddedProfile(): Profile | null {
   if (typeof window === "undefined") return null;
   const w = window as unknown as { __HB_PROFILE__?: unknown };
@@ -65,8 +61,9 @@ export function AppStateProvider(props: { children: React.ReactNode }) {
     return readTheme();
   });
   const [accent, setAccentState] = React.useState<string>(() => {
-    if (typeof window === "undefined") return "270 85% 45%";
-    return readAccent() ?? readEmbeddedProfile()?.accent ?? "270 85% 45%";
+    const embeddedAccent = readEmbeddedProfile()?.accent;
+    if (embeddedAccent) return embeddedAccent;
+    return "202 100% 33.7%";
   });
 
   React.useEffect(() => {
@@ -87,7 +84,7 @@ export function AppStateProvider(props: { children: React.ReactNode }) {
         if (cancelled) return;
         setProfile(p);
         setCategories(c);
-        if (!readAccent() && p.accent) setAccentState(p.accent);
+        if (p.accent) setAccentState(p.accent);
       })
       .catch(() => {});
     return () => {

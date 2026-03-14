@@ -1,7 +1,6 @@
-import { ArrowUpRight, Code2, ExternalLink, Github } from "lucide-react";
+import { ExternalLink, Github, Link2 } from "lucide-react";
 import React from "react";
 import { api } from "../api/api";
-import { EmptyStatePanel } from "../components/EmptyStatePanel";
 import type { Project } from "../types";
 
 function normalizeUrl(input: string | undefined): string | null {
@@ -55,9 +54,9 @@ export function ProjectsPage() {
     setError(null);
     api
       .projects()
-      .then((p) => {
+      .then((items) => {
         if (cancelled) return;
-        setProjects(p);
+        setProjects(items);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -74,105 +73,91 @@ export function ProjectsPage() {
   }, []);
 
   return (
-    <div className="grid gap-6">
+    <section className="pb-6 pt-6 font-mono">
       {error ? (
-        <div className="card p-8 text-sm text-[hsl(var(--muted))]">
+        <div className="text-sm text-[hsl(var(--muted))]">
           <div className="text-base font-semibold tracking-tight text-[hsl(var(--fg))]">加载失败</div>
           <div className="mt-2 break-words">{error}</div>
         </div>
       ) : loading ? (
-        <div className="card p-7 text-sm text-[hsl(var(--muted))]">加载中…</div>
+        <div className="text-sm text-[hsl(var(--muted))]">加载中…</div>
       ) : projects.length ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          {projects.map((p) => {
-            const href = primaryProjectUrl(p);
-            const repoSlug = href ? repoSlugFromUrl(href) : null;
-            const host = href ? hostFromUrl(href) : null;
-            const isGithub = Boolean(href && href.toLowerCase().includes("github.com"));
-            const codeHint = repoSlug ?? host ?? p.id;
+        <ul>
+          {projects.map((project) => {
+            const repoHref = normalizeUrl(project.repoUrl);
+            const liveHref = normalizeUrl(project.homepage);
+            const href = primaryProjectUrl(project);
+            const repoSlug = repoHref ? repoSlugFromUrl(repoHref) : null;
+            const host = liveHref ? hostFromUrl(liveHref) : href ? hostFromUrl(href) : null;
+            const stackLabel = (project.stack ?? []).slice(0, 4).join(" • ");
 
             return (
-              <a
-                key={p.id}
-                href={href ?? undefined}
-                target={href ? "_blank" : undefined}
-                rel={href ? "noreferrer" : undefined}
-                className={[
-                  "group card block overflow-hidden transition-colors",
-                  href ? "hover:bg-[var(--surface-muted-weak)]" : "cursor-not-allowed opacity-60",
-                ].join(" ")}
-                aria-disabled={!href}
-                onClick={(e) => {
-                  if (href) return;
-                  e.preventDefault();
-                }}
-              >
-                <div className="flex items-center justify-between gap-2.5 border-b border-[color:var(--border-soft)] bg-[var(--surface-muted-weak)] px-5 py-2.5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,red_40%,transparent)]" aria-hidden="true" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,orange_40%,transparent)]" aria-hidden="true" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-[color-mix(in_oklab,green_40%,transparent)]" aria-hidden="true" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        {isGithub ? (
-                          <Github className="h-3.5 w-3.5 shrink-0 opacity-80" />
-                        ) : (
-                          <Code2 className="h-3.5 w-3.5 shrink-0 opacity-80" />
-                        )}
-                        <div className="min-w-0 truncate font-mono text-xs text-[color-mix(in_oklab,hsl(var(--fg))_70%,hsl(var(--muted)))]">
-                          {codeHint}
-                        </div>
-                        {p.homepage ? (
-                          <span className="shrink-0 rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-2 py-0.5 text-[10px] font-mono text-[hsl(var(--muted))]">
-                            live
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-2.5 py-1 text-[11px] text-[hsl(var(--muted))]">
-                    Open <ExternalLink className="h-3.5 w-3.5 opacity-75" />
-                  </span>
-                </div>
+              <li key={project.id} className="my-8">
+                <div>
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block text-lg font-medium text-[hsl(var(--accent))] decoration-dashed underline-offset-4 transition hover:underline focus-visible:no-underline focus-visible:underline-offset-0"
+                    >
+                      <h3 className="text-lg font-medium">{project.name}</h3>
+                    </a>
+                  ) : (
+                    <h3 className="text-lg font-medium text-[hsl(var(--accent))]">{project.name}</h3>
+                  )}
 
-                <div className="px-5 py-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-base font-semibold tracking-tight">{p.name}</div>
-                      <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-[color-mix(in_oklab,hsl(var(--fg))_70%,hsl(var(--muted)))]">
-                        {p.description}
-                      </div>
-                    </div>
-                    <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-[hsl(var(--muted))] opacity-70 transition group-hover:text-[hsl(var(--fg))]" />
+                  <div className="mb-3 mt-3 flex flex-wrap items-center gap-3 text-sm italic opacity-80">
+                    {repoSlug ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Github className="h-4 w-4 min-w-[1rem]" />
+                        <span>{repoSlug}</span>
+                      </span>
+                    ) : host ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Link2 className="h-4 w-4 min-w-[1rem]" />
+                        <span>{host}</span>
+                      </span>
+                    ) : null}
+                    {stackLabel ? <span>{stackLabel}</span> : null}
                   </div>
 
-                  {(p.stack ?? []).length ? (
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                      {(p.stack ?? []).slice(0, 6).map((s) => (
-                        <span
-                          key={s}
-                          className="inline-flex items-center rounded-full border border-[color:var(--border-soft)] bg-[var(--surface-glass)] px-2.5 py-1 text-[11px] font-mono text-[color-mix(in_oklab,hsl(var(--fg))_78%,hsl(var(--muted)))]"
+                  <p className="opacity-80">{project.description}</p>
+
+                  {repoHref || liveHref ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
+                      {repoHref ? (
+                        <a
+                          href={repoHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 hover:text-[hsl(var(--accent))]"
                         >
-                          {s}
-                        </span>
-                      ))}
+                          <span>Repo</span>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
+                      {liveHref ? (
+                        <a
+                          href={liveHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 hover:text-[hsl(var(--accent))]"
+                        >
+                          <span>Live</span>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
-              </a>
+              </li>
             );
           })}
-        </div>
+        </ul>
       ) : (
-        <EmptyStatePanel
-          icon={<Code2 className="h-5 w-5 opacity-85" />}
-          title="Projects 还空着"
-          desc="把项目当作品展示：Repo、Demo、技术栈与亮点应该一眼可读。"
-          hint="正在整理中。"
-        />
+        <div className="text-sm text-[hsl(var(--muted))]">暂无 Projects。</div>
       )}
-    </div>
+    </section>
   );
 }

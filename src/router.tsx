@@ -8,8 +8,8 @@ import { NotFoundPage } from "./ui/views/NotFoundPage";
 function PageLoader(props: { label: string; tone?: "card" | "plain" }) {
   const cls =
     props.tone === "card"
-      ? "card p-8 text-sm text-[hsl(var(--muted))]"
-      : "p-4 text-sm text-[hsl(var(--muted))]";
+      ? "hb-route-stage card p-8 text-sm text-[hsl(var(--muted))]"
+      : "hb-route-stage p-4 text-sm text-[hsl(var(--muted))]";
   return <div className={cls}>{props.label}</div>;
 }
 
@@ -24,6 +24,7 @@ const NotesPageLazy = React.lazy(() => import("./ui/views/NotesPage").then((m) =
 const NotePageLazy = React.lazy(() => import("./ui/views/NotePage").then((m) => ({ default: m.NotePage })));
 const ProjectsPageLazy = React.lazy(() => import("./ui/views/ProjectsPage").then((m) => ({ default: m.ProjectsPage })));
 const ProjectPageLazy = React.lazy(() => import("./ui/views/ProjectPage").then((m) => ({ default: m.ProjectPage })));
+const SearchPageLazy = React.lazy(() => import("./ui/views/SearchPage").then((m) => ({ default: m.SearchPage })));
 
 const StudioShellLazy = React.lazy(() => import("./studio/shell/StudioShell").then((m) => ({ default: m.StudioShell })));
 const StudioNotesPageLazy = React.lazy(() => import("./studio/views/StudioNotesPage").then((m) => ({ default: m.StudioNotesPage })));
@@ -120,6 +121,14 @@ export const router = createBrowserRouter([
         element: (
           <Lazy label="Loading note…" tone="plain">
             <NotePageLazy />
+          </Lazy>
+        ),
+      },
+      {
+        path: "search",
+        element: (
+          <Lazy label="Loading search…" tone="plain">
+            <SearchPageLazy />
           </Lazy>
         ),
       },

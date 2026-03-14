@@ -1,17 +1,10 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight, CalendarDays, Github, Link2, Linkedin, Mail, Rss, Twitter } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/api";
-import { HeroBackdrop } from "../components/HeroBackdrop";
-import { HeroMimoBackdrop } from "../components/HeroMimoBackdrop";
-import { HeroTitleVisual } from "../components/HeroTitleVisual";
-import { Reveal } from "../components/Reveal";
+import { NoteTitleLink } from "../components/NoteTitleLink";
 import { useAppState } from "../state/AppState";
 import type { NoteListItem } from "../types";
-
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n));
-}
 
 function fmtYmd(iso: string): string {
   try {
@@ -21,24 +14,32 @@ function fmtYmd(iso: string): string {
   }
 }
 
-function cssColor(raw: string) {
-  const s = raw.trim();
-  if (!s) return "";
-  if (
-    s.startsWith("hsl(") ||
-    s.startsWith("rgb(") ||
-    s.startsWith("rgba(") ||
-    s.startsWith("#") ||
-    s.startsWith("color-mix(")
-  ) {
-    return s;
+function fmtLongDate(iso: string): string {
+  try {
+    const dt = new Date(`${iso}T00:00:00Z`);
+    const day = new Intl.DateTimeFormat("en-GB", { day: "numeric", timeZone: "UTC" }).format(dt);
+    const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(dt);
+    const year = new Intl.DateTimeFormat("en-GB", { year: "numeric", timeZone: "UTC" }).format(dt);
+    return `${day} ${month}, ${year}`;
+  } catch {
+    return iso;
   }
-  return `hsl(${s})`;
+}
+
+function iconForLink(link: { label: string; href: string }) {
+  const label = link.label.trim().toLowerCase();
+  const href = link.href.trim().toLowerCase();
+  if (label.includes("github") || href.includes("github.com")) return Github;
+  if (label.includes("mail") || href.startsWith("mailto:")) return Mail;
+  if (label.includes("twitter") || label === "x" || href.includes("x.com") || href.includes("twitter.com")) return Twitter;
+  if (label.includes("linkedin") || href.includes("linkedin.com")) return Linkedin;
+  return Link2;
 }
 
 export function HomePage() {
-  const { profile, theme } = useAppState();
+  const { profile } = useAppState();
   const [notes, setNotes] = React.useState<NoteListItem[]>([]);
+  const [readMinutes, setReadMinutes] = React.useState<Record<string, number>>({});
 
   React.useEffect(() => {
     let cancelled = false;
@@ -51,377 +52,163 @@ export function HomePage() {
     };
   }, []);
 
-  const heroVariant: "image" | "mimo" =
-    profile?.hero?.variant === "mimo" ? "mimo" : profile?.hero?.imageUrl ? "image" : "mimo";
-
-  const heroTitleText = profile?.hero?.title ?? profile?.name ?? "Hyperblog";
-  const heroTitleVariant =
-    profile?.hero?.titleStyle === "seal" ? "seal" : profile?.hero?.titleStyle === "cursive" ? "cursive" : "text";
-  const heroPatternVariant =
-    profile?.hero?.patternStyle === "seal"
-      ? "seal"
-      : profile?.hero?.patternStyle === "clerical"
-        ? "clerical"
-        : profile?.hero?.patternStyle === "essay"
-          ? "essay"
-        : "text";
-  const heroTaglineText = profile?.hero?.tagline?.trim() ?? profile?.tagline?.trim() ?? "";
-  const heroTitleFrameClass = heroVariant === "mimo" ? "leading-none" : "hero-ink leading-[0.98]";
-  const heroTitleInnerClass =
-    heroTitleVariant === "seal"
-      ? undefined
-      : heroTitleVariant === "cursive"
-        ? undefined
-        : heroVariant === "mimo"
-          ? "font-sans font-bold tracking-[0.01em]"
-          : "font-serif font-semibold tracking-tight";
-
-  const heroFg = (() => {
-    if (heroVariant === "mimo") return "hsl(var(--fg))";
-    const cfg = profile?.hero?.textColor;
-    const raw = theme === "dark" ? cfg?.dark : cfg?.light;
-    return raw ? cssColor(raw) : "hsl(var(--hero-fg))";
-  })();
-
-  const heroScale = clamp(profile?.hero?.textScale ?? 1, 0.85, heroVariant === "mimo" ? 1.6 : 1.25);
-  const heroTitleSize =
-    heroVariant === "mimo"
-      ? `clamp(${(3.2 * heroScale).toFixed(3)}rem, ${(7.2 * heroScale).toFixed(3)}vw, ${(6.0 * heroScale).toFixed(3)}rem)`
-      : `clamp(${(2.25 * heroScale).toFixed(3)}rem, ${(4.4 * heroScale).toFixed(3)}vw, ${(3.25 * heroScale).toFixed(3)}rem)`;
-  const heroRef = React.useRef<HTMLElement | null>(null);
-  const heroBackdropRef = React.useRef<HTMLDivElement | null>(null);
-  const titleSpotRef = React.useRef<HTMLDivElement | null>(null);
-  const spotRadius = clamp(profile?.hero?.spotlightRadiusPx ?? 240, 120, 520);
-  const spotlightEase = clamp(profile?.hero?.spotlightEase ?? 0.34, 0.05, 0.5);
-  const spotlightEaseRadius = clamp(profile?.hero?.spotlightEaseRadius ?? spotlightEase, 0.05, 0.5);
-  const heroVariantRef = React.useRef(heroVariant);
-  const spotRadiusRef = React.useRef(spotRadius);
-  const spotlightEaseRef = React.useRef(spotlightEase);
-  const spotlightEaseRadiusRef = React.useRef(spotlightEaseRadius);
-  const rafRef = React.useRef<number | null>(null);
-  const pendingRef = React.useRef(false);
-  const lastRef = React.useRef<{ x: number; y: number; tx: number; ty: number; active: boolean }>({
-    x: 0,
-    y: 0,
-    tx: 0,
-    ty: 0,
-    active: false,
-  });
-  const animRef = React.useRef<{ x: number; y: number; tx: number; ty: number; r: number }>({
-    x: 0,
-    y: 0,
-    tx: 0,
-    ty: 0,
-    r: 0,
-  });
-
   React.useEffect(() => {
-    heroVariantRef.current = heroVariant;
-    spotRadiusRef.current = spotRadius;
-    spotlightEaseRef.current = spotlightEase;
-    spotlightEaseRadiusRef.current = spotlightEaseRadius;
-  }, [heroVariant, spotRadius, spotlightEase, spotlightEaseRadius]);
+    const ids = notes.map((n) => n.id).filter((id) => readMinutes[id] === undefined);
+    if (!ids.length) return;
 
-  const flushSpot = React.useCallback(() => {
-    if (heroVariantRef.current !== "mimo") {
-      rafRef.current = null;
-      pendingRef.current = false;
-      return;
-    }
-    const backdropEl = heroBackdropRef.current;
-    if (!backdropEl) {
-      rafRef.current = null;
-      pendingRef.current = false;
-      return;
-    }
+    let cancelled = false;
+    void Promise.all(
+      ids.map(async (id) => {
+        const note = await api.note(id);
+        return [id, estimateReadMinutes(note.content)] as const;
+      }),
+    )
+      .then((pairs) => {
+        if (cancelled) return;
+        setReadMinutes((prev) => {
+          const next = { ...prev };
+          for (const [id, mins] of pairs) next[id] = mins;
+          return next;
+        });
+      })
+      .catch(() => {});
 
-    pendingRef.current = false;
-    const target = lastRef.current;
-    const cur = animRef.current;
-    const targetR = target.active ? spotRadiusRef.current : 0;
+    return () => {
+      cancelled = true;
+    };
+  }, [notes, readMinutes]);
 
-    if (target.active && cur.r < 1) {
-      cur.x = target.x;
-      cur.y = target.y;
-      cur.tx = target.tx;
-      cur.ty = target.ty;
-    }
-
-    const dx = target.x - cur.x;
-    const dy = target.y - cur.y;
-    const dtx = target.tx - cur.tx;
-    const dty = target.ty - cur.ty;
-    const dr = targetR - cur.r;
-
-    const ease = spotlightEaseRef.current;
-    const easeR = spotlightEaseRadiusRef.current;
-    cur.x += dx * ease;
-    cur.y += dy * ease;
-    cur.tx += dtx * ease;
-    cur.ty += dty * ease;
-    cur.r += dr * easeR;
-
-    backdropEl.style.setProperty("--hb-spot-x", `${cur.x}px`);
-    backdropEl.style.setProperty("--hb-spot-y", `${cur.y}px`);
-    backdropEl.style.setProperty("--hb-spot-r", `${cur.r}px`);
-
-    const titleEl = titleSpotRef.current;
-    if (titleEl) {
-      titleEl.style.setProperty("--hb-spot-x", `${cur.tx}px`);
-      titleEl.style.setProperty("--hb-spot-y", `${cur.ty}px`);
-      titleEl.style.setProperty("--hb-spot-r", `${cur.r}px`);
-    }
-
-    const needsMore =
-      Math.abs(dx) > 0.5 ||
-      Math.abs(dy) > 0.5 ||
-      Math.abs(dtx) > 0.5 ||
-      Math.abs(dty) > 0.5 ||
-      Math.abs(dr) > 0.5;
-
-    const wantsMore = needsMore || pendingRef.current;
-    rafRef.current = wantsMore ? window.requestAnimationFrame(flushSpot) : null;
-  }, []);
-
-  const scheduleFlush = React.useCallback(() => {
-    if (rafRef.current !== null) {
-      pendingRef.current = true;
-      return;
-    }
-    rafRef.current = window.requestAnimationFrame(flushSpot);
-  }, [flushSpot]);
-
-  React.useEffect(() => {
-    if (heroVariant !== "mimo") return;
-    if (!lastRef.current.active) return;
-    scheduleFlush();
-  }, [heroVariant, spotRadius, spotlightEase, spotlightEaseRadius, scheduleFlush]);
-
-  const onPointerMove = React.useCallback(
-    (e: React.PointerEvent<HTMLElement>) => {
-      if (heroVariant !== "mimo") return;
-      if (e.pointerType === "touch") return;
-      const backdropEl = heroBackdropRef.current;
-      if (!backdropEl) return;
-
-      const rect = backdropEl.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      let tx = x;
-      let ty = y;
-      const titleEl = titleSpotRef.current;
-      if (titleEl) {
-        const tr = titleEl.getBoundingClientRect();
-        tx = e.clientX - tr.left;
-        ty = e.clientY - tr.top;
-      }
-
-      lastRef.current = { x, y, tx, ty, active: true };
-      scheduleFlush();
-    },
-    [heroVariant, scheduleFlush],
-  );
-
-  const onPointerLeave = React.useCallback(() => {
-    if (heroVariant !== "mimo") return;
-    lastRef.current = { ...lastRef.current, active: false };
-    scheduleFlush();
-  }, [heroVariant, scheduleFlush]);
+  const introHandle = profile?.handle?.trim() || "@charles";
+  const introLinks = profile?.links ?? [];
+  const avatarUrl = profile?.avatarUrl?.trim() || "";
+  const avatarEmoji = profile?.avatarEmoji?.trim() || "";
 
   return (
-    <div className="grid gap-8">
-      <section
-        ref={heroRef}
-        onPointerMove={onPointerMove}
-        onPointerLeave={onPointerLeave}
-        className={[
-          "relative mx-auto flex w-full max-w-[56rem] overflow-hidden",
-          heroVariant === "mimo"
-            ? "h-[264px] sm:h-[280px] md:h-[296px] cursor-crosshair"
-            : "min-h-[400px] md:min-h-[clamp(500px,58vh,720px)]",
-        ].join(" ")}
-      >
-        <div
-          aria-hidden="true"
-          ref={heroBackdropRef}
-          className={[
-            "absolute inset-0 overflow-hidden border-y",
-            heroVariant === "mimo"
-              ? "border-[hsl(var(--fg))] bg-[hsl(var(--bg))]"
-              : "border-[color-mix(in_oklab,hsl(var(--fg))_22%,hsl(var(--border)))] bg-[hsl(var(--card))]",
-          ].join(" ")}
-        >
-          {heroVariant === "mimo" ? (
-            <HeroMimoBackdrop
-              patternText={profile?.hero?.patternText ?? profile?.hero?.title ?? profile?.name ?? profile?.handle ?? "HYPERBLOG"}
-              patternStyle={heroPatternVariant}
-              patternOpacity={profile?.hero?.patternOpacity}
-              patternScale={profile?.hero?.patternScale}
-              patternMotion={profile?.hero?.patternMotion}
-              spotlightSceneUrl={profile?.hero?.spotlightSceneUrl}
-              spotlightScenePosition={profile?.hero?.spotlightScenePosition}
-              spotlightSceneOpacity={profile?.hero?.spotlightSceneOpacity}
-              spotlightSceneScale={profile?.hero?.spotlightSceneScale}
+    <div className="font-mono">
+      <section id="hero" className="pb-4 pt-6">
+        <div className="flex flex-col items-start gap-4 sm:flex-row">
+          {avatarEmoji ? (
+            <div
+              className="mx-auto flex h-40 w-40 items-center justify-center rounded-full bg-[hsl(var(--card2))] text-[4.25rem] leading-none sm:mx-0"
+              style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif' }}
+              aria-label="Avatar emoji"
+              role="img"
+            >
+              {avatarEmoji}
+            </div>
+          ) : avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={introHandle}
+              className="mx-auto h-40 w-40 rounded-full object-cover transition-all duration-300 hover:scale-105 hover:shadow-xl sm:mx-0"
+              loading="eager"
             />
           ) : (
-            <HeroBackdrop
-              imageUrl={profile?.hero?.imageUrl}
-              preload={profile?.hero?.preload}
-              blurPx={profile?.hero?.blurPx}
-              opacity={profile?.hero?.opacity}
-              position={profile?.hero?.position}
-              tintOpacity={profile?.hero?.tintOpacity}
-              washOpacity={profile?.hero?.washOpacity}
-              saturate={profile?.hero?.saturate}
-              contrast={profile?.hero?.contrast}
-            />
+            <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-full bg-[hsl(var(--card2))] text-4xl font-semibold text-[hsl(var(--fg))] sm:mx-0">
+              {introHandle.replace(/^@/, "").slice(0, 1).toUpperCase()}
+            </div>
           )}
-        </div>
-        <div
-          className={[
-            "relative z-10 flex flex-1 flex-col items-center justify-center",
-            heroVariant === "mimo" ? "py-5 md:py-6" : "py-10 md:py-14",
-          ].join(" ")}
-        >
-          <div className="w-full">
-            <div className="mx-auto flex max-w-[56rem] flex-col items-center px-3 text-center">
-              <div ref={titleSpotRef} className="relative mx-auto flex w-full max-w-[56ch] flex-col items-center">
-                <h1
-                  className={[heroTitleFrameClass, "mx-auto flex w-full justify-center text-center"].join(" ")}
-                  style={{ color: heroFg, fontSize: heroTitleSize }}
-                >
-                  {heroTitleVariant === "seal" ? <span className="sr-only">{heroTitleText}</span> : null}
-                  <HeroTitleVisual
-                    text={heroTitleText}
-                    variant={heroTitleVariant}
-                    className={heroTitleInnerClass}
-                    ariaHidden={heroTitleVariant === "seal"}
-                  />
-                </h1>
-                {heroTaglineText ? (
-                  <p
-                    className={
-                      heroVariant === "mimo"
-                        ? "mt-4 mx-auto max-w-[54ch] font-serif font-medium leading-[1.85] tracking-[-0.018em]"
-                        : "mt-4 mx-auto max-w-[58ch] leading-relaxed tracking-[-0.01em]"
-                    }
-                    style={{
-                      color: heroVariant === "mimo" ? "hsl(var(--muted))" : heroFg,
-                      opacity: heroVariant === "mimo" ? 0.92 : 0.82,
-                      fontSize:
-                        heroVariant === "mimo"
-                          ? `clamp(${(1.00 * heroScale).toFixed(3)}rem, ${(1.25 * heroScale).toFixed(3)}vw, ${(1.18 * heroScale).toFixed(3)}rem)`
-                          : `clamp(${(0.95 * heroScale).toFixed(3)}rem, ${(1.15 * heroScale).toFixed(3)}vw, ${(1.06 * heroScale).toFixed(3)}rem)`,
-                    }}
-                  >
-                    {heroTaglineText}
-                  </p>
-                ) : null}
 
-                {heroVariant === "mimo" ? (
-                  <div
-                    className="pointer-events-none absolute inset-0 will-change-[clip-path]"
-                    style={{
-                      clipPath: "circle(var(--hb-spot-r, 0px) at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%))",
-                    }}
+          <div className="flex-1 text-center sm:text-left">
+            <div className="flex items-center justify-center gap-2 sm:justify-start">
+              <h1 className="my-2 inline-block text-2xl font-bold sm:my-4 sm:text-3xl">Hi, I&apos;m {introHandle}.</h1>
+              <a
+                href="/notes"
+                aria-label="Notes archive"
+                title="Notes archive"
+                className="inline-block text-[hsl(var(--accent))]"
+              >
+                <Rss className="h-5 w-5 stroke-[2.5]" />
+              </a>
+            </div>
+
+            <p className="max-w-[34rem] text-[15px] leading-7 text-[hsl(var(--fg))] sm:text-base">
+              Notes on software, tools, and things worth keeping.
+              <br />
+              Projects, drafts, and experiments written in public.
+            </p>
+
+            <div className="mt-4 flex flex-row items-center justify-center sm:justify-start">
+              <div className="flex flex-wrap justify-center gap-1 sm:justify-start">
+                {introLinks.map((link) => (
+                  <a
+                    key={`${link.label}:${link.href}`}
+                    href={link.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group inline-block p-2 text-[hsl(var(--fg))] transition hover:text-[hsl(var(--accent))] sm:p-1"
+                    aria-label={link.label}
+                    title={link.label}
                   >
-                    <div
-                      className={[heroTitleFrameClass, "mx-auto flex w-full justify-center text-center"].join(" ")}
-                      style={{ color: "hsl(var(--bg))", fontSize: heroTitleSize }}
-                    >
-                      <HeroTitleVisual
-                        text={heroTitleText}
-                        variant={heroTitleVariant}
-                        className={heroTitleInnerClass}
-                        ariaHidden
-                      />
+                    {React.createElement(iconForLink(link), {
+                      className: "h-5 w-5 opacity-90 transition group-hover:rotate-6 sm:scale-110",
+                    })}
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="border-b border-[color:var(--border-soft)]" />
+
+      <section id="recent-posts" className="pb-6 pt-12">
+        {notes.length ? (
+          <ul>
+            {notes.map((n) => (
+              <li key={n.id} className="my-8">
+                <div>
+                  <NoteTitleLink
+                    to={`/notes/${n.id}`}
+                    noteId={n.id}
+                    transitionTitle={n.title}
+                    onMouseEnter={() => api.prefetchNote(n.id)}
+                    onFocus={() => api.prefetchNote(n.id)}
+                    className="inline-block text-lg font-medium text-[hsl(var(--accent))] decoration-dashed underline-offset-4 transition hover:underline focus-visible:no-underline focus-visible:underline-offset-0"
+                    titleClassName="text-lg font-medium"
+                    as="h3"
+                  >
+                    {n.title}
+                  </NoteTitleLink>
+                  <div className="mb-3 mt-3 flex items-center gap-3">
+                    <div className="flex items-center gap-2 opacity-80">
+                      <CalendarDays className="h-4 w-4 min-w-[1rem]" />
+                      <span className="text-sm italic">{fmtLongDate(fmtYmd(n.date))}</span>
                     </div>
-                    {heroTaglineText ? (
-                      <p
-                        className="mt-4 mx-auto max-w-[54ch] font-serif font-medium leading-[1.85] tracking-[-0.018em]"
-                        style={{
-                          color: "color-mix(in oklab, hsl(var(--bg)) 86%, transparent)",
-                          fontSize: `clamp(${(1.00 * heroScale).toFixed(3)}rem, ${(1.25 * heroScale).toFixed(3)}vw, ${(1.18 * heroScale).toFixed(3)}rem)`,
-                        }}
-                      >
-                        {heroTaglineText}
-                      </p>
+                    {readMinutes[n.id] ? (
+                      <span className="text-sm italic opacity-80">• {readMinutes[n.id]} min read</span>
                     ) : null}
                   </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
+                  {n.excerpt ? <p className="opacity-80">{n.excerpt}</p> : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-sm text-[hsl(var(--muted))]">暂无 Notes。</div>
+        )}
       </section>
 
-      <section className="relative">
-        <div
-          aria-hidden="true"
-          className="absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 border-y border-[color-mix(in_oklab,hsl(var(--fg))_18%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--bg))_72%,transparent)]"
-        />
-        <Reveal className="relative z-10 py-8 md:py-10" yPx={12}>
-          <div className="mx-auto max-w-[56rem]">
-            <div className="min-w-0">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <div className="text-[10px] font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))]">
-                    LATEST
-                  </div>
-                  <div className="mt-1 font-serif text-xl font-semibold tracking-tight">Notes</div>
-                </div>
-                <Link
-                  to="/notes"
-                  className="font-mono text-xs font-semibold tracking-[var(--tracking-wide)] text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-                >
-                  ALL →
-                </Link>
-              </div>
-
-              {notes.length ? (
-                <div className="mt-5">
-                  <div className="divide-y divide-[color:var(--border-soft)]">
-                    {notes.slice(0, 5).map((n, idx) => {
-                      const index = String(idx + 1).padStart(2, "0");
-                      const md = fmtYmd(n.updated).slice(5);
-                      const date = md.length === 5 ? md.replace("-", ".") : md;
-
-                      return (
-                        <Link
-                          key={n.id}
-                          to={`/notes/${n.id}`}
-                          onMouseEnter={() => api.prefetchNote(n.id)}
-                          onFocus={() => api.prefetchNote(n.id)}
-                          className="group relative -mx-1 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] gap-4 rounded-xl px-1 py-4 transition hover:bg-[color-mix(in_oklab,hsl(var(--card2))_45%,transparent)]"
-                        >
-                          <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-[hsl(var(--accent))] opacity-0 transition group-hover:opacity-45" />
-                          <div className="pt-0.5 font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
-                            {index}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-baseline justify-between gap-3">
-                              <div className="min-w-0 truncate font-serif text-sm font-semibold tracking-tight md:text-base">
-                                {n.title}
-                              </div>
-                              <ArrowUpRight className="h-4 w-4 shrink-0 translate-y-px opacity-0 transition group-hover:opacity-60" />
-                            </div>
-                          </div>
-                          <div className="pt-0.5 font-mono text-[11px] tabular-nums tracking-[0.18em] text-[hsl(var(--muted))]">
-                            {date}
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-5 text-sm text-[hsl(var(--muted))]">暂无 Notes。</div>
-              )}
-            </div>
-          </div>
-        </Reveal>
-      </section>
+      <div className="my-8 text-center">
+        <Link to="/notes" className="group inline-flex items-center gap-2 hover:text-[hsl(var(--accent))]">
+          <span>All Notes</span>
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
     </div>
   );
+}
+
+function estimateReadMinutes(content: string): number {
+  const stripped = content
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`]*`/g, " ")
+    .replace(/\!\[[^\]]*\]\([^)]+\)/g, " ")
+    .replace(/\[[^\]]*\]\([^)]+\)/g, " ")
+    .replace(/<[^>]+>/g, " ");
+  const wordCount = (stripped.match(/[A-Za-z0-9_]+/g) ?? []).length;
+  const cjkCount = (stripped.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu) ?? []).length;
+  const units = wordCount + cjkCount * 0.6;
+  return Math.max(1, Math.round(units / 220));
 }

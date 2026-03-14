@@ -1,5 +1,10 @@
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import {
+  noteDetailTransitionState,
+  noteTitleTransitionName,
+  preparePostTransitionOnClick,
+} from "../navigation/transitions";
 import type { NoteListItem } from "../types";
 
 function fmtDate(iso: string) {
@@ -14,8 +19,15 @@ function fmtDate(iso: string) {
 
 export function NoteCard(props: { note: NoteListItem }) {
   const n = props.note;
+  const to = `/notes/${n.id}`;
   return (
-    <Link to={`/notes/${n.id}`} className="group card block p-5 transition-colors hover:bg-[hsl(var(--card2))]">
+    <Link
+      to={to}
+      state={noteDetailTransitionState(n.id, { title: n.title })}
+      viewTransition
+      onClickCapture={preparePostTransitionOnClick}
+      className="group card block p-5 transition-colors hover:bg-[hsl(var(--card2))]"
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 text-xs text-[hsl(var(--muted))]">
           <span className="tracking-[var(--tracking-wide)] uppercase">Updated</span>
@@ -23,7 +35,12 @@ export function NoteCard(props: { note: NoteListItem }) {
         </div>
         <ArrowUpRight className="h-4 w-4 shrink-0 opacity-35 transition group-hover:opacity-70" />
       </div>
-      <h3 className="mt-3 font-serif text-lg font-semibold tracking-tight">{n.title}</h3>
+      <h3
+        className="mt-3 font-serif text-lg font-semibold tracking-tight"
+        style={{ viewTransitionName: noteTitleTransitionName(n.id) }}
+      >
+        {n.title}
+      </h3>
       <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[hsl(var(--muted))]">{n.excerpt}</p>
     </Link>
   );

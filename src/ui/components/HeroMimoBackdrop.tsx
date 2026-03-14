@@ -9,7 +9,7 @@ type PatternMotion = "none" | "drift";
 type PatternVariant = "text" | "seal" | "clerical" | "essay";
 
 const HERO_ESSAY_TEXT =
-  "蜀汉诸葛亮诫子书夫君子之行静以修身俭以养德非淡泊无以明志非宁静无以致远夫学须静也才须学也非学无以广才非志无以成学淫慢则不能励精险躁则不能治性年与时驰意与日去遂成枯落多不接世悲守穷庐将复何及";
+  "朝发轫于苍梧兮夕余至乎县圃欲少留此灵琐兮日忽忽其将暮吾令羲和弭节兮望崦嵫而勿迫路漫漫其修远兮吾将上下而求索饮余马于咸池兮总余辔乎扶桑折若木以拂日兮聊逍遥以相羊前望舒使先驱兮后飞廉使奔属";
 
 function spacedToken(input: string): string {
   const raw = String(input ?? "").trim();
@@ -305,9 +305,6 @@ export function HeroMimoBackdrop(props: {
   const patternOpacity = clamp(props.patternOpacity ?? 1, 0, 1.6);
   const patternScale = clamp(props.patternScale ?? 1, 0.7, 1.4);
   const patternMotion: PatternMotion = props.patternMotion ?? "drift";
-  const sceneOpacity = clamp(props.spotlightSceneOpacity ?? 0.88, 0, 1);
-  const sceneScale = clamp(props.spotlightSceneScale ?? 1.06, 1, 1.3);
-  const scenePosition = props.spotlightScenePosition?.trim() || "center";
 
   return (
     <div
@@ -315,23 +312,34 @@ export function HeroMimoBackdrop(props: {
       className="absolute inset-0"
       style={
         {
+          background:
+            "linear-gradient(180deg, color-mix(in oklab, hsl(var(--bg)) 98%, white) 0%, color-mix(in oklab, hsl(var(--bg)) 96%, hsl(var(--card))) 56%, color-mix(in oklab, hsl(var(--bg)) 95%, hsl(var(--card2))) 100%)",
           "--hb-pat-base-ink":
             patternStyle === "essay"
-              ? "color-mix(in oklab, hsl(var(--fg)) 22%, transparent)"
+              ? "color-mix(in oklab, hsl(var(--fg)) 14%, transparent)"
               : patternStyle === "clerical"
-              ? "color-mix(in oklab, hsl(var(--fg)) 16%, transparent)"
+              ? "color-mix(in oklab, hsl(var(--fg)) 11%, transparent)"
               : "color-mix(in oklab, hsl(var(--fg)) 5%, transparent)",
           "--hb-pat-base-hover": "color-mix(in oklab, hsl(var(--accent)) 22%, transparent)",
           "--hb-pat-base-glow": "color-mix(in oklab, hsl(var(--accent)) 14%, transparent)",
           "--hb-pat-inv-ink":
             patternStyle === "essay"
-              ? "color-mix(in oklab, hsl(var(--bg)) 42%, transparent)"
+              ? "color-mix(in oklab, hsl(var(--fg)) 22%, transparent)"
               : patternStyle === "clerical"
-              ? "color-mix(in oklab, hsl(var(--bg)) 30%, transparent)"
+              ? "color-mix(in oklab, hsl(var(--fg)) 18%, transparent)"
               : "color-mix(in oklab, hsl(var(--bg)) 12%, transparent)",
         } as React.CSSProperties
       }
     >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-36"
+        style={{
+          background:
+            "radial-gradient(160% 90% at 50% -12%, color-mix(in oklab, white 42%, transparent), transparent 58%), repeating-linear-gradient(180deg, color-mix(in oklab, hsl(var(--fg)) 1.6%, transparent) 0 1px, transparent 1px 24px)",
+          mixBlendMode: "multiply",
+        }}
+      />
+
       {patternStyle === "seal" ? (
         <SealPatternLayer tone="base" opacity={patternOpacity} scale={patternScale} motion={patternMotion} />
       ) : patternStyle === "essay" ? (
@@ -343,6 +351,14 @@ export function HeroMimoBackdrop(props: {
       )}
 
       <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(90deg, color-mix(in oklab, hsl(var(--bg)) 98%, white) 0%, color-mix(in oklab, hsl(var(--bg)) 96%, white) 34%, color-mix(in oklab, hsl(var(--bg)) 68%, transparent) 60%, transparent 100%)",
+        }}
+      />
+
+      <div
         className="pointer-events-none absolute inset-0 overflow-hidden will-change-[clip-path]"
         style={{
           clipPath: "circle(var(--hb-spot-r, 0px) at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%))",
@@ -350,48 +366,33 @@ export function HeroMimoBackdrop(props: {
         }}
       >
         <div
-          className="absolute inset-0"
+          className="absolute inset-[-10%]"
           style={{
             background:
-              "radial-gradient(420px 260px at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%), color-mix(in oklab, hsl(var(--accent)) 16%, transparent), transparent 62%), hsl(var(--fg))",
+              "radial-gradient(220px 150px at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%), color-mix(in oklab, white 72%, hsl(var(--bg))) 0%, color-mix(in oklab, hsl(var(--bg)) 94%, white) 40%, color-mix(in oklab, hsl(var(--card)) 82%, transparent) 100%)",
           }}
         />
-        {props.spotlightSceneUrl ? (
-          <div className="absolute inset-0 overflow-hidden">
-            <div
-              className="absolute inset-[-6%]"
-              style={{
-                backgroundImage: `url("${props.spotlightSceneUrl}")`,
-                backgroundPosition: scenePosition,
-                backgroundRepeat: "no-repeat",
-                backgroundSize: "cover",
-                opacity: sceneOpacity,
-                transform: `scale(${sceneScale})`,
-                filter: "saturate(1.06) contrast(1.04) brightness(0.9)",
-              }}
-            />
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(320px 220px at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%), transparent 0%, color-mix(in oklab, hsl(var(--bg)) 6%, transparent) 54%, color-mix(in oklab, hsl(var(--bg)) 32%, transparent) 100%)",
-              }}
-            />
-          </div>
-        ) : null}
         <div
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(250px 180px at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%), color-mix(in oklab, white 18%, transparent), transparent 72%)",
+              "radial-gradient(150px 118px at var(--hb-spot-x, 50%) var(--hb-spot-y, 50%), color-mix(in oklab, white 58%, transparent), color-mix(in oklab, hsl(var(--bg)) 10%, transparent) 64%, transparent 100%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-28"
+          style={{
+            background:
+              "repeating-linear-gradient(180deg, color-mix(in oklab, hsl(var(--fg)) 2.4%, transparent) 0 1px, transparent 1px 20px)",
+            mixBlendMode: "multiply",
           }}
         />
         {patternStyle === "seal" ? (
-          <SealPatternLayer tone="inverted" opacity={patternOpacity * 0.34} scale={patternScale} motion={patternMotion} />
+          <SealPatternLayer tone="inverted" opacity={patternOpacity * 0.14} scale={patternScale} motion={patternMotion} />
         ) : patternStyle === "essay" ? (
           <EssayPatternLayer
             tone="inverted"
-            opacity={Math.min(patternOpacity * 0.76, 1.18)}
+            opacity={Math.min(patternOpacity * 0.62, 0.52)}
             scale={patternScale}
             motion={patternMotion}
           />
@@ -399,7 +400,7 @@ export function HeroMimoBackdrop(props: {
           <ClericalPatternLayer
             token={token}
             tone="inverted"
-            opacity={Math.min(patternOpacity * 0.64, 1.12)}
+            opacity={Math.min(patternOpacity * 0.34, 0.42)}
             scale={patternScale}
             motion={patternMotion}
           />
@@ -407,7 +408,7 @@ export function HeroMimoBackdrop(props: {
           <TextPatternLayer
             token={token}
             tone="inverted"
-            opacity={patternOpacity * 0.34}
+            opacity={patternOpacity * 0.14}
             scale={patternScale}
             motion={patternMotion}
           />

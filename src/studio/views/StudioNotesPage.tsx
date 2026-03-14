@@ -10,15 +10,10 @@ import {
   X,
 } from "lucide-react";
 import React from "react";
-import ReactMarkdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
 import YAML from "yaml";
 import { publisherFetchJson } from "../../ui/publisher/client";
 import { PUBLISHER_BASE_URL } from "../../ui/publisher/config";
 import type { Category } from "../../ui/types";
-import { normalizeMathDelimiters } from "../../ui/markdown/normalizeMathDelimiters";
 import { useStudioState } from "../state/StudioState";
 import { emitWorkspaceChanged } from "../state/StudioWorkspace";
 import { pruneStudioDataCache, readStudioDataCache, studioDataCacheKey, writeStudioDataCache } from "../util/cache";
@@ -27,7 +22,6 @@ import { formatStudioError } from "../util/errors";
 type NoteInput = {
   title: string;
   content: string;
-  excerpt?: string;
   categories?: string[];
   tags?: string[];
   cover?: string;
@@ -43,7 +37,7 @@ type NotesListResponse = {
     path: string;
     sha: string;
     size: number;
-    meta?: { title?: string; date?: string; updated?: string; draft?: boolean; excerpt?: string };
+    meta?: { title?: string; date?: string; updated?: string; draft?: boolean };
   }>;
   paging: { after: string | null; nextAfter: string | null };
 };
@@ -60,7 +54,6 @@ type EditorState = {
   title: string;
   date: string;
   slug: string;
-  excerpt: string;
   categories: string[];
   tags: string[];
   cover: string;
@@ -81,7 +74,6 @@ type LocalNoteDraftV1 = {
     title: string;
     date: string;
     slug: string;
-    excerpt: string;
     categories: string[];
     tags: string[];
     cover: string;
@@ -111,6 +103,9 @@ const NOTES_LIST_CACHE_KEY = studioDataCacheKey(PUBLISHER_BASE_URL, ["notes", "l
 const ADMIN_CATEGORIES_CACHE_KEY = studioDataCacheKey(PUBLISHER_BASE_URL, ["categories", "admin"]);
 const NOTE_DETAIL_CACHE_PREFIX = `${studioDataCacheKey(PUBLISHER_BASE_URL, ["notes", "detail"])}:`;
 const MAX_NOTE_DETAIL_CACHE = 12;
+const StudioNotePreviewLazy = React.lazy(() =>
+  import("../components/StudioNotePreview").then((m) => ({ default: m.StudioNotePreview })),
+);
 
 function noteDetailCacheKey(noteId: string): string {
   return studioDataCacheKey(PUBLISHER_BASE_URL, ["notes", "detail", noteId]);
@@ -250,17 +245,6 @@ function shortHash(input: string): string {
   return (h >>> 0).toString(16).slice(0, 8);
 }
 
-function stripMarkdown(md: string): string {
-  return md
-    .replace(/```[\s\S]*?```/g, "")
-    .replace(/`[^`]*`/g, "")
-    .replace(/!\[[^\]]*]\([^)]*\)/g, "")
-    .replace(/\[[^\]]*]\([^)]*\)/g, "")
-    .replace(/[#>*_-]{1,}\s?/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function parseFrontmatter(md: string): { frontmatter: Record<string, unknown>; body: string } {
   const raw = md ?? "";
   if (!raw.startsWith("---\n")) return { frontmatter: {}, body: raw };
@@ -279,7 +263,6 @@ function emptyEditor(): EditorState {
     title: "",
     date: todayLocal(),
     slug: "",
-    excerpt: "",
     categories: [],
     tags: [],
     cover: "",
@@ -386,9 +369,7 @@ function renderNoteMarkdownFromEditor(args: { editor: EditorState; updatedYmd: s
   if (updated !== date) fm.updated = updated;
   else delete fm.updated;
 
-  const excerpt = args.editor.excerpt.trim();
-  if (excerpt) fm.excerpt = excerpt;
-  else delete fm.excerpt;
+  delete fm.excerpt;
 
   const categories = normalizeIdList(args.editor.categories);
   if (categories.length) fm.categories = categories;
@@ -412,7 +393,7 @@ function renderNoteMarkdownFromEditor(args: { editor: EditorState; updatedYmd: s
 export function StudioNotesPage() {
   const studio = useStudioState();
 
-  const [viewMode, setViewMode] = React.useState<ViewMode>("split");
+  const [viewMode, setViewMode] = React.useState<ViewMode>("edit");
 
   const [allCategories, setAllCategories] = React.useState<Category[]>(
     () => readStudioDataCache<Category[]>(ADMIN_CATEGORIES_CACHE_KEY)?.value ?? [],
@@ -439,6 +420,7 @@ export function StudioNotesPage() {
   const [localSavedAt, setLocalSavedAt] = React.useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState(false);
   const [localDrafts, setLocalDrafts] = React.useState<LocalDraftIndexItem[]>(() => listLocalDraftIndex());
+  const previewContent = React.useDeferredValue(editor.content);
 
   const contentRef = React.useRef<HTMLTextAreaElement | null>(null);
   const retryRef = React.useRef<(() => void) | null>(null);
@@ -580,7 +562,6 @@ export function StudioNotesPage() {
           title: input.title ?? cached.note.id,
           date: input.date ?? todayLocal(),
           slug: "",
-          excerpt: input.excerpt ?? "",
           categories: Array.isArray(input.categories) ? input.categories : [],
           tags: Array.isArray(input.tags) ? input.tags : [],
           cover: input.cover ?? "",
@@ -600,7 +581,6 @@ export function StudioNotesPage() {
             title: id,
             date: todayLocal(),
             slug: "",
-            excerpt: "",
             categories: [],
             tags: [],
             cover: "",
@@ -614,7 +594,6 @@ export function StudioNotesPage() {
           title: typeof le.title === "string" ? le.title : seed.title,
           date: typeof le.date === "string" ? le.date : seed.date,
           slug: typeof le.slug === "string" ? le.slug : "",
-          excerpt: typeof le.excerpt === "string" ? le.excerpt : "",
           categories: Array.isArray(le.categories) ? le.categories : [],
           tags: Array.isArray(le.tags) ? le.tags : [],
           cover: typeof le.cover === "string" ? le.cover : "",
@@ -652,7 +631,6 @@ export function StudioNotesPage() {
           title: input.title ?? res.note.id,
           date: input.date ?? todayLocal(),
           slug: "",
-          excerpt: input.excerpt ?? "",
           categories: Array.isArray(input.categories) ? input.categories : [],
           tags: Array.isArray(input.tags) ? input.tags : [],
           cover: input.cover ?? "",
@@ -728,7 +706,6 @@ export function StudioNotesPage() {
         title: typeof le.title === "string" ? le.title : "",
         date: typeof le.date === "string" ? le.date : todayLocal(),
         slug: typeof le.slug === "string" ? le.slug : "",
-        excerpt: typeof le.excerpt === "string" ? le.excerpt : "",
         categories: Array.isArray(le.categories) ? le.categories : [],
         tags: Array.isArray(le.tags) ? le.tags : [],
         cover: typeof le.cover === "string" ? le.cover : "",
@@ -765,7 +742,6 @@ export function StudioNotesPage() {
           title: editor.title,
           date: editor.date,
           slug: editor.slug,
-          excerpt: editor.excerpt,
           categories: editor.categories,
           tags: editor.tags,
           cover: editor.cover,
@@ -774,6 +750,7 @@ export function StudioNotesPage() {
         },
       };
 
+      const existing = readLocalDraft(key);
       const ok = safeLocalStorageSet(key, JSON.stringify(payload));
       if (!ok) {
         setNotice({ tone: "error", message: "Local save failed (storage unavailable or full)." });
@@ -782,8 +759,10 @@ export function StudioNotesPage() {
 
       setLocalSavedAt(payload.savedAt);
       setDirty(false);
-      refreshDraftIndex();
-      emitWorkspaceChanged();
+      if (!opts?.quiet || !existing || Boolean(existing.pendingDelete) !== Boolean(payload.pendingDelete)) {
+        refreshDraftIndex();
+        emitWorkspaceChanged();
+      }
       if (!opts?.quiet) setNotice({ tone: "success", message: `Saved locally (${fmtRelative(payload.savedAt)}).` });
     },
     [editor, draftKey, pendingDelete, refreshDraftIndex],
@@ -900,9 +879,8 @@ export function StudioNotesPage() {
     if (!q) return notes;
     return notes.filter((n) => {
       const title = (n.meta?.title ?? "").toLowerCase();
-      const excerpt = (n.meta?.excerpt ?? "").toLowerCase();
       const date = (n.meta?.date ?? "").toLowerCase();
-      return n.id.toLowerCase().includes(q) || title.includes(q) || excerpt.includes(q) || date.includes(q);
+      return n.id.toLowerCase().includes(q) || title.includes(q) || date.includes(q);
     });
   }, [notes, filter]);
 
@@ -993,7 +971,7 @@ export function StudioNotesPage() {
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Search title, id, excerpt…"
+            placeholder="Search title or id…"
             className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
           />
           {listError ? <div className="mt-2 text-xs text-red-600">{listError}</div> : null}
@@ -1313,14 +1291,9 @@ export function StudioNotesPage() {
 
           {viewMode !== "edit" ? (
             <div className="min-h-0 overflow-auto bg-[hsl(var(--card))] px-4 py-4">
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm, remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                >
-                  {normalizeMathDelimiters(editor.content || "")}
-                </ReactMarkdown>
-              </div>
+              <React.Suspense fallback={<div className="text-sm text-[hsl(var(--muted))]">Rendering preview…</div>}>
+                <StudioNotePreviewLazy content={previewContent} />
+              </React.Suspense>
             </div>
           ) : null}
         </div>
@@ -1401,32 +1374,6 @@ export function StudioNotesPage() {
               </div>
             </Field>
           </div>
-
-          <Field label="Excerpt">
-            <div className="grid gap-2">
-              <textarea
-                value={editor.excerpt}
-                onChange={(e) => {
-                  setDirty(true);
-                  setEditor((prev) => ({ ...prev, excerpt: e.target.value }));
-                }}
-                className={textareaClass}
-                rows={3}
-                placeholder="One-line intent, for cards / index."
-              />
-              <button
-                type="button"
-                className="w-fit rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                onClick={() => {
-                  const auto = stripMarkdown(editor.content).slice(0, 220);
-                  setEditor((prev) => ({ ...prev, excerpt: auto }));
-                  setDirty(true);
-                }}
-              >
-                Auto from body
-              </button>
-            </div>
-          </Field>
 
           <Field label="Categories">
             <div className="grid gap-2">

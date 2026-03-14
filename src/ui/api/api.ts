@@ -4,7 +4,6 @@ import type {
   NoteListItem,
   Profile,
   Project,
-  SearchHit,
 } from "../types";
 
 const DEFAULT_TIMEOUT_MS = 12_000;
@@ -143,22 +142,6 @@ function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
 
-function normalizeExternalUrl(input: string | undefined): string | null {
-  const raw = String(input ?? "").trim();
-  if (!raw) return null;
-  try {
-    const u = new URL(raw);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    return u.toString();
-  } catch {
-    return null;
-  }
-}
-
-function primaryProjectUrl(p: Project): string | null {
-  return normalizeExternalUrl(p.repoUrl) ?? normalizeExternalUrl(p.homepage);
-}
-
 function filterNotes(all: NoteListItem[], params?: { q?: string; category?: string }) {
   const q = params?.q ? normalize(params.q) : "";
   const category = params?.category ?? "";
@@ -203,57 +186,5 @@ export const api = {
     const p = list.find((x) => x.id === id);
     if (!p) throw new Error("project_not_found");
     return p;
-  },
-  search: async (q: string) => {
-    const query = normalize(q);
-    const [notes, categories, projects] = await Promise.all([
-      getNotesIndex(),
-      apiFetchCached<Category[]>(apiUrl("/api/categories.json")),
-      apiFetchCached<Project[]>(apiUrl("/api/projects.json")),
-    ]);
-
-    if (!query) {
-      return notes.slice(0, 8).map((n) => ({
-        type: "note",
-        title: n.title,
-        subtitle: "最近更新",
-        href: `/notes/${n.id}`,
-      })) satisfies SearchHit[];
-    }
-
-    const hits: SearchHit[] = [];
-
-    for (const n of notes) {
-      if (hits.length >= 12) break;
-      const hay = `${n.title} ${n.excerpt}`.toLowerCase();
-      if (hay.includes(query)) hits.push({ type: "note", title: n.title, subtitle: "Note", href: `/notes/${n.id}` });
-    }
-
-    for (const c of categories) {
-      if (hits.length >= 18) break;
-      const hay = `${c.title} ${c.id}`.toLowerCase();
-      if (hay.includes(query))
-        hits.push({
-          type: "category",
-          title: c.title,
-          subtitle: "Category",
-          href: `#category:${encodeURIComponent(c.id)}`,
-          categoryId: c.id,
-        });
-    }
-
-    for (const p of projects) {
-      if (hits.length >= 24) break;
-      const hay = `${p.name} ${p.description}`.toLowerCase();
-      if (hay.includes(query))
-        hits.push({
-          type: "project",
-          title: p.name,
-          subtitle: "Project",
-          href: primaryProjectUrl(p) ?? `/projects/${p.id}`,
-        });
-    }
-
-    return hits;
   },
 };

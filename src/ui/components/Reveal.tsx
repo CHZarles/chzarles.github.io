@@ -67,7 +67,7 @@ export function Reveal(props: {
   const transitionStyle: React.CSSProperties = reduce
     ? {}
     : {
-        transition: `opacity 460ms cubic-bezier(0.22,1,0.36,1) ${delayMs}ms, transform 460ms cubic-bezier(0.22,1,0.36,1) ${delayMs}ms`,
+        transition: `opacity 320ms cubic-bezier(0.22,1,0.36,1) ${delayMs}ms, transform 320ms cubic-bezier(0.22,1,0.36,1) ${delayMs}ms`,
         willChange: "opacity, transform",
       };
 

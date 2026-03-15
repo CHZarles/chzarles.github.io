@@ -394,6 +394,8 @@ export function StudioNotesPage() {
   const studio = useStudioState();
 
   const [viewMode, setViewMode] = React.useState<ViewMode>("edit");
+  const [showLibrary, setShowLibrary] = React.useState(true);
+  const [showInspector, setShowInspector] = React.useState(false);
 
   const [allCategories, setAllCategories] = React.useState<Category[]>(
     () => readStudioDataCache<Category[]>(ADMIN_CATEGORIES_CACHE_KEY)?.value ?? [],
@@ -935,17 +937,215 @@ export function StudioNotesPage() {
     editor.draft ? "Draft hidden on site" : "Visible on site",
     pendingDelete ? "Will move to .trash on publish" : null,
   ].filter(Boolean) as string[];
+  const selectionModeRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!hasSelection) {
+      selectionModeRef.current = false;
+      setShowLibrary(true);
+      setShowInspector(false);
+      return;
+    }
+
+    if (!selectionModeRef.current) {
+      selectionModeRef.current = true;
+      if (typeof window !== "undefined" && window.matchMedia("(max-width: 1439px)").matches) {
+        setShowLibrary(false);
+      }
+    }
+  }, [hasSelection]);
+
+  React.useEffect(() => {
+    if (!showInspector) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowInspector(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showInspector]);
+
+  const inspectorContent = (
+    <div className="px-5 py-5">
+      <Field label="Note ID">
+        {noteIdPreview.ok ? (
+          <div className="truncate font-mono text-xs text-[hsl(var(--fg))]" title={noteIdPreview.noteId}>
+            {noteIdPreview.noteId}
+          </div>
+        ) : (
+          <div className="text-xs text-red-700">{noteIdPreview.error}</div>
+        )}
+        {editor.mode === "create" && noteIdPreview.ok ? (
+          <div className="truncate text-[11px] text-[hsl(var(--muted))]" title={`content/notes/${noteIdPreview.noteId}.md`}>
+            content/notes/{noteIdPreview.noteId}.md
+          </div>
+        ) : null}
+      </Field>
+
+      <Field label="Title">
+        <input
+          value={editor.title}
+          onChange={(e) => {
+            setDirty(true);
+            setEditor((prev) => ({ ...prev, title: e.target.value }));
+          }}
+          className={inputClass}
+          placeholder="A sharp title"
+        />
+      </Field>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Date">
+          <input
+            value={editor.date}
+            onChange={(e) => {
+              setDirty(true);
+              setEditor((prev) => ({ ...prev, date: e.target.value }));
+            }}
+            className={inputClass}
+            placeholder="YYYY-MM-DD"
+          />
+        </Field>
+
+        <Field label="Slug (create only)">
+          <div className="flex items-center gap-2">
+            <input
+              value={editor.slug}
+              onChange={(e) => {
+                setDirty(true);
+                setSlugTouched(true);
+                setEditor((prev) => ({ ...prev, slug: e.target.value }));
+              }}
+              className={inputClass}
+              placeholder="otel-context"
+              disabled={editor.mode !== "create"}
+            />
+            <button
+              type="button"
+              className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={editor.mode !== "create"}
+              onClick={() => {
+                setSlugTouched(true);
+                setEditor((prev) => ({ ...prev, slug: slugify(prev.title) }));
+                setDirty(true);
+              }}
+            >
+              Auto
+            </button>
+          </div>
+        </Field>
+      </div>
+
+      <Field label="Categories">
+        <div className="grid gap-2">
+          <ChipInput
+            value={editor.categories}
+            placeholder="Add category id and press Enter…"
+            onChange={(next) => {
+              setDirty(true);
+              setEditor((prev) => ({ ...prev, categories: next }));
+            }}
+          />
+
+          {allCategories.length ? (
+            <div className="flex flex-wrap gap-2">
+              {allCategories.map((c) => {
+                const cid = String(c.id ?? "").toLowerCase();
+                const active = editor.categories.includes(cid);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setDirty(true);
+                      setEditor((prev) => {
+                        const set = new Set(prev.categories);
+                        if (set.has(cid)) set.delete(cid);
+                        else set.add(cid);
+                        return { ...prev, categories: Array.from(set) };
+                      });
+                    }}
+                    className={[
+                      "rounded-md border px-2.5 py-1.5 text-xs transition",
+                      active
+                        ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
+                        : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
+                    ].join(" ")}
+                    title={c.id}
+                  >
+                    {c.title}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-[10px] text-[hsl(var(--muted))]">No categories loaded.</div>
+          )}
+
+          <a href="/studio/config?file=categories" className="text-[10px] text-[hsl(var(--muted))] underline underline-offset-2 hover:text-[hsl(var(--fg))]">
+            Manage categories in Config
+          </a>
+        </div>
+      </Field>
+
+      <Field label="Tags">
+        <ChipInput
+          value={editor.tags}
+          placeholder="Add tag and press Enter…"
+          onChange={(next) => {
+            setDirty(true);
+            setEditor((prev) => ({ ...prev, tags: next }));
+          }}
+        />
+      </Field>
+
+      <Field label="Cover URL">
+        <input
+          value={editor.cover}
+          onChange={(e) => {
+            setDirty(true);
+            setEditor((prev) => ({ ...prev, cover: e.target.value }));
+          }}
+          className={inputClass}
+          placeholder="/uploads/…"
+        />
+      </Field>
+
+      <label className="flex items-center justify-between gap-3 border-t border-[hsl(var(--border))] pt-4">
+        <div className="min-w-0">
+          <div className="text-sm">Draft (hide on public site)</div>
+          <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Still publishes to GitHub. Frontend filters drafts by default.</div>
+        </div>
+        <input
+          type="checkbox"
+          checked={editor.draft}
+          onChange={(e) => {
+            setDirty(true);
+            setEditor((prev) => ({ ...prev, draft: e.target.checked }));
+          }}
+        />
+      </label>
+
+      {lastUploadUrl ? (
+        <div className="border-t border-[hsl(var(--border))] pt-4 text-xs text-[hsl(var(--muted))]">
+          Last upload: <code className="break-all">{lastUploadUrl}</code>
+        </div>
+      ) : null}
+    </div>
+  );
 
   return (
     <div
       className={[
         "grid h-full min-h-0 grid-cols-1",
-        hasSelection
-          ? "lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_340px]"
-          : "lg:grid-cols-[300px_minmax(0,1fr)]",
+        !hasSelection || showLibrary ? "lg:grid-cols-[300px_minmax(0,1fr)]" : "",
       ].join(" ")}
     >
-      <aside className="min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r">
+      <aside
+        className={[
+          "min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r",
+          hasSelection && !showLibrary ? "hidden" : "",
+        ].join(" ")}
+      >
         <div className="border-b border-[hsl(var(--border))] px-4 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -956,7 +1156,7 @@ export function StudioNotesPage() {
               <button
                 type="button"
                 onClick={newNote}
-                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                className="inline-flex items-center gap-2 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
                 title="New note"
               >
                 <Plus className="h-3.5 w-3.5 opacity-85" />
@@ -966,7 +1166,7 @@ export function StudioNotesPage() {
                 type="button"
                 onClick={() => void refreshList()}
                 disabled={listBusy || listRefreshing}
-                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
                 title="Refresh list"
               >
                 <RefreshCw className={["h-3.5 w-3.5 opacity-85", listRefreshing ? "animate-spin" : ""].join(" ")} />
@@ -979,7 +1179,7 @@ export function StudioNotesPage() {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search title or id…"
-            className="mt-4 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
+            className="mt-4 w-full rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--bg))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
           />
           {listError ? <div className="mt-2 text-xs text-red-600">{listError}</div> : null}
         </div>
@@ -987,8 +1187,10 @@ export function StudioNotesPage() {
         <div className="min-h-0 overflow-auto px-3 py-4">
           {localDrafts.length ? (
             <div className="pb-4">
-              <div className="flex items-center justify-between px-2 pb-2">
-                <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">Local drafts</div>
+              <div className="flex items-center justify-between px-1 pb-2">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[hsl(var(--muted))]">
+                  Local drafts <span className="ml-1 normal-case tracking-normal">{localDrafts.length}</span>
+                </div>
                 <button
                   type="button"
                   className="text-[11px] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
@@ -1005,43 +1207,59 @@ export function StudioNotesPage() {
                   Clear
                 </button>
               </div>
-              <ul className="grid gap-1">
+              <ul className="overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
                 {localDrafts.slice(0, 8).map((d) => {
                   const active = draftKey === d.key;
                   const sub = [
                     d.noteId ? d.noteId : "new",
                     d.draft ? "draft" : null,
+                    d.pendingDelete ? "delete" : null,
                     `saved ${fmtRelative(d.savedAt)}`,
                   ]
                     .filter(Boolean)
                     .join(" · ");
                   return (
-                    <li key={d.key} className="group flex items-stretch gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void openLocalDraft(d)}
-                        className={[
-                          "flex-1 rounded-xl px-3 py-2 text-left transition",
-                          active ? "bg-[hsl(var(--card2))] text-[hsl(var(--fg))]" : "hover:bg-[hsl(var(--card2))]",
-                        ].join(" ")}
-                        title={d.noteId ? `Local draft for ${d.noteId}` : "Local draft (new note)"}
-                      >
-                        <div className="truncate text-sm font-medium tracking-tight">{d.title}</div>
-                        <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">{sub}</div>
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 text-[hsl(var(--muted))] opacity-0 transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] group-hover:opacity-100"
-                        title="Delete local draft"
-                        onClick={() => {
-                          const ok = window.confirm(`Delete local draft "${d.title}"?`);
-                          if (!ok) return;
-                          deleteLocalDraft(d.key);
-                          setNotice({ tone: "info", message: "Deleted local draft." });
-                        }}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                    <li key={d.key} className="border-t border-[hsl(var(--border))] first:border-t-0">
+                      <div className="group grid grid-cols-[10px_minmax(0,1fr)_auto] items-stretch gap-3 px-2 py-2">
+                        <span
+                          className={[
+                            "mt-1.5 h-2 w-2 rounded-full",
+                            d.pendingDelete
+                              ? "bg-red-500"
+                              : d.draft
+                                ? "bg-amber-500"
+                                : "bg-[hsl(var(--muted))]",
+                          ].join(" ")}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void openLocalDraft(d)}
+                          className={[
+                            "min-w-0 text-left transition",
+                            active ? "text-[hsl(var(--fg))]" : "text-[hsl(var(--fg))] hover:text-[hsl(var(--fg))]",
+                          ].join(" ")}
+                          title={d.noteId ? `Local draft for ${d.noteId}` : "Local draft (new note)"}
+                        >
+                          <div className="truncate text-[13px] font-medium tracking-tight">{d.title}</div>
+                          <div className="mt-0.5 truncate font-mono text-[11px] text-[hsl(var(--muted))]">{sub}</div>
+                        </button>
+                        <button
+                          type="button"
+                          className={[
+                            "inline-flex items-center justify-center rounded-md px-2 text-[hsl(var(--muted))] transition",
+                            active ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:bg-[hsl(var(--bg))] hover:text-[hsl(var(--fg))]",
+                          ].join(" ")}
+                          title="Delete local draft"
+                          onClick={() => {
+                            const ok = window.confirm(`Delete local draft "${d.title}"?`);
+                            if (!ok) return;
+                            deleteLocalDraft(d.key);
+                            setNotice({ tone: "info", message: "Deleted local draft." });
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </li>
                   );
                 })}
@@ -1051,8 +1269,13 @@ export function StudioNotesPage() {
               ) : null}
             </div>
           ) : null}
-          <div className="flex items-center justify-between px-2 pb-2">
-            <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">All notes</div>
+          <div className="flex items-center justify-between px-1 pb-2">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[hsl(var(--muted))]">
+              All notes
+              <span className="ml-1 normal-case tracking-normal">
+                {filter.trim() ? `${filtered.length}/${notes.length}` : notes.length}
+              </span>
+            </div>
             {listRefreshing ? (
               <div className="inline-flex items-center gap-1 text-[11px] text-[hsl(var(--muted))]">
                 <RefreshCw className="h-3 w-3 animate-spin opacity-80" />
@@ -1060,30 +1283,33 @@ export function StudioNotesPage() {
               </div>
             ) : null}
           </div>
-          <ul className="grid gap-1">
+          <ul className="overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
             {filtered.map((n) => {
               const active = editor.id === n.id;
               const title = n.meta?.title ?? n.id;
               const sub = [n.meta?.date, n.meta?.draft ? "draft" : null].filter(Boolean).join(" · ");
               return (
-                <li key={n.id}>
+                <li key={n.id} className="border-t border-[hsl(var(--border))] first:border-t-0">
                   <button
                     type="button"
                     onClick={() => void openNote(n.id)}
                     className={[
-                      "w-full rounded-xl px-3 py-2 text-left transition",
-                      active ? "bg-[hsl(var(--card2))] text-[hsl(var(--fg))]" : "hover:bg-[hsl(var(--card2))]",
+                      "grid w-full grid-cols-[10px_minmax(0,1fr)] gap-3 px-2 py-2 text-left transition",
+                      active ? "bg-[hsl(var(--bg))] text-[hsl(var(--fg))]" : "hover:bg-[hsl(var(--card2))]",
                     ].join(" ")}
                   >
-                    <div className="truncate text-sm font-medium tracking-tight">{title}</div>
-                    <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">{sub || n.id}</div>
+                    <span className={["mt-1.5 h-2 w-2 rounded-full", n.meta?.draft ? "bg-amber-500" : "bg-transparent"].join(" ")} />
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-medium tracking-tight">{title}</div>
+                      <div className="mt-0.5 truncate font-mono text-[11px] text-[hsl(var(--muted))]">{sub || n.id}</div>
+                    </div>
                   </button>
                 </li>
               );
             })}
           </ul>
           {!filtered.length && !listBusy ? (
-            <div className="mt-2 rounded-xl border border-dashed border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-3 text-xs text-[hsl(var(--muted))]">
+            <div className="mt-2 border-l-2 border-[hsl(var(--border))] pl-3 text-xs text-[hsl(var(--muted))]">
               {filter.trim() ? `No notes match "${filter.trim()}".` : "No notes loaded yet."}
             </div>
           ) : null}
@@ -1154,8 +1380,8 @@ export function StudioNotesPage() {
       ) : null}
 
       {hasSelection ? (
-        <>
-          <section className="min-h-0 min-w-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))] xl:border-b-0 xl:border-r">
+        <section className="relative min-h-0 min-w-0 bg-[hsl(var(--bg))]">
+          <div className="flex h-full min-h-0 flex-col">
             <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -1172,6 +1398,22 @@ export function StudioNotesPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowLibrary((prev) => !prev)}
+                    className={[editorToolbarButtonClass, showLibrary ? "bg-[hsl(var(--bg))] text-[hsl(var(--fg))]" : ""].join(" ")}
+                    title="Toggle library"
+                  >
+                    Library
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowInspector((prev) => !prev)}
+                    className={[editorToolbarButtonClass, showInspector ? "bg-[hsl(var(--bg))] text-[hsl(var(--fg))]" : ""].join(" ")}
+                    title="Toggle details"
+                  >
+                    Details
+                  </button>
                   <ViewModeToggle value={viewMode} onChange={setViewMode} />
 
                   <label className={editorToolbarButtonClass}>
@@ -1216,229 +1458,89 @@ export function StudioNotesPage() {
               </div>
             </div>
 
-        {notice ? (
-          <div
-            className={[
-              "border-b border-[hsl(var(--border))] px-4 py-2 text-sm",
-              notice.tone === "error"
-                ? "bg-[color-mix(in_oklab,white_70%,transparent)] text-red-700"
-                : "bg-[hsl(var(--card))] text-[hsl(var(--muted))]",
-            ].join(" ")}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0">{notice.message}</div>
-              <div className="flex items-center gap-3">
-                {retryRef.current && notice.tone === "error" ? (
-                  <button
-                    type="button"
-                    onClick={() => retryRef.current?.()}
-                    className="inline-flex items-center gap-1 text-xs text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
-                  >
-                    Retry <RefreshCw className="h-3.5 w-3.5 opacity-80" />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          {viewMode !== "preview" ? (
-            <div className="min-h-0 border-b border-[hsl(var(--border))] lg:border-b-0 lg:border-r">
-              <textarea
-                ref={contentRef}
-                value={editor.content}
-                onChange={(e) => {
-                  setDirty(true);
-                  setEditor((prev) => ({ ...prev, content: e.target.value }));
-                }}
-                className="h-full w-full resize-none bg-[hsl(var(--bg))] px-4 py-4 font-mono text-sm leading-6 outline-none placeholder:text-[hsl(var(--muted))]"
-                placeholder="## Write…"
-              />
-            </div>
-          ) : null}
-
-          {viewMode !== "edit" ? (
-            <div className="min-h-0 overflow-auto bg-[hsl(var(--card))] px-4 py-4">
-              <React.Suspense fallback={<div className="text-sm text-[hsl(var(--muted))]">Rendering preview…</div>}>
-                <StudioNotePreviewLazy content={previewContent} />
-              </React.Suspense>
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      <aside className="min-h-0 overflow-auto border-t border-[hsl(var(--border))] bg-[hsl(var(--bg))] xl:border-l xl:border-t-0">
-        <div className="px-5 py-5">
-          <Field label="Note ID">
-            {noteIdPreview.ok ? (
-              <div className="truncate font-mono text-xs text-[hsl(var(--fg))]" title={noteIdPreview.noteId}>
-                {noteIdPreview.noteId}
-              </div>
-            ) : (
-              <div className="text-xs text-red-700">
-                {noteIdPreview.error}
-              </div>
-            )}
-            {editor.mode === "create" && noteIdPreview.ok ? (
-              <div className="truncate text-[11px] text-[hsl(var(--muted))]" title={`content/notes/${noteIdPreview.noteId}.md`}>
-                content/notes/{noteIdPreview.noteId}.md
+            {notice ? (
+              <div
+                className={[
+                  "border-b border-[hsl(var(--border))] px-4 py-2 text-sm",
+                  notice.tone === "error"
+                    ? "bg-[color-mix(in_oklab,white_70%,transparent)] text-red-700"
+                    : "bg-[hsl(var(--card))] text-[hsl(var(--muted))]",
+                ].join(" ")}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">{notice.message}</div>
+                  <div className="flex items-center gap-3">
+                    {retryRef.current && notice.tone === "error" ? (
+                      <button
+                        type="button"
+                        onClick={() => retryRef.current?.()}
+                        className="inline-flex items-center gap-1 text-xs text-[hsl(var(--muted))] hover:text-[hsl(var(--fg))]"
+                      >
+                        Retry <RefreshCw className="h-3.5 w-3.5 opacity-80" />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             ) : null}
-          </Field>
 
-          <Field label="Title">
-            <input
-              value={editor.title}
-              onChange={(e) => {
-                setDirty(true);
-                setEditor((prev) => ({ ...prev, title: e.target.value }));
-              }}
-              className={inputClass}
-              placeholder="A sharp title"
-            />
-          </Field>
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <div
+                className={[
+                  "grid h-full min-h-0 grid-cols-1",
+                  viewMode === "split" ? "xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]" : "",
+                ].join(" ")}
+              >
+                {viewMode !== "preview" ? (
+                  <div className={["min-h-0", viewMode === "split" ? "xl:border-r xl:border-[hsl(var(--border))]" : ""].join(" ")}>
+                    <textarea
+                      ref={contentRef}
+                      value={editor.content}
+                      onChange={(e) => {
+                        setDirty(true);
+                        setEditor((prev) => ({ ...prev, content: e.target.value }));
+                      }}
+                      className="h-full w-full resize-none bg-[hsl(var(--bg))] px-6 py-5 font-mono text-sm leading-7 outline-none placeholder:text-[hsl(var(--muted))]"
+                      placeholder="## Write…"
+                    />
+                  </div>
+                ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Date">
-              <input
-                value={editor.date}
-                onChange={(e) => {
-                  setDirty(true);
-                  setEditor((prev) => ({ ...prev, date: e.target.value }));
-                }}
-                className={inputClass}
-                placeholder="YYYY-MM-DD"
-              />
-            </Field>
-
-            <Field label="Slug (create only)">
-              <div className="flex items-center gap-2">
-                <input
-                  value={editor.slug}
-                  onChange={(e) => {
-                    setDirty(true);
-                    setSlugTouched(true);
-                    setEditor((prev) => ({ ...prev, slug: e.target.value }));
-                  }}
-                  className={inputClass}
-                  placeholder="otel-context"
-                  disabled={editor.mode !== "create"}
-                />
-                <button
-                  type="button"
-                  className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={editor.mode !== "create"}
-                  onClick={() => {
-                    setSlugTouched(true);
-                    setEditor((prev) => ({ ...prev, slug: slugify(prev.title) }));
-                    setDirty(true);
-                  }}
-                >
-                  Auto
-                </button>
+                {viewMode !== "edit" ? (
+                  <div className="min-h-0 overflow-auto bg-[hsl(var(--card))] px-6 py-5">
+                    <React.Suspense fallback={<div className="text-sm text-[hsl(var(--muted))]">Rendering preview…</div>}>
+                      <StudioNotePreviewLazy content={previewContent} />
+                    </React.Suspense>
+                  </div>
+                ) : null}
               </div>
-            </Field>
-          </div>
 
-          <Field label="Categories">
-            <div className="grid gap-2">
-              <ChipInput
-                value={editor.categories}
-                placeholder="Add category id and press Enter…"
-                onChange={(next) => {
-                  setDirty(true);
-                  setEditor((prev) => ({ ...prev, categories: next }));
-                }}
-              />
-
-              {allCategories.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {allCategories.map((c) => {
-                    const cid = String(c.id ?? "").toLowerCase();
-                    const active = editor.categories.includes(cid);
-                    return (
+              {showInspector ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close details"
+                    onClick={() => setShowInspector(false)}
+                    className="absolute inset-0 z-10 bg-[color-mix(in_oklab,black_8%,transparent)]"
+                  />
+                  <aside className="absolute inset-y-0 right-0 z-20 flex w-full max-w-[380px] flex-col border-l border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-[0_24px_60px_rgba(0,0,0,0.08)]">
+                    <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-5 py-4">
+                      <div className="text-sm font-semibold tracking-tight">Details</div>
                       <button
-                        key={c.id}
                         type="button"
-                        onClick={() => {
-                          setDirty(true);
-                          setEditor((prev) => {
-                            const set = new Set(prev.categories);
-                            if (set.has(cid)) set.delete(cid);
-                            else set.add(cid);
-                            return { ...prev, categories: Array.from(set) };
-                          });
-                        }}
-                        className={[
-                          "rounded-md border px-2.5 py-1.5 text-xs transition",
-                          active
-                            ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
-                            : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
-                        ].join(" ")}
-                        title={c.id}
+                        onClick={() => setShowInspector(false)}
+                        className="text-xs text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
                       >
-                        {c.title}
+                        Close
                       </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-[10px] text-[hsl(var(--muted))]">No categories loaded.</div>
-              )}
-
-              <a href="/studio/config?file=categories" className="text-[10px] text-[hsl(var(--muted))] underline underline-offset-2 hover:text-[hsl(var(--fg))]">
-                Manage categories in Config
-              </a>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-auto">{inspectorContent}</div>
+                  </aside>
+                </>
+              ) : null}
             </div>
-          </Field>
-
-          <Field label="Tags">
-            <ChipInput
-              value={editor.tags}
-              placeholder="Add tag and press Enter…"
-              onChange={(next) => {
-                setDirty(true);
-                setEditor((prev) => ({ ...prev, tags: next }));
-              }}
-            />
-          </Field>
-
-          <Field label="Cover URL">
-            <input
-              value={editor.cover}
-              onChange={(e) => {
-                setDirty(true);
-                setEditor((prev) => ({ ...prev, cover: e.target.value }));
-              }}
-              className={inputClass}
-              placeholder="/uploads/…"
-            />
-          </Field>
-
-          <label className="flex items-center justify-between gap-3 border-t border-[hsl(var(--border))] pt-4">
-            <div className="min-w-0">
-              <div className="text-sm">Draft (hide on public site)</div>
-              <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Still publishes to GitHub. Frontend filters drafts by default.</div>
-            </div>
-            <input
-              type="checkbox"
-              checked={editor.draft}
-              onChange={(e) => {
-                setDirty(true);
-                setEditor((prev) => ({ ...prev, draft: e.target.checked }));
-              }}
-            />
-          </label>
-
-          {lastUploadUrl ? (
-            <div className="border-t border-[hsl(var(--border))] pt-4 text-xs text-[hsl(var(--muted))]">
-              Last upload: <code className="break-all">{lastUploadUrl}</code>
-            </div>
-          ) : null}
-        </div>
-      </aside>
-        </>
+          </div>
+        </section>
       ) : null}
     </div>
   );

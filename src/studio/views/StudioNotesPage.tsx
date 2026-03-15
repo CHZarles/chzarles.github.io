@@ -935,58 +935,58 @@ export function StudioNotesPage() {
     <div
       className={[
         "grid h-full min-h-0 grid-cols-1",
-        hasSelection ? "lg:grid-cols-[320px_minmax(0,1fr)_360px]" : "lg:grid-cols-[320px_minmax(0,1fr)]",
+        hasSelection
+          ? "lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_340px]"
+          : "lg:grid-cols-[300px_minmax(0,1fr)]",
       ].join(" ")}
     >
       <aside className="min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r">
-        <div className="flex items-center justify-between gap-2 px-4 py-3">
-          <div className="min-w-0">
-            <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">LIBRARY</div>
-            <div className="mt-1 truncate text-[11px] text-[hsl(var(--muted))]">{librarySummary}</div>
+        <div className="border-b border-[hsl(var(--border))] px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold tracking-tight">Library</div>
+              <div className="mt-1 truncate text-xs text-[hsl(var(--muted))]">{librarySummary}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={newNote}
+                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                title="New note"
+              >
+                <Plus className="h-3.5 w-3.5 opacity-85" />
+                New
+              </button>
+              <button
+                type="button"
+                onClick={() => void refreshList()}
+                disabled={listBusy || listRefreshing}
+                className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+                title="Refresh list"
+              >
+                <RefreshCw className={["h-3.5 w-3.5 opacity-85", listRefreshing ? "animate-spin" : ""].join(" ")} />
+                {listRefreshing ? "Syncing" : "Refresh"}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={newNote}
-              className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-              title="New note"
-            >
-              <Plus className="h-3.5 w-3.5 opacity-85" />
-              New
-            </button>
-            <button
-              type="button"
-              onClick={() => void refreshList()}
-              disabled={listBusy || listRefreshing}
-              className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
-              title="Refresh list"
-            >
-              <RefreshCw className={["h-3.5 w-3.5 opacity-85", listRefreshing ? "animate-spin" : ""].join(" ")} />
-              {listRefreshing ? "Syncing" : "Refresh"}
-            </button>
-          </div>
-        </div>
 
-        <div className="px-4 pb-3">
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search title or id…"
-            className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
+            className="mt-4 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
           />
           {listError ? <div className="mt-2 text-xs text-red-600">{listError}</div> : null}
         </div>
 
-        <div className="min-h-0 overflow-auto px-2 pb-4">
+        <div className="min-h-0 overflow-auto px-3 py-4">
           {localDrafts.length ? (
-            <div className="pb-3">
-              <div className="flex items-center justify-between px-3 pb-1">
-                <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">
-                  LOCAL DRAFTS <span className="opacity-70">· {localDrafts.length}</span>
-                </div>
+            <div className="pb-4">
+              <div className="flex items-center justify-between px-2 pb-2">
+                <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">Local drafts</div>
                 <button
                   type="button"
-                  className="text-[10px] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+                  className="text-[11px] text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
                   onClick={() => {
                     const ok = window.confirm(`Delete all local drafts (${localDrafts.length})?`);
                     if (!ok) return;
@@ -1042,17 +1042,14 @@ export function StudioNotesPage() {
                 })}
               </ul>
               {localDrafts.length > 8 ? (
-                <div className="mt-2 px-3 text-[10px] text-[hsl(var(--muted))]">+ {localDrafts.length - 8} more in storage</div>
+                <div className="mt-2 px-3 text-[11px] text-[hsl(var(--muted))]">+ {localDrafts.length - 8} more in storage</div>
               ) : null}
-              <div className="mt-3 h-px bg-[hsl(var(--border))]" />
             </div>
           ) : null}
-          <div className="flex items-center justify-between px-3 pb-1">
-            <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">
-              NOTES <span className="opacity-70">· {filter.trim() ? `${filtered.length}/${notes.length}` : notes.length}</span>
-            </div>
+          <div className="flex items-center justify-between px-2 pb-2">
+            <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">All notes</div>
             {listRefreshing ? (
-              <div className="inline-flex items-center gap-1 text-[10px] text-[hsl(var(--muted))]">
+              <div className="inline-flex items-center gap-1 text-[11px] text-[hsl(var(--muted))]">
                 <RefreshCw className="h-3 w-3 animate-spin opacity-80" />
                 Syncing
               </div>
@@ -1101,81 +1098,50 @@ export function StudioNotesPage() {
 
       {!hasSelection ? (
         <section className="min-h-0 min-w-0 bg-[hsl(var(--bg))]">
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
-              <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">EDITOR</div>
-              <div className="mt-0.5 text-sm font-semibold tracking-tight">Select a note</div>
-            </div>
+          <div className="flex h-full items-center justify-center px-8 py-12">
+            <div className="w-full max-w-[520px] rounded-[28px] border border-[hsl(var(--border))] bg-[color-mix(in_oklab,hsl(var(--card))_80%,transparent)] p-8">
+              <div className="text-2xl font-semibold tracking-tight">Pick a note or start a new draft</div>
+              <p className="mt-3 text-sm leading-7 text-[hsl(var(--muted))]">
+                The editor stays empty until you open something from the library.
+              </p>
 
-            <div className="flex flex-1 items-center justify-center px-6 py-10">
-              <div className="w-full max-w-[560px]">
-                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[color-mix(in_oklab,hsl(var(--card))_72%,transparent)] p-6">
-                  <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">START</div>
-                  <div className="mt-2 font-serif text-2xl font-semibold tracking-tight">Open something</div>
-                  <p className="mt-3 text-sm leading-relaxed text-[hsl(var(--muted))]">
-                    Choose a note from <span className="font-medium text-[hsl(var(--fg))]">Library</span>, or start a new
-                    draft. This page stays quiet until you pick a file.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-[hsl(var(--muted))]">
-                    <InlinePill>{notes.length} remote</InlinePill>
-                    <InlinePill>{localDrafts.length} local drafts</InlinePill>
-                    <InlinePill>Cmd/Ctrl+S saves local</InlinePill>
-                  </div>
-
-                  {listError ? (
-                    <div className="mt-4 rounded-xl border border-[color-mix(in_oklab,red_40%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] px-4 py-3 text-sm text-red-700">
-                      {listError}
-                    </div>
-                  ) : null}
-
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={newNote}
-                      className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] px-4 py-2 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]"
-                    >
-                      <Plus className="h-4 w-4 opacity-85" />
-                      New note
-                    </button>
-
-                    {localDrafts[0] ? (
-                      <button
-                        type="button"
-                        onClick={() => void openLocalDraft(localDrafts[0]!)}
-                        className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                        title="Continue the most recent local draft"
-                      >
-                        Continue draft
-                      </button>
-                    ) : null}
-
-                    {notes[0] ? (
-                      <button
-                        type="button"
-                        onClick={() => void openNote(notes[0]!.id)}
-                        className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                        title="Open the latest note"
-                      >
-                        Open latest
-                      </button>
-                    ) : null}
-
-                    <button
-                      type="button"
-                      onClick={() => void refreshList()}
-                      disabled={listBusy || listRefreshing}
-                      className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
-                      title="Refresh list"
-                    >
-                      <RefreshCw className={["h-4 w-4 opacity-85", listRefreshing ? "animate-spin" : ""].join(" ")} />
-                      Refresh
-                    </button>
-                  </div>
-
-                  <div className="mt-5 text-[10px] text-[hsl(var(--muted))]">
-                    Tip: <span className="font-mono">⌘S</span> saves local drafts when you’re editing.
-                  </div>
+              {listError ? (
+                <div className="mt-4 rounded-xl border border-[color-mix(in_oklab,red_40%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] px-4 py-3 text-sm text-red-700">
+                  {listError}
                 </div>
+              ) : null}
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={newNote}
+                  className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] px-4 py-2 text-sm font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]"
+                >
+                  <Plus className="h-4 w-4 opacity-85" />
+                  New note
+                </button>
+
+                {localDrafts[0] ? (
+                  <button
+                    type="button"
+                    onClick={() => void openLocalDraft(localDrafts[0]!)}
+                    className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                    title="Continue the most recent local draft"
+                  >
+                    Continue draft
+                  </button>
+                ) : null}
+
+                {notes[0] ? (
+                  <button
+                    type="button"
+                    onClick={() => void openNote(notes[0]!.id)}
+                    className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                    title="Open the latest note"
+                  >
+                    Open latest
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>
@@ -1184,8 +1150,8 @@ export function StudioNotesPage() {
 
       {hasSelection ? (
         <>
-          <section className="min-h-0 min-w-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))] lg:border-b-0 lg:border-r">
-            <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
+          <section className="min-h-0 min-w-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))] xl:border-b-0 xl:border-r">
+            <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1196,6 +1162,7 @@ export function StudioNotesPage() {
                   <div className="mt-1 truncate font-mono text-[11px] text-[hsl(var(--muted))]" title={editorSubline}>
                     {editorSubline}
                   </div>
+                  <div className="mt-2 text-xs text-[hsl(var(--muted))]">{editorStatus.detail}</div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1240,10 +1207,6 @@ export function StudioNotesPage() {
                     Save local
                   </button>
                 </div>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[hsl(var(--muted))]">
-                <InlinePill>{editorStatus.detail}</InlinePill>
-                <InlinePill>Publish from Changes creates one GitHub commit</InlinePill>
               </div>
             </div>
 
@@ -1299,27 +1262,24 @@ export function StudioNotesPage() {
         </div>
       </section>
 
-      <aside className="min-h-0 overflow-auto bg-[hsl(var(--card))]">
-        <div className="border-b border-[hsl(var(--border))] px-4 py-3">
-          <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">METADATA</div>
-        </div>
-
-        <div className="grid gap-4 px-4 py-4">
-          <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2">
-            <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))]">NOTE ID</div>
+      <aside className="min-h-0 overflow-auto border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] xl:border-t-0">
+        <div className="grid gap-5 px-4 py-5">
+          <Field label="Note ID">
             {noteIdPreview.ok ? (
-              <div className="mt-1 truncate font-mono text-xs text-[hsl(var(--fg))]" title={noteIdPreview.noteId}>
+              <div className="truncate rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 font-mono text-xs text-[hsl(var(--fg))]" title={noteIdPreview.noteId}>
                 {noteIdPreview.noteId}
               </div>
             ) : (
-              <div className="mt-1 text-xs text-red-700">{noteIdPreview.error}</div>
+              <div className="rounded-xl border border-[color-mix(in_oklab,red_35%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] px-3 py-2 text-xs text-red-700">
+                {noteIdPreview.error}
+              </div>
             )}
             {editor.mode === "create" && noteIdPreview.ok ? (
-              <div className="mt-1 truncate text-[10px] text-[hsl(var(--muted))]" title={`content/notes/${noteIdPreview.noteId}.md`}>
+              <div className="truncate text-[11px] text-[hsl(var(--muted))]" title={`content/notes/${noteIdPreview.noteId}.md`}>
                 content/notes/{noteIdPreview.noteId}.md
               </div>
             ) : null}
-          </div>
+          </Field>
 
           <Field label="Title">
             <input
@@ -1528,14 +1488,6 @@ function StatusBadge(props: { tone: "success" | "danger" | "neutral" | "muted"; 
           : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))]";
 
   return <span className={["inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium", toneClass].join(" ")}>{props.children}</span>;
-}
-
-function InlinePill(props: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-1 text-[11px] text-[hsl(var(--muted))]">
-      {props.children}
-    </span>
-  );
 }
 
 function ChipInput(props: { value: string[]; placeholder?: string; onChange: (next: string[]) => void }) {

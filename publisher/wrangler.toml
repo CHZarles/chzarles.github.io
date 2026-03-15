@@ -18,7 +18,7 @@ CONTENT_BRANCH = "main"
 CONTENT_ROOT = ""
 
 # CORS + OAuth redirect allowlist (comma-separated origins, no trailing slash)
-ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://chzarles.github.io"
+ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,http://127.0.0.1:4173,https://chzarles.github.io"
 
 # Optional (defaults to 12h if unset)
 TOKEN_TTL_SECONDS = 43200

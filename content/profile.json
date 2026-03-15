@@ -2,22 +2,24 @@
   "name": "朝花夕拾",
   "handle": "@charles",
   "tagline": "CS / Observability / 写作系统化",
-  "accent": "270 85% 45%",
+  "accent": "202 100% 33.7%",
+  "avatarUrl": "https://github.com/charles.png?size=256",
+  "avatarEmoji": "😄",
   "nav": {
-    "title": "BLOG"
+    "title": "Charles"
   },
   "publisherBaseUrl": "https://hyperblog-publisher.chzarles.workers.dev",
   "hero": {
-    "titleStyle": "cursive",
+    "title": "求索",
+    "titleStyle": "stele",
     "tagline": "",
     "variant": "mimo",
     "patternStyle": "essay",
-    "spotlightRadiusPx": 120,
-    "textScale": 1.15,
-    "spotlightSceneUrl": "https://i.pinimg.com/control1/736x/0e/01/ca/0e01ca79782706f0b5409243073db882.jpg",
-    "spotlightScenePosition": "center 42%",
-    "spotlightSceneOpacity": 0.9,
-    "spotlightSceneScale": 1.08
+    "spotlightRadiusPx": 92,
+    "textScale": 1.24,
+    "patternOpacity": 0.32,
+    "patternScale": 0.76,
+    "patternMotion": "none"
   },
   "links": [
     {

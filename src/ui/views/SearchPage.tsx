@@ -2,8 +2,8 @@ import { CalendarDays, ExternalLink, Github, Link2, Search, X } from "lucide-rea
 import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/api";
-import { NoteTitleLink } from "../components/NoteTitleLink";
-import { noteDetailTransitionState, preparePostTransitionOnClick } from "../navigation/transitions";
+import { NoteLink, NoteTitleLink } from "../components/NoteTitleLink";
+import { preloadNotePage } from "../navigation/preloaders";
 import { useAppState } from "../state/AppState";
 import type { NoteListItem, Project } from "../types";
 
@@ -126,6 +126,10 @@ export function SearchPage() {
   const [readMinutes, setReadMinutes] = React.useState<Record<string, number>>({});
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const deferredQuery = React.useDeferredValue(queryDraft.trim());
+
+  React.useEffect(() => {
+    preloadNotePage();
+  }, []);
 
   const updateSearchParams = React.useCallback(
     (nextQuery: string, nextCategory: string) => {
@@ -351,10 +355,8 @@ export function SearchPage() {
                       to={`/notes/${note.id}`}
                       noteId={note.id}
                       transitionTitle={note.title}
-                      onMouseEnter={() => api.prefetchNote(note.id)}
-                      onFocus={() => api.prefetchNote(note.id)}
                       className="inline-block text-lg font-medium text-[hsl(var(--accent))] decoration-dashed underline-offset-4 transition hover:underline focus-visible:no-underline focus-visible:underline-offset-0"
-                      titleClassName="text-lg font-medium"
+                      titleClassName="hb-post-face inline-block text-lg font-medium"
                       as="h2"
                     >
                       {note.title}
@@ -370,15 +372,12 @@ export function SearchPage() {
                       ) : null}
                     </div>
 
-                    <div className="flex items-start gap-4">
-                      {note.cover ? (
-                        <Link
+                    {note.cover ? (
+                      <div className="mt-2">
+                        <NoteLink
                           to={`/notes/${note.id}`}
-                          state={noteDetailTransitionState(note.id, { title: note.title })}
-                          viewTransition
-                          onClickCapture={preparePostTransitionOnClick}
-                          onMouseEnter={() => api.prefetchNote(note.id)}
-                          onFocus={() => api.prefetchNote(note.id)}
+                          noteId={note.id}
+                          transitionTitle={note.title}
                           className="group hidden shrink-0 sm:block"
                         >
                           <img
@@ -387,10 +386,9 @@ export function SearchPage() {
                             loading="lazy"
                             className="h-[79px] w-[140px] rounded object-cover shadow-sm transition-all duration-200 group-hover:scale-105 group-hover:shadow-md"
                           />
-                        </Link>
-                      ) : null}
-                      {note.excerpt ? <p className="flex-1 opacity-80">{note.excerpt}</p> : null}
-                    </div>
+                        </NoteLink>
+                      </div>
+                    ) : null}
                   </div>
                 </li>
               ))}

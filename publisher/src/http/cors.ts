@@ -1,10 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import { HttpError } from "./errors";
-
-function isAllowedOrigin(origin: string, allowed: string[]) {
-  if (!origin) return false;
-  return allowed.includes(origin);
-}
+import { isAllowedCorsOrigin } from "./origin";
 
 export function corsAllowlist(allowedOrigins: string[]): MiddlewareHandler {
   const allowed = allowedOrigins;
@@ -13,11 +9,11 @@ export function corsAllowlist(allowedOrigins: string[]): MiddlewareHandler {
     const origin = c.req.header("Origin") ?? "";
     const hasOrigin = Boolean(origin);
 
-    if (hasOrigin && allowed.length > 0 && !isAllowedOrigin(origin, allowed)) {
+    if (hasOrigin && allowed.length > 0 && !isAllowedCorsOrigin(origin, allowed)) {
       throw new HttpError(403, "FORBIDDEN_ORIGIN", "Origin not allowed.", { origin });
     }
 
-    if (hasOrigin && (allowed.length === 0 || isAllowedOrigin(origin, allowed))) {
+    if (hasOrigin && (allowed.length === 0 || isAllowedCorsOrigin(origin, allowed))) {
       c.header("Access-Control-Allow-Origin", origin);
       c.header("Vary", "Origin");
     }

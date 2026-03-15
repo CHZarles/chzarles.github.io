@@ -1,9 +1,8 @@
 import { CalendarDays } from "lucide-react";
 import React from "react";
-import { Link } from "react-router-dom";
 import { api } from "../api/api";
-import { NoteTitleLink } from "../components/NoteTitleLink";
-import { noteDetailTransitionState, preparePostTransitionOnClick } from "../navigation/transitions";
+import { NoteLink, NoteTitleLink } from "../components/NoteTitleLink";
+import { preloadNotePage } from "../navigation/preloaders";
 import type { NoteListItem } from "../types";
 
 function fmtYmd(iso: string): string {
@@ -99,6 +98,10 @@ export function NotesPage() {
   const [readMinutes, setReadMinutes] = React.useState<Record<string, number>>({});
 
   React.useEffect(() => {
+    preloadNotePage();
+  }, []);
+
+  React.useEffect(() => {
     let cancelled = false;
     api
       .notes()
@@ -117,31 +120,44 @@ export function NotesPage() {
     if (!ids.length) return;
 
     let cancelled = false;
-    void Promise.all(
-      ids.map(async (id) => {
-        const note = await api.note(id);
-        return [id, estimateReadMinutes(note.content)] as const;
-      }),
-    )
-      .then((pairs) => {
-        if (cancelled) return;
-        setReadMinutes((prev) => {
-          const next = { ...prev };
-          for (const [id, mins] of pairs) next[id] = mins;
-          return next;
-        });
-      })
-      .catch(() => {});
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+
+    const run = () => {
+      void Promise.all(
+        ids.map(async (id) => {
+          const note = await api.note(id);
+          return [id, estimateReadMinutes(note.content)] as const;
+        }),
+      )
+        .then((pairs) => {
+          if (cancelled) return;
+          setReadMinutes((prev) => {
+            const next = { ...prev };
+            for (const [id, mins] of pairs) next[id] = mins;
+            return next;
+          });
+        })
+        .catch(() => {});
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(run, 240);
+    }
 
     return () => {
       cancelled = true;
+      if (idleId !== null) window.cancelIdleCallback(idleId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
     };
   }, [notes, readMinutes]);
 
   const archive = React.useMemo(() => groupNotesByYearAndMonth(notes), [notes]);
 
   return (
-    <section className="w-full max-w-[48rem] pb-4 pt-6 font-mono">
+    <section className="hb-post-face w-full max-w-[48rem] pb-4 pt-6">
       <h1 className="mt-8 text-2xl font-semibold sm:text-3xl">All Notes</h1>
       <p className="mb-6 mt-2 italic">Browse all notes by year and month</p>
 
@@ -168,10 +184,8 @@ export function NotesPage() {
                           to={`/notes/${note.id}`}
                           noteId={note.id}
                           transitionTitle={note.title}
-                          onMouseEnter={() => api.prefetchNote(note.id)}
-                          onFocus={() => api.prefetchNote(note.id)}
                           className="inline-block text-lg font-medium text-[hsl(var(--accent))] decoration-dashed underline-offset-4 transition hover:underline focus-visible:no-underline focus-visible:underline-offset-0"
-                          titleClassName="text-lg font-medium"
+                          titleClassName="hb-post-face inline-block text-lg font-medium"
                           as="h2"
                         >
                           {note.title}
@@ -187,15 +201,12 @@ export function NotesPage() {
                           ) : null}
                         </div>
 
-                        <div className="flex items-start gap-4">
-                          {note.cover ? (
-                            <Link
+                        {note.cover ? (
+                          <div className="mt-2">
+                            <NoteLink
                               to={`/notes/${note.id}`}
-                              state={noteDetailTransitionState(note.id, { title: note.title })}
-                              viewTransition
-                              onClickCapture={preparePostTransitionOnClick}
-                              onMouseEnter={() => api.prefetchNote(note.id)}
-                              onFocus={() => api.prefetchNote(note.id)}
+                              noteId={note.id}
+                              transitionTitle={note.title}
                               className="group hidden shrink-0 sm:block"
                             >
                               <img
@@ -204,10 +215,9 @@ export function NotesPage() {
                                 loading="lazy"
                                 className="h-[79px] w-[140px] rounded object-cover shadow-sm transition-all duration-200 group-hover:scale-105 group-hover:shadow-md"
                               />
-                            </Link>
-                          ) : null}
-                          {note.excerpt ? <p className="flex-1 opacity-80">{note.excerpt}</p> : null}
-                        </div>
+                            </NoteLink>
+                          </div>
+                        ) : null}
                       </div>
                     </li>
                   ))}

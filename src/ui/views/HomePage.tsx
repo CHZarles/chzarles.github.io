@@ -3,6 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/api";
 import { NoteTitleLink } from "../components/NoteTitleLink";
+import { preloadNotePage } from "../navigation/preloaders";
 import { useAppState } from "../state/AppState";
 import type { NoteListItem } from "../types";
 
@@ -40,6 +41,10 @@ export function HomePage() {
   const { profile } = useAppState();
   const [notes, setNotes] = React.useState<NoteListItem[]>([]);
   const [readMinutes, setReadMinutes] = React.useState<Record<string, number>>({});
+
+  React.useEffect(() => {
+    preloadNotePage();
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -163,10 +168,8 @@ export function HomePage() {
                     to={`/notes/${n.id}`}
                     noteId={n.id}
                     transitionTitle={n.title}
-                    onMouseEnter={() => api.prefetchNote(n.id)}
-                    onFocus={() => api.prefetchNote(n.id)}
                     className="inline-block text-lg font-medium text-[hsl(var(--accent))] decoration-dashed underline-offset-4 transition hover:underline focus-visible:no-underline focus-visible:underline-offset-0"
-                    titleClassName="text-lg font-medium"
+                    titleClassName="hb-post-face inline-block text-lg font-medium"
                     as="h3"
                   >
                     {n.title}
@@ -180,7 +183,6 @@ export function HomePage() {
                       <span className="text-sm italic opacity-80">• {readMinutes[n.id]} min read</span>
                     ) : null}
                   </div>
-                  {n.excerpt ? <p className="opacity-80">{n.excerpt}</p> : null}
                 </div>
               </li>
             ))}

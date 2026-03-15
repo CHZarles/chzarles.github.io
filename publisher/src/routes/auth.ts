@@ -6,22 +6,20 @@ import { issueOAuthState, verifyOAuthState } from "../auth/oauthState";
 import { exchangeCodeForAccessToken, githubAuthorizeUrl } from "../github/oauth";
 import { ghJson } from "../github/client";
 import { getRepo, getViewer } from "../github/user";
+import { hasLoopbackOrigin, isTrustedLoopbackRedirectOrigin, normalizeOrigin, resolveRequestOrigin } from "../http/origin";
 
-function normalizeOrigin(origin: string): string {
-  return origin.replace(/\/+$/g, "");
-}
-
-function resolveRedirect(input: string | null, allowedOrigins: string[]): string {
+function resolveRedirect(input: string | null, allowedOrigins: string[], requestOrigin: string | null): string {
   const allowed = allowedOrigins.map(normalizeOrigin);
   const val = (input ?? "").trim();
-
-  const defaultRedirect = allowed[0] ? new URL("/auth/callback", allowed[0]).toString() : "/";
+  const devRequestOrigin = requestOrigin && isTrustedLoopbackRedirectOrigin(requestOrigin, allowed, requestOrigin) ? requestOrigin : null;
+  const defaultBaseOrigin = devRequestOrigin ?? allowed[0] ?? null;
+  const defaultRedirect = defaultBaseOrigin ? new URL("/auth/callback", defaultBaseOrigin).toString() : "/";
   if (!val) return defaultRedirect;
 
-  // allow relative redirects only when we have an origin allowlist
+  // allow relative redirects when we have an allowlist or when a trusted local loopback origin initiated the auth flow
   if (val.startsWith("/")) {
-    if (!allowed[0]) throw new HttpError(422, "VALIDATION_FAILED", "Redirect must be absolute URL.");
-    return new URL(val, allowed[0]).toString();
+    if (!defaultBaseOrigin) throw new HttpError(422, "VALIDATION_FAILED", "Redirect must be absolute URL.");
+    return new URL(val, defaultBaseOrigin).toString();
   }
 
   let url: URL;
@@ -31,7 +29,13 @@ function resolveRedirect(input: string | null, allowedOrigins: string[]): string
     throw new HttpError(422, "VALIDATION_FAILED", "Invalid redirect URL.");
   }
 
-  if (allowed.length > 0 && !allowed.includes(normalizeOrigin(url.origin))) {
+  const normalizedRedirectOrigin = normalizeOrigin(url.origin);
+  const allowTrustedLoopback =
+    allowed.length > 0 &&
+    hasLoopbackOrigin(allowed) &&
+    isTrustedLoopbackRedirectOrigin(normalizedRedirectOrigin, allowed, requestOrigin);
+
+  if (allowed.length > 0 && !allowed.includes(normalizedRedirectOrigin) && !allowTrustedLoopback) {
     throw new HttpError(403, "FORBIDDEN", "Redirect origin not allowed.", { origin: url.origin });
   }
   return url.toString();
@@ -41,7 +45,8 @@ export const authRoutes = new Hono();
 
 authRoutes.get("/github/start", async (c) => {
   const cfg = c.get("config");
-  const redirect = resolveRedirect(c.req.query("redirect"), cfg.allowedOrigins);
+  const requestOrigin = resolveRequestOrigin(c.req.header("Origin"), c.req.header("Referer"));
+  const redirect = resolveRedirect(c.req.query("redirect"), cfg.allowedOrigins, requestOrigin);
   const state = await issueOAuthState(cfg.tokenSecret, redirect);
   const callback = new URL("/api/auth/github/callback", cfg.baseUrl).toString();
   const url = await githubAuthorizeUrl({

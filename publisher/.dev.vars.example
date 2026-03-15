@@ -6,11 +6,10 @@ ADMIN_GITHUB_LOGINS=<your-github-login>
 CONTENT_REPO=<owner>/<repo> # e.g. yourname/yourname.github.io
 CONTENT_BRANCH=main
 CONTENT_ROOT=
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173,https://<user>.github.io
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,http://127.0.0.1:4173,https://<user>.github.io
 TOKEN_TTL_SECONDS=43200
 
 # Secrets (required)
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 TOKEN_SECRET=
-

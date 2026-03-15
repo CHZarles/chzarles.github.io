@@ -18,6 +18,22 @@
   src: url("/fonts/hero-classic-subset.woff2") format("woff2");
 }
 
+@font-face {
+  font-family: "Atkinson";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/atkinson-regular.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Atkinson";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/atkinson-bold.woff") format("woff");
+}
+
 :root {
   color-scheme: light;
   /* Type system */
@@ -31,6 +47,8 @@
   --font-mono: "JetBrains Mono", "Cascadia Mono", "Cascadia Code", "Fira Code", "Sarasa Mono SC",
     "Noto Sans Mono CJK SC", "LXGW WenKai Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
+  --font-note: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-post: "Atkinson", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   --text-base: 16px;
   --text-sm: 14px;
@@ -41,9 +59,11 @@
   --tracking-tight: -0.015em;
   --tracking-wide: 0.18em;
   --tracking-kicker: 0.22em;
-  --motion-enter-duration: 180ms;
+  --motion-enter-duration: 250ms;
   --motion-enter-distance: 0px;
-  --motion-standard-ease: cubic-bezier(0.76, 0, 0.24, 1);
+  --motion-standard-ease: ease-out;
+  --motion-loader-duration: 250ms;
+  --motion-loader-ease: ease-out;
 
   /* Clean editorial theme */
   --bg: 0 0% 99%;
@@ -78,9 +98,6 @@
   --code-string: color-mix(in oklab, hsl(var(--accent)) 40%, hsl(var(--fg)));
   --code-number: color-mix(in oklab, hsl(var(--accent)) 54%, hsl(var(--fg)));
 
-  /* Skeleton */
-  --hb-skel-base: color-mix(in oklab, hsl(var(--card2)) 70%, transparent);
-  --hb-skel-sheen: color-mix(in oklab, hsl(var(--bg)) 88%, transparent);
 }
 
 [data-theme="dark"] {
@@ -109,8 +126,6 @@
   --code-string: color-mix(in oklab, hsl(var(--accent)) 34%, hsl(var(--fg)));
   --code-number: color-mix(in oklab, hsl(var(--accent)) 46%, hsl(var(--fg)));
 
-  --hb-skel-base: color-mix(in oklab, hsl(var(--card2)) 78%, transparent);
-  --hb-skel-sheen: color-mix(in oklab, hsl(var(--fg)) 12%, transparent);
 }
 
 html,
@@ -167,7 +182,7 @@ html[data-hb-mounted="1"] #root {
 }
 
 .hb-route-stage {
-  animation: hb-route-enter var(--motion-enter-duration) var(--motion-standard-ease);
+  animation: hb-route-enter var(--motion-loader-duration) var(--motion-loader-ease);
   animation-fill-mode: both;
   will-change: opacity, transform;
 }
@@ -205,6 +220,12 @@ html[data-hb-mounted="1"] #root {
   animation-name: hb-view-fade-in;
 }
 
+html[data-hb-transition="post"]::view-transition-old(root),
+html[data-hb-transition="post"]::view-transition-new(root) {
+  animation-duration: 1ms;
+  animation-name: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hb-route-stage {
     animation: none;
@@ -214,37 +235,6 @@ html[data-hb-mounted="1"] #root {
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 1ms;
-  }
-}
-
-@keyframes hb-skel {
-  from {
-    transform: translateX(-120%);
-  }
-  to {
-    transform: translateX(120%);
-  }
-}
-
-.hb-skel {
-  position: relative;
-  overflow: hidden;
-  background: var(--hb-skel-base);
-}
-
-.hb-skel.hb-skel-sheen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform: translateX(-120%);
-  background: linear-gradient(90deg, transparent 0%, var(--hb-skel-sheen) 50%, transparent 100%);
-  animation: hb-skel 1080ms cubic-bezier(0.22, 1, 0.36, 1) infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hb-skel.hb-skel-sheen::after {
-    animation: none;
-    display: none;
   }
 }
 
@@ -261,6 +251,14 @@ html[data-hb-mounted="1"] #root {
 .container {
   width: min(100%, calc(100% - 2rem));
   margin-inline: auto;
+}
+
+.hb-note-face {
+  font-family: var(--font-note);
+}
+
+.hb-post-face {
+  font-family: var(--font-post);
 }
 
 .card {

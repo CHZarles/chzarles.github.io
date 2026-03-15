@@ -7,8 +7,6 @@ tags:
   - math
 nodes:
   - writing-system/typography
-excerpt: 用一篇 Note 覆盖 inline / display / aligned / matrix / cases 等常见公式，顺手确认
-  Markdown 与数学混排不会炸。
 updated: 2026-02-14
 ---
 

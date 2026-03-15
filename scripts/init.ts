@@ -129,7 +129,17 @@ async function main() {
     // Update publisher/wrangler.toml vars
     const wranglerRaw = await fs.readFile(wranglerPath, "utf8");
     const siteOrigin = parseOrigin(answers.siteUrl);
-    const allowedOrigins = ["http://localhost:5173", "http://localhost:4173", siteOrigin].filter((x): x is string => Boolean(x)).join(",");
+    const allowedOrigins = [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://localhost:5174",
+      "http://127.0.0.1:5174",
+      "http://localhost:4173",
+      "http://127.0.0.1:4173",
+      siteOrigin,
+    ]
+      .filter((x): x is string => Boolean(x))
+      .join(",");
 
     const nextWrangler = upsertTomlVars(wranglerRaw, {
       ...(answers.publisherUrl ? { BASE_URL: answers.publisherUrl } : {}),
@@ -216,4 +226,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

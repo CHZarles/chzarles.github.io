@@ -324,14 +324,14 @@ function summarizeText(text: string): { lines: number; nonEmptyLines: number; ch
 
 function EmptyState() {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-16">
-      <div className="card p-8">
-        <div className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+    <div className="mx-auto max-w-2xl px-6 py-16">
+      <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-8">
+        <div className="flex items-center gap-2 text-base font-semibold tracking-tight">
           <FileDiff className="h-4 w-4 opacity-80" />
           No local changes
         </div>
-        <div className="mt-2 text-sm text-[hsl(var(--muted))]">
-          Edits in Studio auto-save in your browser. When you’re ready, Publish creates a single GitHub commit.
+        <div className="mt-3 text-sm leading-7 text-[hsl(var(--muted))]">
+          Notes, assets, and config drafts appear here before you publish.
         </div>
       </div>
     </div>
@@ -488,13 +488,6 @@ export function StudioChangesPage() {
     publishHeadMoved && typeof (ws.publishError as any)?.details?.actualHeadSha === "string"
       ? String((ws.publishError as any).details.actualHeadSha)
       : null;
-  const summaryPills = [
-    { label: `${ws.stats.notes} notes`, active: ws.stats.notes > 0 },
-    { label: `${ws.stats.config} config`, active: ws.stats.config > 0 },
-    { label: `+${ws.stats.assetsUploads} uploads`, active: ws.stats.assetsUploads > 0 },
-    { label: `-${ws.stats.assetsDeletes} deletes`, active: ws.stats.assetsDeletes > 0 },
-  ];
-
   const [retrying, setRetrying] = React.useState(false);
   const retryPublishOnLatest = React.useCallback(async () => {
     if (!studio.token) return;
@@ -514,17 +507,10 @@ export function StudioChangesPage() {
   return (
     <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)]">
       <aside className="min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r">
-        <div className="flex items-center justify-between gap-2 px-4 py-3">
+        <div className="flex items-center justify-between gap-3 border-b border-[hsl(var(--border))] px-4 py-4">
           <div className="min-w-0">
-            <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">CHANGES</div>
-            <div className="mt-1 text-sm text-[hsl(var(--muted))]">{ws.stats.total} local draft(s)</div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {summaryPills.map((pill) => (
-                <TinyPill key={pill.label} active={pill.active}>
-                  {pill.label}
-                </TinyPill>
-              ))}
-            </div>
+            <div className="text-sm font-semibold tracking-tight">Staged locally</div>
+            <div className="mt-1 text-xs text-[hsl(var(--muted))]">{ws.stats.total} item(s)</div>
           </div>
           <button
             type="button"
@@ -537,7 +523,7 @@ export function StudioChangesPage() {
           </button>
         </div>
 
-        <div className="min-h-0 overflow-auto px-2 pb-3">
+        <div className="min-h-0 overflow-auto px-3 py-4">
           {ws.changes.map((c) => {
             const active = c.key === selectedKey;
             return (
@@ -580,255 +566,251 @@ export function StudioChangesPage() {
 
       <main className="min-h-0 overflow-auto">
         {selected ? (
-          <div className="mx-auto max-w-3xl px-4 py-6">
-            <div className="card p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold tracking-tight">{labelForChange(selected)}</div>
-                  <div className="mt-1 truncate text-xs text-[hsl(var(--muted))]">{subtitleForChange(selected)}</div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <TinyPill active>{kindLabel(selected)}</TinyPill>
-                    {changeStats(selected).map((stat) => (
-                      <TinyPill key={`selected:${stat}`}>{stat}</TinyPill>
-                    ))}
-                    <TinyPill>{fmtTime(selected.savedAt)}</TinyPill>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={discardSelected}
-                    className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,red_35%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_8%,hsl(var(--card)))] px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-[color-mix(in_oklab,red_12%,hsl(var(--card)))]"
-                    title="Discard this local draft"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 opacity-85" />
-                    Discard
-                  </button>
+          <div className="mx-auto max-w-5xl px-5 py-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="truncate text-xl font-semibold tracking-tight">{labelForChange(selected)}</div>
+                <div className="mt-2 truncate text-sm text-[hsl(var(--muted))]">{subtitleForChange(selected)}</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <TinyPill active>{kindLabel(selected)}</TinyPill>
+                  {changeStats(selected).map((stat) => (
+                    <TinyPill key={`selected:${stat}`}>{stat}</TinyPill>
+                  ))}
+                  <TinyPill>{fmtTime(selected.savedAt)}</TinyPill>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={discardSelected}
+                className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,red_35%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_8%,hsl(var(--card)))] px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-[color-mix(in_oklab,red_12%,hsl(var(--card)))]"
+                title="Discard this local draft"
+              >
+                <Trash2 className="h-3.5 w-3.5 opacity-85" />
+                Discard
+              </button>
+            </div>
 
-              {selected.kind === "assets" ? (
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
-                    <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">UPLOADS</div>
-                    {selected.uploads.length ? (
-                      <ul className="mt-3 grid gap-2">
-                        {selected.uploads.map((upload) => (
-                          <li key={upload.path} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2">
-                            <div className="truncate text-xs font-medium tracking-tight">{upload.url}</div>
-                            <div className="mt-1 truncate text-[10px] text-[hsl(var(--muted))]">{upload.path}</div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="mt-3 text-sm text-[hsl(var(--muted))]">No staged uploads.</div>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
-                    <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">DELETES</div>
-                    {selected.deletes.length ? (
-                      <ul className="mt-3 grid gap-2">
-                        {selected.deletes.map((filePath) => (
-                          <li key={filePath} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2">
-                            <div className="truncate text-xs font-medium tracking-tight">{filePath.replace(/^public\//, "/")}</div>
-                            <div className="mt-1 truncate text-[10px] text-[hsl(var(--muted))]">{filePath}</div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="mt-3 text-sm text-[hsl(var(--muted))]">No staged deletes.</div>
-                    )}
-                  </div>
+            {selected.kind === "assets" ? (
+              <div className="mt-6 grid gap-5 sm:grid-cols-2">
+                <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+                  <div className="text-sm font-semibold tracking-tight">Uploads</div>
+                  {selected.uploads.length ? (
+                    <ul className="mt-4 grid gap-2.5">
+                      {selected.uploads.map((upload) => (
+                        <li key={upload.path} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-3">
+                          <div className="truncate text-sm font-medium tracking-tight">{upload.url}</div>
+                          <div className="mt-1 truncate text-xs text-[hsl(var(--muted))]">{upload.path}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="mt-4 text-sm text-[hsl(var(--muted))]">No staged uploads.</div>
+                  )}
                 </div>
-              ) : (
-                <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
-                  <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
-                    <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">DRAFT SUMMARY</div>
-                    {selectedDraftSummary ? (
-                      <div className="mt-3 grid gap-2">
-                        {selectedDraftSummary.rows.map((row) => (
-                          <div
-                            key={`${selected.key}:${row.label}`}
-                            className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2"
-                          >
-                            <div className="text-xs font-medium text-[hsl(var(--muted))]">{row.label}</div>
-                            <div className="max-w-full break-all text-right text-sm text-[hsl(var(--fg))]">{row.value}</div>
-                          </div>
-                        ))}
-                      </div>
+
+                <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+                  <div className="text-sm font-semibold tracking-tight">Deletes</div>
+                  {selected.deletes.length ? (
+                    <ul className="mt-4 grid gap-2.5">
+                      {selected.deletes.map((filePath) => (
+                        <li key={filePath} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-3">
+                          <div className="truncate text-sm font-medium tracking-tight">{filePath.replace(/^public\//, "/")}</div>
+                          <div className="mt-1 truncate text-xs text-[hsl(var(--muted))]">{filePath}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="mt-4 text-sm text-[hsl(var(--muted))]">No staged deletes.</div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+                  <div className="text-sm font-semibold tracking-tight">Details</div>
+                  {selectedDraftSummary ? (
+                    <div className="mt-4 divide-y divide-[hsl(var(--border))]">
+                      {selectedDraftSummary.rows.map((row) => (
+                        <div key={`${selected.key}:${row.label}`} className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                          <div className="text-xs font-medium text-[hsl(var(--muted))]">{row.label}</div>
+                          <div className="max-w-full break-all text-right text-sm text-[hsl(var(--fg))]">{row.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-sm text-[hsl(var(--muted))]">No local summary available.</div>
+                  )}
+                </div>
+
+                <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold tracking-tight">Compare</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCompareMode("cached")}
+                        className={[
+                          "rounded-full border px-3 py-1.5 text-[11px] font-medium transition",
+                          compareMode === "cached"
+                            ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
+                            : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
+                        ].join(" ")}
+                        title="Compare with last synced baseline (cached)"
+                      >
+                        Cached
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCompareMode("remote")}
+                        className={[
+                          "rounded-full border px-3 py-1.5 text-[11px] font-medium transition",
+                          compareMode === "remote"
+                            ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
+                            : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
+                        ].join(" ")}
+                        title="Compare with current GitHub main (live)"
+                      >
+                        Remote
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-xs text-[hsl(var(--muted))]">
+                    {compareMode === "remote" ? (
+                      <>
+                        Remote HEAD <span className="font-mono">{studio.me?.repo.headSha ? studio.me.repo.headSha.slice(0, 7) : "—"}</span>
+                        {remoteBusy ? " · Loading…" : null}
+                      </>
                     ) : (
-                      <div className="mt-3 text-sm text-[hsl(var(--muted))]">No local summary available.</div>
+                      "Cached baseline from the last sync."
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">COMPARE</div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setCompareMode("cached")}
-                          className={[
-                            "rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase transition",
-                            compareMode === "cached"
-                              ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
-                              : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
-                          ].join(" ")}
-                          title="Compare with last synced baseline (cached)"
-                        >
-                          Cached
-                        </button>
+                  {compareMode === "remote" ? (
+                    <button
+                      type="button"
+                      onClick={refreshRemote}
+                      className="mt-3 inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-[11px] font-medium text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
+                      title="Refresh remote baseline"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 opacity-85" />
+                      Refresh remote
+                    </button>
+                  ) : null}
+
+                  {remoteBaselineError ? <div className="mt-3 text-xs text-red-700">{remoteBaselineError}</div> : null}
+
+                  {!baseline || !comparisonSummary ? (
+                    <div className="mt-4 text-sm text-[hsl(var(--muted))]">
+                      {compareMode === "remote" && remoteBusy ? "Loading remote summary…" : "No comparison summary available."}
+                    </div>
+                  ) : (
+                    <div className="mt-4 grid gap-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <MetricCard
+                          label="Previous"
+                          value={`${comparisonSummary.previous.nonEmptyLines} lines`}
+                          detail={`${formatBytes(comparisonSummary.previous.bytes)} · ${comparisonSummary.previous.chars} chars`}
+                        />
+                        <MetricCard
+                          label="Current"
+                          value={`${comparisonSummary.current.nonEmptyLines} lines`}
+                          detail={`${formatBytes(comparisonSummary.current.bytes)} · ${comparisonSummary.current.chars} chars`}
+                        />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <MetricCard
+                          label="Delta"
+                          value={formatSigned(comparisonSummary.deltaNonEmptyLines, "lines")}
+                          detail={formatSigned(comparisonSummary.deltaChars, "chars")}
+                        />
+                        <MetricCard
+                          label="File size"
+                          value={formatSigned(comparisonSummary.deltaBytes, "bytes")}
+                          detail={`${formatBytes(comparisonSummary.current.bytes)} current`}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-8 rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold tracking-tight">Publish</div>
+                <button
+                  type="button"
+                  onClick={() => nav("/studio/notes")}
+                  className="text-xs text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
+                >
+                  Back to editor
+                </button>
+              </div>
+              <div className="mt-2 text-sm text-[hsl(var(--muted))]">
+                Publish commits every staged change in one GitHub commit.
+              </div>
+
+              {publishHeadMoved ? (
+                <div className="mt-5 rounded-2xl border border-[color-mix(in_oklab,red_25%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 text-red-600" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold tracking-tight text-red-700">Remote moved (main advanced)</div>
+                      <div className="mt-1 text-xs text-[hsl(var(--muted))]">
+                        {expectedHeadSha ? (
+                          <>
+                            Expected <span className="font-mono">{expectedHeadSha.slice(0, 7)}</span>
+                          </>
+                        ) : (
+                          "Expected HEAD unknown"
+                        )}
+                        {actualHeadSha ? (
+                          <>
+                            {" "}
+                            · Now <span className="font-mono">{actualHeadSha.slice(0, 7)}</span>
+                          </>
+                        ) : null}
+                        {" "}
+                        · Switch compare to <span className="font-semibold">Remote</span> before retrying.
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setCompareMode("remote")}
-                          className={[
-                            "rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase transition",
-                            compareMode === "remote"
-                              ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
-                              : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
-                          ].join(" ")}
-                          title="Compare with current GitHub main (live)"
+                          className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] px-3 py-2 text-xs font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]"
                         >
-                          Remote
+                          <FileDiff className="h-3.5 w-3.5 opacity-85" />
+                          Review summary
                         </button>
-                        {compareMode === "remote" ? (
-                          <button
-                            type="button"
-                            onClick={refreshRemote}
-                            className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]"
-                            title="Refresh remote baseline"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5 opacity-85" />
-                            Refresh
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          onClick={retryPublishOnLatest}
+                          disabled={retrying || ws.publishing}
+                          className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs font-medium text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed disabled:opacity-60"
+                          title="Refresh remote HEAD and retry publish"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5 opacity-85" />
+                          {retrying ? "Retrying…" : "Retry publish"}
+                        </button>
                       </div>
                     </div>
-
-                    {compareMode === "remote" ? (
-                      <div className="mt-2 text-xs text-[hsl(var(--muted))]">
-                        Remote HEAD:{" "}
-                        <span className="font-mono">{studio.me?.repo.headSha ? studio.me.repo.headSha.slice(0, 7) : "—"}</span>
-                        {remoteBusy ? " · Loading…" : null}
-                      </div>
-                    ) : (
-                      <div className="mt-2 text-xs text-[hsl(var(--muted))]">Cached baseline (last synced).</div>
-                    )}
-
-                    {remoteBaselineError ? <div className="mt-2 text-xs text-red-700">{remoteBaselineError}</div> : null}
-
-                    {!baseline || !comparisonSummary ? (
-                      <div className="mt-3 text-sm text-[hsl(var(--muted))]">
-                        {compareMode === "remote" && remoteBusy ? "Loading remote summary…" : "No comparison summary available."}
-                      </div>
-                    ) : (
-                      <div className="mt-3 grid gap-3">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <MetricCard
-                            label="Previous"
-                            value={`${comparisonSummary.previous.nonEmptyLines} lines`}
-                            detail={`${formatBytes(comparisonSummary.previous.bytes)} · ${comparisonSummary.previous.chars} chars`}
-                          />
-                          <MetricCard
-                            label="Current"
-                            value={`${comparisonSummary.current.nonEmptyLines} lines`}
-                            detail={`${formatBytes(comparisonSummary.current.bytes)} · ${comparisonSummary.current.chars} chars`}
-                          />
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <MetricCard
-                            label="Delta"
-                            value={formatSigned(comparisonSummary.deltaNonEmptyLines, "lines")}
-                            detail={`${formatSigned(comparisonSummary.deltaChars, "chars")}`}
-                          />
-                          <MetricCard
-                            label="File Size"
-                            value={formatSigned(comparisonSummary.deltaBytes, "bytes")}
-                            detail={`${formatBytes(comparisonSummary.current.bytes)} current`}
-                          />
-                        </div>
-                        <div className="text-[11px] text-[hsl(var(--muted))]">
-                          Studio no longer renders full article/code diff here. This panel stays at summary level for speed.
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
-              )}
+              ) : null}
 
-              <div className="mt-6 border-t border-[hsl(var(--border))] pt-5">
+              <div className="mt-5">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-semibold tracking-tight">Publish</div>
-                  <button
-                    type="button"
-                    onClick={() => nav("/studio/notes")}
-                    className="text-xs text-[hsl(var(--muted))] transition hover:text-[hsl(var(--fg))]"
-                  >
-                    Back to editor
-                  </button>
+                  <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">Commit message</div>
                 </div>
-                <div className="mt-2 text-sm text-[hsl(var(--muted))]">
-                  Publish is global: it commits all local changes to GitHub in one commit.
-                </div>
-
-                {publishHeadMoved ? (
-                  <div className="mt-4 rounded-2xl border border-[color-mix(in_oklab,red_25%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 text-red-600" />
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold tracking-tight text-red-700">Remote moved (main advanced)</div>
-                        <div className="mt-1 text-xs text-[hsl(var(--muted))]">
-                          {expectedHeadSha ? (
-                            <>
-                              Expected <span className="font-mono">{expectedHeadSha.slice(0, 7)}</span>
-                            </>
-                          ) : (
-                            "Expected HEAD unknown"
-                          )}
-                          {actualHeadSha ? (
-                            <>
-                              {" "}
-                              · Now <span className="font-mono">{actualHeadSha.slice(0, 7)}</span>
-                            </>
-                          ) : null}
-                          {" "}
-                          · Switch compare to <span className="font-semibold">Remote</span> before retrying.
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setCompareMode("remote")}
-                            className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] px-3 py-2 text-xs font-medium text-[hsl(var(--fg))] transition hover:bg-[color-mix(in_oklab,hsl(var(--accent))_18%,hsl(var(--card)))]"
-                          >
-                            <FileDiff className="h-3.5 w-3.5 opacity-85" />
-                            Review summary
-                          </button>
-                          <button
-                            type="button"
-                            onClick={retryPublishOnLatest}
-                            disabled={retrying || ws.publishing}
-                            className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs font-medium text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed disabled:opacity-60"
-                            title="Refresh remote HEAD and retry publish"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5 opacity-85" />
-                            {retrying ? "Retrying…" : "Retry publish"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="mt-4">
-                  <div className="text-[10px] font-semibold tracking-[0.22em] text-[hsl(var(--muted))]">COMMIT MESSAGE</div>
+                <div className="mt-2">
                   <textarea
                     value={ws.commitMessage}
                     onChange={(e) => ws.setCommitMessage(e.target.value)}
                     rows={2}
                     className="mt-2 w-full resize-y rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm outline-none focus:border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))]"
                   />
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => void ws.publishAll({ confirm: true })}

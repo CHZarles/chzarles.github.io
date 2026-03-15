@@ -15,7 +15,6 @@ nodes:
 mindmaps:
   - hyperblog-architecture
 cover: /uploads/hyperblog-home.webp
-excerpt: 内容、目录、路线图、思维导图全部落成文件：公开站静态托管；写作台用 Cloudflare Workers 把改动 commit 回 GitHub main。
 updated: 2026-02-14
 ---
 

@@ -36,7 +36,7 @@
   </g>
 
   <g>
-    <text x="120" y="365" font-family="Georgia, 'Times New Roman', ui-serif" font-size="140" font-weight="600" letter-spacing="0.06em" fill="#111827">BLOG</text>
-    <text x="120" y="415" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="600" letter-spacing="0.22em" fill="#374151">EXPLORABLE TECH SPACE</text>
+    <text x="120" y="365" font-family="ui-sans-serif, system-ui, sans-serif" font-size="140" font-weight="700" letter-spacing="-0.03em" fill="#111827">Charles</text>
+    <text x="120" y="415" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace" font-size="18" font-weight="600" letter-spacing="0.22em" fill="#374151">NOTES / PROJECTS / DRAFTS</text>
   </g>
 </svg>

@@ -172,6 +172,7 @@ async function main() {
     const bad = origins.filter((o) => o.endsWith("/"));
     if (bad.length) issues.push(warn(`ALLOWED_ORIGINS should not have trailing slashes: ${bad.join(", ")}`));
     if (!origins.includes("http://localhost:5173")) issues.push(warn("ALLOWED_ORIGINS missing http://localhost:5173 (local Studio)."));
+    if (!origins.includes("http://127.0.0.1:5174")) issues.push(warn("ALLOWED_ORIGINS missing http://127.0.0.1:5174 (common local Studio origin)."));
   }
 
   // publisher/.dev.vars.example

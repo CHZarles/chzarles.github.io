@@ -5,6 +5,7 @@ import type {
   Profile,
   Project,
 } from "../types";
+import { preloadNotePage } from "../navigation/preloaders";
 
 const DEFAULT_TIMEOUT_MS = 12_000;
 
@@ -127,15 +128,18 @@ function peekNote(id: string): Note | null {
   return noteMemo.get(key) ?? null;
 }
 
-function prefetchNote(id: string) {
+function prefetchNote(id: string): Promise<Note | null> {
   const key = safeId(id);
-  if (!key) return;
-  if (noteMemo.has(key)) return;
-  void apiFetchCached<Note>(apiUrl(`/api/notes/${key}.json`))
+  if (!key) return Promise.resolve(null);
+  preloadNotePage();
+  if (noteMemo.has(key)) return Promise.resolve(noteMemo.get(key) ?? null);
+  return apiFetchCached<Note>(apiUrl(`/api/notes/${key}.json`))
     .then((n) => {
-      if (!n.draft) noteMemo.set(key, n);
+      if (n.draft) return null;
+      noteMemo.set(key, n);
+      return n;
     })
-    .catch(() => {});
+    .catch(() => null);
 }
 
 function normalize(s: string): string {

@@ -3,6 +3,7 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./ui/shell/AppShell";
 import { ErrorPage } from "./ui/views/ErrorPage";
 import { HomePage } from "./ui/views/HomePage";
+import { NotePage } from "./ui/views/NotePage";
 import { NotFoundPage } from "./ui/views/NotFoundPage";
 
 function PageLoader(props: { label: string; tone?: "card" | "plain" }) {
@@ -21,7 +22,6 @@ const AuthCallbackPageLazy = React.lazy(() =>
   import("./ui/views/AuthCallbackPage").then((m) => ({ default: m.AuthCallbackPage })),
 );
 const NotesPageLazy = React.lazy(() => import("./ui/views/NotesPage").then((m) => ({ default: m.NotesPage })));
-const NotePageLazy = React.lazy(() => import("./ui/views/NotePage").then((m) => ({ default: m.NotePage })));
 const ProjectsPageLazy = React.lazy(() => import("./ui/views/ProjectsPage").then((m) => ({ default: m.ProjectsPage })));
 const ProjectPageLazy = React.lazy(() => import("./ui/views/ProjectPage").then((m) => ({ default: m.ProjectPage })));
 const SearchPageLazy = React.lazy(() => import("./ui/views/SearchPage").then((m) => ({ default: m.SearchPage })));
@@ -118,11 +118,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "notes/:noteId",
-        element: (
-          <Lazy label="Loading note…" tone="plain">
-            <NotePageLazy />
-          </Lazy>
-        ),
+        element: <NotePage />,
       },
       {
         path: "search",

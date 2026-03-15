@@ -396,12 +396,9 @@ export function StudioConfigPage() {
   }, [saveLocal]);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="min-h-0 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:border-b-0 lg:border-r">
-        <div className="px-4 py-3">
-          <div className="text-xs font-semibold tracking-wide text-[hsl(var(--muted))]">CONFIG</div>
-        </div>
-        <div className="min-h-0 overflow-auto px-2 pb-4">
+        <div className="min-h-0 overflow-auto px-3 py-4">
           <ul className="grid gap-1">
             {FILES.map((f) => {
               const isActive = f.key === active;
@@ -425,12 +422,12 @@ export function StudioConfigPage() {
                       setActive(f.key);
                     }}
                     className={[
-                      "w-full rounded-xl px-3 py-2 text-left transition",
+                      "w-full rounded-xl px-3 py-3 text-left transition",
                       isActive ? "bg-[hsl(var(--card2))] text-[hsl(var(--fg))]" : "hover:bg-[hsl(var(--card2))]",
                     ].join(" ")}
                   >
                     <div className="text-sm font-medium tracking-tight">{f.label}</div>
-                    <div className="mt-0.5 text-xs text-[hsl(var(--muted))]">{f.mode.toUpperCase()}</div>
+                    <div className="mt-0.5 text-xs text-[hsl(var(--muted))]">{f.contentPath}</div>
                   </button>
                 </li>
               );
@@ -439,26 +436,19 @@ export function StudioConfigPage() {
         </div>
       </aside>
 
-	      <section className="min-h-0 min-w-0 bg-[hsl(var(--bg))]">
-	        <div className="flex items-center justify-between gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
-	          <div className="min-w-0">
-	            <div className="flex items-center gap-2">
-	              <div className="truncate text-sm font-semibold tracking-tight">{file.label}</div>
-	              {dirty ? (
-	                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
-	              ) : localSavedAt ? (
-	                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">saved local</span>
-	              ) : null}
-	            </div>
-	            {studio.me ? (
-	              <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">
-	                @{studio.me.user.login} · {studio.me.repo.fullName}@{studio.me.repo.branch}
-	              </div>
-	            ) : null}
-	            <div className="mt-0.5 truncate text-xs text-[hsl(var(--muted))]">
-	              Local drafts auto-save in your browser. Publish (Changes tab) creates a single GitHub commit.
-	            </div>
-	          </div>
+      <section className="min-h-0 min-w-0 bg-[hsl(var(--bg))]">
+        <div className="flex items-center justify-between gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="truncate text-sm font-semibold tracking-tight">{file.label}</div>
+              {dirty ? (
+                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">unsaved</span>
+              ) : localSavedAt ? (
+                <span className="rounded-full bg-[hsl(var(--card2))] px-2 py-0.5 text-[10px] font-medium">saved local</span>
+              ) : null}
+            </div>
+            <div className="mt-1 truncate font-mono text-[11px] text-[hsl(var(--muted))]">{file.contentPath}</div>
+          </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             {active === "categories" ? (
@@ -536,7 +526,7 @@ export function StudioConfigPage() {
         </div>
 
         {notice ? (
-          <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm">
+          <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-2 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 text-[hsl(var(--muted))]">{notice}</div>
             </div>
@@ -544,13 +534,13 @@ export function StudioConfigPage() {
         ) : null}
 
         {jsonError ? (
-          <div className="border-b border-[hsl(var(--border))] bg-[color-mix(in_oklab,white_60%,transparent)] px-4 py-2 text-xs text-red-700">
+          <div className="border-b border-[hsl(var(--border))] bg-[color-mix(in_oklab,white_60%,transparent)] px-5 py-2 text-xs text-red-700">
             JSON error: {jsonError}
           </div>
         ) : null}
 
         {active === "categories" && categoriesView === "form" ? (
-          <div className="h-full min-h-0 overflow-auto px-4 py-4">
+          <div className="h-full min-h-0 overflow-auto px-5 py-5">
             {categoriesState && !categoriesState.ok ? (
               <div className="rounded-xl border border-[color-mix(in_oklab,red_40%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] px-4 py-3 text-sm text-red-700">
                 Parse error: {categoriesState.error}
@@ -561,13 +551,8 @@ export function StudioConfigPage() {
             {categoriesState && categoriesState.ok ? (
               <div className="grid gap-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold tracking-tight">
-                      Categories <span className="text-xs font-medium text-[hsl(var(--muted))]">· {categoriesList.length}</span>
-                    </div>
-                    <div className="mt-1 text-xs text-[hsl(var(--muted))]">
-                      IDs are stable keys used in note frontmatter. Use <code>a-z0-9-</code>; rename titles freely.
-                    </div>
+                  <div className="text-sm font-semibold tracking-tight">
+                    Categories <span className="text-xs font-medium text-[hsl(var(--muted))]">· {categoriesList.length}</span>
                   </div>
 
                   <button
@@ -757,7 +742,7 @@ export function StudioConfigPage() {
               setDirty(true);
               setRaw(e.target.value);
             }}
-            className="h-full w-full resize-none bg-[hsl(var(--bg))] px-4 py-4 font-mono text-sm leading-6 outline-none placeholder:text-[hsl(var(--muted))]"
+            className="h-full w-full resize-none bg-[hsl(var(--bg))] px-5 py-5 font-mono text-sm leading-6 outline-none placeholder:text-[hsl(var(--muted))]"
             placeholder={file.mode === "json" ? "{\n  ...\n}" : "- id: ..."}
           />
         )}

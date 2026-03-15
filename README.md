@@ -29,6 +29,20 @@ Hyperblog 是一套文件驱动的个人站点。
 
 仓库里还留着一些旧的 roadmap / mindmap 数据和文档，但它们不是当前主站和 Studio 的默认入口。
 
+## 运行截图
+
+公开站首页：
+
+![Hyperblog Home](docs/screenshots/home-current.png)
+
+文章页：
+
+![Hyperblog Note](docs/screenshots/note-current.png)
+
+Studio：
+
+![Hyperblog Studio](docs/screenshots/studio-current.png)
+
 ## 读链路和写链路
 
 公开站点读的是仓库文件，不是数据库：

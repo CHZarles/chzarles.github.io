@@ -591,8 +591,8 @@ export function StudioChangesPage() {
             </div>
 
             {selected.kind === "assets" ? (
-              <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+              <div className="mt-8 grid gap-8 sm:grid-cols-2">
+                <section>
                   <div className="text-sm font-semibold tracking-tight">Uploads</div>
                   {selected.uploads.length ? (
                     <ul className="mt-4 grid gap-2.5">
@@ -606,9 +606,9 @@ export function StudioChangesPage() {
                   ) : (
                     <div className="mt-4 text-sm text-[hsl(var(--muted))]">No staged uploads.</div>
                   )}
-                </div>
+                </section>
 
-                <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+                <section>
                   <div className="text-sm font-semibold tracking-tight">Deletes</div>
                   {selected.deletes.length ? (
                     <ul className="mt-4 grid gap-2.5">
@@ -622,14 +622,14 @@ export function StudioChangesPage() {
                   ) : (
                     <div className="mt-4 text-sm text-[hsl(var(--muted))]">No staged deletes.</div>
                   )}
-                </div>
+                </section>
               </div>
             ) : (
-              <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-                <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+              <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <section>
                   <div className="text-sm font-semibold tracking-tight">Details</div>
                   {selectedDraftSummary ? (
-                    <div className="mt-4 divide-y divide-[hsl(var(--border))]">
+                    <div className="mt-4 divide-y divide-[hsl(var(--border))] border-t border-[hsl(var(--border))]">
                       {selectedDraftSummary.rows.map((row) => (
                         <div key={`${selected.key}:${row.label}`} className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
                           <div className="text-xs font-medium text-[hsl(var(--muted))]">{row.label}</div>
@@ -640,9 +640,9 @@ export function StudioChangesPage() {
                   ) : (
                     <div className="mt-4 text-sm text-[hsl(var(--muted))]">No local summary available.</div>
                   )}
-                </div>
+                </section>
 
-                <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+                <section className="xl:border-l xl:border-[hsl(var(--border))] xl:pl-8">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-semibold tracking-tight">Compare</div>
                     <div className="flex items-center gap-2">
@@ -732,11 +732,11 @@ export function StudioChangesPage() {
                       </div>
                     </div>
                   )}
-                </div>
+                </section>
               </div>
             )}
 
-            <div className="mt-8 rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+            <section className="mt-10 border-t border-[hsl(var(--border))] pt-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold tracking-tight">Publish</div>
                 <button
@@ -797,7 +797,7 @@ export function StudioChangesPage() {
                     </div>
                   </div>
                 </div>
-              ) : null}
+                ) : null}
 
               <div className="mt-5">
                 <div className="flex items-center justify-between gap-3">
@@ -844,7 +844,7 @@ export function StudioChangesPage() {
                   ) : null}
                 </div>
               </div>
-            </div>
+            </section>
           </div>
         ) : null}
       </main>

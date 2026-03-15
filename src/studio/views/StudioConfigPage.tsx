@@ -181,6 +181,17 @@ function makeRowKey(): string {
   return `k_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
 }
 
+const configInputClass =
+  "w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[color-mix(in_oklab,hsl(var(--accent))_45%,hsl(var(--border)))]";
+
+const configIconButtonClass = (disabled: boolean) =>
+  [
+    "inline-flex h-8 w-8 items-center justify-center rounded-lg border transition",
+    disabled
+      ? "cursor-not-allowed border-[hsl(var(--border))] bg-[hsl(var(--bg))] text-[hsl(var(--muted))] opacity-60"
+      : "border-transparent bg-transparent text-[hsl(var(--muted))] hover:border-[hsl(var(--border))] hover:bg-[hsl(var(--card))] hover:text-[hsl(var(--fg))]",
+  ].join(" ");
+
 export function StudioConfigPage() {
   const studio = useStudioState();
 
@@ -570,8 +581,8 @@ export function StudioConfigPage() {
                   </button>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
-                  <div className="hidden grid-cols-[180px_minmax(0,1fr)_160px_minmax(0,1fr)_112px] items-center gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-4 py-2 text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))] md:grid">
+                <div>
+                  <div className="hidden grid-cols-[180px_minmax(0,1fr)_160px_minmax(0,1fr)_112px] items-center gap-3 border-b border-[hsl(var(--border))] px-1 py-2 text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))] md:grid">
                     <div>ID</div>
                     <div>Title</div>
                     <div>Tone</div>
@@ -579,7 +590,7 @@ export function StudioConfigPage() {
                     <div className="text-right">Actions</div>
                   </div>
 
-                  <div className="divide-y divide-[hsl(var(--border))]">
+                  <div className="divide-y divide-[hsl(var(--border))] border-b border-[hsl(var(--border))]">
                     {categoriesList.map((c, idx) => {
                       const id = String((c as any).id ?? "");
                       const title = String((c as any).title ?? "");
@@ -609,20 +620,8 @@ export function StudioConfigPage() {
                         setCategoriesYaml(next);
                       };
 
-                      const actionBtn = (disabled: boolean) =>
-                        [
-                          "inline-flex h-8 w-8 items-center justify-center rounded-full border transition",
-                          disabled
-                            ? "cursor-not-allowed border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--muted))] opacity-60"
-                            : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
-                        ].join(" ");
-
                       return (
-                        <div
-                          key={categoryRowKeyAt(idx)}
-                          className="border-l-4 border-l-transparent px-4 py-4"
-                          style={{ borderLeftColor: `hsl(${toneSwatch(tone)})` }}
-                        >
+                        <div key={categoryRowKeyAt(idx)} className="px-1 py-5">
                           <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_160px_minmax(0,1fr)_112px] md:items-start">
                             <div className="grid gap-1.5">
                               <div className="text-[10px] font-semibold tracking-wide text-[hsl(var(--muted))] md:hidden">ID</div>
@@ -632,9 +631,9 @@ export function StudioConfigPage() {
                                 placeholder="ai-infra"
                                 aria-label="Category id"
                                 className={[
-                                  "w-full rounded-xl border bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]",
+                                  configInputClass,
                                   idOk && !idDup
-                                    ? "border-[hsl(var(--border))]"
+                                    ? ""
                                     : "border-[color-mix(in_oklab,red_50%,hsl(var(--border)))]",
                                 ].join(" ")}
                               />
@@ -652,7 +651,7 @@ export function StudioConfigPage() {
                                 onChange={(e) => update({ title: e.target.value })}
                                 placeholder="AI Infra"
                                 aria-label="Category title"
-                                className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
+                                className={configInputClass}
                               />
                             </div>
 
@@ -667,7 +666,7 @@ export function StudioConfigPage() {
                                   value={tone}
                                   onChange={(e) => update({ tone: e.target.value })}
                                   aria-label="Category tone"
-                                  className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none focus:border-[hsl(var(--accent))]"
+                                  className={configInputClass}
                                 >
                                   {CATEGORY_TONES.map((t) => (
                                     <option key={t} value={t}>
@@ -685,7 +684,7 @@ export function StudioConfigPage() {
                                 onChange={(e) => update({ description: e.target.value })}
                                 placeholder="Optional"
                                 aria-label="Category description"
-                                className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))]"
+                                className={configInputClass}
                               />
                             </div>
 
@@ -694,7 +693,7 @@ export function StudioConfigPage() {
                                 type="button"
                                 onClick={() => move(idx - 1)}
                                 disabled={idx === 0}
-                                className={actionBtn(idx === 0)}
+                                className={configIconButtonClass(idx === 0)}
                                 title="Move up"
                               >
                                 <ChevronUp className="h-4 w-4" />
@@ -703,7 +702,7 @@ export function StudioConfigPage() {
                                 type="button"
                                 onClick={() => move(idx + 1)}
                                 disabled={idx === categoriesList.length - 1}
-                                className={actionBtn(idx === categoriesList.length - 1)}
+                                className={configIconButtonClass(idx === categoriesList.length - 1)}
                                 title="Move down"
                               >
                                 <ChevronDown className="h-4 w-4" />
@@ -720,7 +719,7 @@ export function StudioConfigPage() {
                                   next.splice(idx, 1);
                                   setCategoriesYaml(next);
                                 }}
-                                className={actionBtn(false)}
+                                className={configIconButtonClass(false)}
                                 title="Delete"
                               >
                                 <Trash2 className="h-4 w-4" />

@@ -454,35 +454,35 @@ export function StudioAssetsPage() {
 
       <div className="min-h-0 flex-1 overflow-auto bg-[hsl(var(--bg))]">
         <div className="mx-auto max-w-6xl p-5">
-        {stageCount ? (
-          <div className="mb-6 rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold tracking-tight">Staged now</div>
-                <div className="mt-1 text-sm text-[hsl(var(--muted))]">These changes will go out on the next publish.</div>
+          {stageCount ? (
+            <section className="mb-6 border-b border-[hsl(var(--border))] pb-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold tracking-tight">Staged now</div>
+                  <div className="mt-1 text-sm text-[hsl(var(--muted))]">These changes will go out on the next publish.</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <AssetPill active={stagedUploads.length > 0}>+{stagedUploads.length} uploads</AssetPill>
+                  <AssetPill active={stagedDeletes.length > 0}>-{stagedDeletes.length} deletes</AssetPill>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <AssetPill active={stagedUploads.length > 0}>+{stagedUploads.length} uploads</AssetPill>
-                <AssetPill active={stagedDeletes.length > 0}>-{stagedDeletes.length} deletes</AssetPill>
-              </div>
-            </div>
-          </div>
-        ) : null}
+            </section>
+          ) : null}
 
-        {assets.length === 0 && stagedUploads.length === 0 && !busy ? (
-          <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 text-sm text-[hsl(var(--muted))]">
-            {q.trim() ? `No assets match "${q.trim()}".` : "No assets yet. Upload one, or pull your repo locally if you published from another machine."}
-          </div>
-        ) : (
-          <>
-            {stagedUploads.length ? (
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold tracking-tight">Staged uploads</div>
-                <div className="text-xs text-[hsl(var(--muted))]">{stagedUploads.length} file(s)</div>
-              </div>
-            ) : null}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-            {stagedUploads.map((u) => {
+          {assets.length === 0 && stagedUploads.length === 0 && !busy ? (
+            <div className="py-10 text-sm text-[hsl(var(--muted))]">
+              {q.trim() ? `No assets match "${q.trim()}".` : "No assets yet. Upload one, or pull your repo locally if you published from another machine."}
+            </div>
+          ) : (
+            <>
+              {stagedUploads.length ? (
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold tracking-tight">Staged uploads</div>
+                  <div className="text-xs text-[hsl(var(--muted))]">{stagedUploads.length} file(s)</div>
+                </div>
+              ) : null}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+                {stagedUploads.map((u) => {
               const isImage = u.contentType.startsWith("image/");
               return (
                 <div key={u.path} className="card overflow-hidden border-[color-mix(in_oklab,hsl(var(--accent))_35%,hsl(var(--border)))]">
@@ -557,17 +557,17 @@ export function StudioAssetsPage() {
                   </div>
                 </div>
               );
-            })}
-            </div>
-
-            {assets.length ? (
-              <div className="mb-4 mt-8 flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold tracking-tight">{q.trim() ? "Results" : "Library"}</div>
-                <div className="text-xs text-[hsl(var(--muted))]">{assets.length} file(s)</div>
+                })}
               </div>
-            ) : null}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-            {assets.map((a) => {
+
+              {assets.length ? (
+                <div className="mb-4 mt-8 flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold tracking-tight">{q.trim() ? "Results" : "Library"}</div>
+                  <div className="text-xs text-[hsl(var(--muted))]">{assets.length} file(s)</div>
+                </div>
+              ) : null}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+                {assets.map((a) => {
               const isImage = a.contentType.startsWith("image/");
               const deleting = stagedDeletes.includes(a.path);
               return (
@@ -641,21 +641,21 @@ export function StudioAssetsPage() {
                   </div>
                 </div>
               );
-            })}
-            </div>
-          </>
-        )}
+                })}
+              </div>
+            </>
+          )}
 
-        {paging.nextAfter ? (
-          <button
-            type="button"
-            onClick={() => void load({ append: true, query: q })}
-            disabled={busy}
-            className="mt-4 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
-          >
-            Load more
-          </button>
-        ) : null}
+          {paging.nextAfter ? (
+            <button
+              type="button"
+              onClick={() => void load({ append: true, query: q })}
+              disabled={busy}
+              className="mt-4 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+            >
+              Load more
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

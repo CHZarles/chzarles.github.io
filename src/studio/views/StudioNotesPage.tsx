@@ -930,6 +930,11 @@ export function StudioNotesPage() {
               detail: "No local changes yet.",
               tone: "muted" as const,
             };
+  const editorStateItems = [
+    editorStatus.label,
+    editor.draft ? "Draft hidden on site" : "Visible on site",
+    pendingDelete ? "Will move to .trash on publish" : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div
@@ -1154,21 +1159,22 @@ export function StudioNotesPage() {
             <div className="border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="truncate text-sm font-semibold tracking-tight">{editorHeading}</div>
-                    <StatusBadge tone={editorStatus.tone}>{editorStatus.label}</StatusBadge>
-                    {editor.draft ? <StatusBadge tone="muted">Draft hidden on site</StatusBadge> : null}
-                  </div>
+                  <div className="truncate text-sm font-semibold tracking-tight">{editorHeading}</div>
                   <div className="mt-1 truncate font-mono text-[11px] text-[hsl(var(--muted))]" title={editorSubline}>
                     {editorSubline}
                   </div>
-                  <div className="mt-2 text-xs text-[hsl(var(--muted))]">{editorStatus.detail}</div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[hsl(var(--muted))]">
+                    {editorStateItems.map((item) => (
+                      <span key={item}>{item}</span>
+                    ))}
+                  </div>
+                  <div className="mt-1 text-xs text-[hsl(var(--muted))]">{editorStatus.detail}</div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <ViewModeToggle value={viewMode} onChange={setViewMode} />
 
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]">
+                  <label className={editorToolbarButtonClass}>
                     <ImagePlus className="h-3.5 w-3.5 opacity-85" />
                     Upload
                     <input
@@ -1189,7 +1195,7 @@ export function StudioNotesPage() {
                       type="button"
                       onClick={() => setDeleteStaged(!pendingDelete)}
                       disabled={!editor.id || busy}
-                      className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+                      className={editorToolbarButtonClass}
                     >
                       {pendingDelete ? <X className="h-3.5 w-3.5 opacity-85" /> : <Trash2 className="h-3.5 w-3.5 opacity-85" />}
                       {pendingDelete ? "Unstage delete" : "Stage delete"}
@@ -1200,7 +1206,7 @@ export function StudioNotesPage() {
                     type="button"
                     onClick={() => saveLocal()}
                     disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed"
+                    className={editorToolbarButtonClass}
                     title="Save locally (browser only; no GitHub commit) (⌘S / Ctrl+S)"
                   >
                     <Check className="h-3.5 w-3.5 opacity-85" />
@@ -1262,15 +1268,15 @@ export function StudioNotesPage() {
         </div>
       </section>
 
-      <aside className="min-h-0 overflow-auto border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] xl:border-t-0">
-        <div className="grid gap-5 px-4 py-5">
+      <aside className="min-h-0 overflow-auto border-t border-[hsl(var(--border))] bg-[hsl(var(--bg))] xl:border-l xl:border-t-0">
+        <div className="px-5 py-5">
           <Field label="Note ID">
             {noteIdPreview.ok ? (
-              <div className="truncate rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 font-mono text-xs text-[hsl(var(--fg))]" title={noteIdPreview.noteId}>
+              <div className="truncate font-mono text-xs text-[hsl(var(--fg))]" title={noteIdPreview.noteId}>
                 {noteIdPreview.noteId}
               </div>
             ) : (
-              <div className="rounded-xl border border-[color-mix(in_oklab,red_35%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_6%,hsl(var(--card)))] px-3 py-2 text-xs text-red-700">
+              <div className="text-xs text-red-700">
                 {noteIdPreview.error}
               </div>
             )}
@@ -1321,7 +1327,7 @@ export function StudioNotesPage() {
                 />
                 <button
                   type="button"
-                  className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={editor.mode !== "create"}
                   onClick={() => {
                     setSlugTouched(true);
@@ -1365,7 +1371,7 @@ export function StudioNotesPage() {
                           });
                         }}
                         className={[
-                          "rounded-full border px-3 py-1.5 text-xs transition",
+                          "rounded-md border px-2.5 py-1.5 text-xs transition",
                           active
                             ? "border-[color-mix(in_oklab,hsl(var(--accent))_55%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_12%,hsl(var(--card)))] text-[hsl(var(--fg))]"
                             : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
@@ -1410,10 +1416,10 @@ export function StudioNotesPage() {
             />
           </Field>
 
-          <label className="flex items-center justify-between gap-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2">
+          <label className="flex items-center justify-between gap-3 border-t border-[hsl(var(--border))] pt-4">
             <div className="min-w-0">
               <div className="text-sm">Draft (hide on public site)</div>
-              <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Still commits to GitHub. Frontend filters draft notes by default.</div>
+              <div className="mt-0.5 text-[10px] text-[hsl(var(--muted))]">Still publishes to GitHub. Frontend filters drafts by default.</div>
             </div>
             <input
               type="checkbox"
@@ -1426,22 +1432,22 @@ export function StudioNotesPage() {
           </label>
 
           {lastUploadUrl ? (
-            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-3 py-2 text-xs text-[hsl(var(--muted))]">
+            <div className="border-t border-[hsl(var(--border))] pt-4 text-xs text-[hsl(var(--muted))]">
               Last upload: <code className="break-all">{lastUploadUrl}</code>
             </div>
           ) : null}
         </div>
-	      </aside>
+      </aside>
         </>
       ) : null}
-	    </div>
-	  );
+    </div>
+  );
 }
 
 function Field(props: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid gap-2">
-      <div className="text-xs font-medium tracking-tight text-[hsl(var(--muted))]">{props.label}</div>
+    <div className="grid gap-2 border-t border-[hsl(var(--border))] pt-4 first:border-t-0 first:pt-0">
+      <div className="text-xs font-semibold tracking-tight text-[hsl(var(--muted))]">{props.label}</div>
       {props.children}
     </div>
   );
@@ -1455,17 +1461,18 @@ function ViewModeToggle(props: { value: ViewMode; onChange: (next: ViewMode) => 
   ];
 
   return (
-    <div className="inline-flex items-center rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-1">
-      {options.map((option) => (
+    <div className="inline-flex items-center overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
+      {options.map((option, index) => (
         <button
           key={option.value}
           type="button"
           onClick={() => props.onChange(option.value)}
           className={[
-            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition",
+            "inline-flex items-center gap-1.5 px-3 py-2 text-xs transition",
+            index > 0 ? "border-l border-[hsl(var(--border))]" : "",
             props.value === option.value
-              ? "bg-[color-mix(in_oklab,hsl(var(--accent))_10%,hsl(var(--card)))] text-[hsl(var(--fg))]"
-              : "text-[hsl(var(--muted))] hover:bg-[hsl(var(--card2))] hover:text-[hsl(var(--fg))]",
+              ? "bg-[hsl(var(--bg))] text-[hsl(var(--fg))]"
+              : "text-[hsl(var(--muted))] hover:bg-[hsl(var(--bg))] hover:text-[hsl(var(--fg))]",
           ].join(" ")}
           title={option.label}
         >
@@ -1475,19 +1482,6 @@ function ViewModeToggle(props: { value: ViewMode; onChange: (next: ViewMode) => 
       ))}
     </div>
   );
-}
-
-function StatusBadge(props: { tone: "success" | "danger" | "neutral" | "muted"; children: React.ReactNode }) {
-  const toneClass =
-    props.tone === "success"
-      ? "border-[color-mix(in_oklab,hsl(var(--accent))_32%,hsl(var(--border)))] bg-[color-mix(in_oklab,hsl(var(--accent))_10%,hsl(var(--card)))] text-[hsl(var(--fg))]"
-      : props.tone === "danger"
-        ? "border-[color-mix(in_oklab,red_30%,hsl(var(--border)))] bg-[color-mix(in_oklab,red_10%,hsl(var(--card)))] text-red-700"
-        : props.tone === "neutral"
-          ? "border-[hsl(var(--border))] bg-[hsl(var(--card2))] text-[hsl(var(--fg))]"
-          : "border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted))]";
-
-  return <span className={["inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium", toneClass].join(" ")}>{props.children}</span>;
 }
 
 function ChipInput(props: { value: string[]; placeholder?: string; onChange: (next: string[]) => void }) {
@@ -1507,12 +1501,12 @@ function ChipInput(props: { value: string[]; placeholder?: string; onChange: (ne
   );
 
   return (
-    <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2">
-      <div className="flex flex-wrap gap-2">
+    <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-2">
+      <div className="flex flex-wrap gap-1.5">
         {props.value.map((t) => (
           <span
             key={t}
-            className="inline-flex items-center gap-1 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card2))] px-2.5 py-1 text-xs"
+            className="inline-flex items-center gap-1 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--bg))] px-2 py-1 text-xs"
           >
             {t}
             <button
@@ -1540,7 +1534,7 @@ function ChipInput(props: { value: string[]; placeholder?: string; onChange: (ne
             if (e.key === "Backspace" && !text && props.value.length) props.onChange(props.value.slice(0, -1));
           }}
           placeholder={props.placeholder}
-          className="min-w-[8ch] flex-1 bg-transparent px-2 py-1 text-xs outline-none placeholder:text-[hsl(var(--muted))]"
+          className="min-w-[8ch] flex-1 bg-transparent px-1 py-1 text-sm outline-none placeholder:text-[hsl(var(--muted))]"
         />
       </div>
     </div>
@@ -1548,7 +1542,10 @@ function ChipInput(props: { value: string[]; placeholder?: string; onChange: (ne
 }
 
 const inputClass =
-  "w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[color-mix(in_oklab,hsl(var(--accent))_45%,hsl(var(--border)))] disabled:cursor-not-allowed disabled:opacity-60";
 
 const textareaClass =
-  "w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[hsl(var(--accent))] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm outline-none placeholder:text-[hsl(var(--muted))] focus:border-[color-mix(in_oklab,hsl(var(--accent))_45%,hsl(var(--border)))] disabled:cursor-not-allowed disabled:opacity-60";
+
+const editorToolbarButtonClass =
+  "inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-xs text-[hsl(var(--muted))] transition hover:bg-[hsl(var(--bg))] hover:text-[hsl(var(--fg))] disabled:cursor-not-allowed disabled:opacity-60";

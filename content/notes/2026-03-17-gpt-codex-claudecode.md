@@ -2,7 +2,7 @@
 title: 移花接木:将Gpt-codex模型接入ClaudeCode
 date: 2026-03-17
 categories:
-  - vibe coding
+  - vibe-coding
 tags:
   - claude code
 updated: 2026-03-18

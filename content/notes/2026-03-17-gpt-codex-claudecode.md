@@ -2,9 +2,10 @@
 title: 移花接木:将Gpt-codex模型接入ClaudeCode
 date: 2026-03-17
 categories:
-  - slice
+  - vibe coding
 tags:
   - claude code
+updated: 2026-03-18
 ---
 
 灵感来源：https://linux.do/t/topic/1664093

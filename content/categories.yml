@@ -14,3 +14,7 @@
   title: VibeCoding
   description: vibe vibe
   tone: violet
+- id: algo
+  title: algo
+  description: ""
+  tone: amber

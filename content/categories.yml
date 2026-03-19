@@ -18,3 +18,7 @@
   title: algo
   description: ""
   tone: amber
+- id: reinforcement-learning
+  title: Reinforcement Learning
+  description: ""
+  tone: neutral

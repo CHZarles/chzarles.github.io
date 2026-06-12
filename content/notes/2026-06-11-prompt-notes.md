@@ -1,10 +1,11 @@
 ---
-title: prompt notes
+title: prompt-notes
 date: 2026-06-11
 categories:
   - slice
 tags:
   - prompt
+updated: 2026-06-12
 ---
 
 1. 贴在开头

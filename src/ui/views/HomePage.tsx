@@ -1,9 +1,8 @@
-import { ArrowRight, CalendarDays, Github, Link2, Linkedin, Mail, Rss, Twitter } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, Github, Link2, Linkedin, Mail, Rss, Twitter } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/api";
 import { NoteTitleLink } from "../components/NoteTitleLink";
-import { DIGITAL_GARDEN_URL } from "../digitalGarden";
 import { preloadNotePage } from "../navigation/preloaders";
 import { useAppState } from "../state/AppState";
 import type { NoteListItem } from "../types";
@@ -32,6 +31,7 @@ function iconForLink(link: { label: string; href: string }) {
   const label = link.label.trim().toLowerCase();
   const href = link.href.trim().toLowerCase();
   if (label.includes("github") || href.includes("github.com")) return Github;
+  if (label.includes("digital garden")) return BookOpen;
   if (label.includes("mail") || href.startsWith("mailto:")) return Mail;
   if (label.includes("twitter") || label === "x" || href.includes("x.com") || href.includes("twitter.com")) return Twitter;
   if (label.includes("linkedin") || href.includes("linkedin.com")) return Linkedin;
@@ -133,10 +133,6 @@ export function HomePage() {
               <br />
               Projects, drafts, and experiments written in public.
             </p>
-
-            <a href={DIGITAL_GARDEN_URL} className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[hsl(var(--accent))] hover:underline">
-              Explore my AI &amp; CS Digital Garden <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </a>
 
             <div className="mt-4 flex flex-row items-center justify-center sm:justify-start">
               <div className="flex flex-wrap justify-center gap-1 sm:justify-start">

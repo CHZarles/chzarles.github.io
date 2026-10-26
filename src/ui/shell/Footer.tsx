@@ -1,4 +1,4 @@
-import { Github, Link2 } from "lucide-react";
+import { BookOpen, Github, Link2 } from "lucide-react";
 import React from "react";
 import { useAppState } from "../state/AppState";
 
@@ -11,6 +11,7 @@ export function Footer() {
     const label = link.label.trim().toLowerCase();
     const href = link.href.trim().toLowerCase();
     if (label.includes("github") || href.includes("github.com")) return Github;
+    if (label.includes("digital garden")) return BookOpen;
     return Link2;
   }
 

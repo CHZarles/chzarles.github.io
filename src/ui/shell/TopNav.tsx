@@ -2,7 +2,6 @@ import { Search } from "lucide-react";
 import React from "react";
 import { Link, NavLink } from "react-router-dom";
 import { api } from "../api/api";
-import { DIGITAL_GARDEN_URL } from "../digitalGarden";
 import { useAppState } from "../state/AppState";
 import { ThemeToggle } from "../widgets/ThemeToggle";
 
@@ -60,7 +59,6 @@ export function TopNav() {
             <nav className="hidden items-center gap-5 md:flex">
               <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
               <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />
-              <a href={DIGITAL_GARDEN_URL} className="inline-flex items-center px-2 py-1 text-sm font-medium text-[hsl(var(--fg))] transition hover:text-[hsl(var(--accent))]">Digital Garden</a>
             </nav>
 
             <NavLink
@@ -99,7 +97,6 @@ export function TopNav() {
           <nav className="flex items-center gap-5 overflow-x-auto pb-1 text-sm [-webkit-overflow-scrolling:touch]">
             <NavItem to="/notes" label="Notes" prefetch={prefetch.notes} />
             <NavItem to="/projects" label="Projects" prefetch={prefetch.projects} />
-            <a href={DIGITAL_GARDEN_URL} className="inline-flex shrink-0 items-center px-2 py-1 text-sm font-medium text-[hsl(var(--fg))] transition hover:text-[hsl(var(--accent))]">Digital Garden</a>
           </nav>
         </div>
 
